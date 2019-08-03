@@ -1,0 +1,10 @@
+SRC := motion/util/hkRigidMotionUtil.cpp world/simulation/multithreaded/hkDynamicsJobQueueUtils.cpp world/simulation/multithreaded/spu/hkSpuConstraint.cpp world/simulation/multithreaded/spu/utilities/hkSpuDmaWriter.cpp
+
+FD_SRC := .
+
+LIB_NAME = hkdynamics
+
+DEFINES += -DHK_DISABLE_VECTOR4_CONSTRUCTORS
+
+include ../../havokCommon_spu_gcc.mk
+

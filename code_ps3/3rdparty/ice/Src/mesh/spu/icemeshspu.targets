@@ -1,0 +1,98 @@
+<?xml version="1.0" ?>
+<targets>
+	<rules>
+		<include>$/atgapi/atg.rules</include>
+	</rules>
+
+	<configurations>
+		<include>$/atgapi/atgps3.configurations</include>
+		<configuration name="Debug" parent="Debug">
+			<settings>
+				spu.wwsmodule.cpp.defines = $(parent.spu.wwsmodule.cpp.defines) -DNDEBUG=1 -DICEDEBUG=1
+			</settings>
+		</configuration>
+		<configuration name="Development" parent="Development">
+			<settings>
+				spu.wwsmodule.cpp.defines = $(parent.spu.wwsmodule.cpp.defines) -DNDEBUG=1 -DICEDEBUG=1
+			</settings>
+		</configuration>
+		<configuration name="Profile" parent="Profile">
+			<settings>
+				spu.wwsmodule.cpp.defines = $(parent.spu.wwsmodule.cpp.defines) -DNDEBUG=1 -DICEDEBUG=0
+			</settings>
+		</configuration>
+		<configuration name="Release" parent="Release">
+			<settings>
+				spu.wwsmodule.cpp.defines = $(parent.spu.wwsmodule.cpp.defines) -DNDEBUG=1 -DICEDEBUG=0
+			</settings>
+		</configuration>
+	</configurations>
+
+	<tools>
+		<include>$/atgapi/atg.tools</include>
+	</tools>
+
+	<target type="PS3,SPU,WWSMODULE">
+		<source>
+			<file>../icemesh.cpp</file>
+			<file>../icemeshblend.cpp</file>
+			<file>../icemeshcommand.cpp</file>
+			<file>../icemeshcompress.cpp</file>
+			<file>../icemeshdecompress.cpp</file>
+			<file>../icemeshmisc.cpp</file>
+			<file>../icemeshpm.cpp</file>
+			<file>../icemeshshadow.cpp</file>
+			<file>../icemeshskin.cpp</file>
+			<file>../icemeshtrim.cpp</file>
+			<file>../icemeshdm.cpp</file>
+			<file>cmd_setup_matrices.spu</file>
+			<file>cmd_setup_nvstream.spu</file>
+			<file>cmd_setup_skinning.spu</file>
+			<file>cmd_skin_object.spu</file>
+			<file>const_data.spu</file>
+			<file>copybytes.spu</file>
+			<file>copyqwords.spu</file>
+			<file>decomp_index_6b.spu</file>
+			<file>decomp_f32.spu</file>
+			<file>decomp_f16.spu</file>
+			<file>decomp_i16_u8.spu</file>
+			<file>decomp_x11y11z10.spu</file>
+			<file>decomp_matrices.spu</file>
+			<file>decomp_swformat.spu</file>
+			<file>blenduniform.spu</file>
+			<file>extrudeprofileedges.spu</file>
+			<file>generatefacingtable.spu</file>
+			<file>generateprofileedgelist.spu</file>
+			<file>trimtriangles.spu</file>
+			<file>insert_f32.spu</file>
+			<file>insert_i16.spu</file>
+			<file>insert_f16.spu</file>
+			<file>insert_u8.spu</file>
+			<file>insert_x11y11z10.spu</file>
+			<file>shufs.spu</file>
+			<file>skinning.spu</file>
+			<file>comp_index_6b.spu</file>
+			<file>pm_continuous_tower.spu</file>
+			<file>pm_discrete_tower.spu</file>
+			<file>selectverts_4b.spu</file>
+			<file>selectverts_8b.spu</file>
+			<file>selectverts_12b.spu</file>
+			<file>selectverts_16Nb.spu</file>
+			<file>selectverts_24b.spu</file>
+			<file>selectverts_40b.spu</file>
+			<file>selectverts_generic.spu</file>
+		</source>
+
+		<!-- What we are ultimately after -->
+		<file>$/ATGAPI/PS3/Data/IceMesh/icemeshspu.spu.mod</file>
+		<settings>
+			spu.module.startaddress		= $(configuration.wws.job.baseaddress)
+			spu.module.cpp.includes		= -I$/ice/include/common -I$/ice/include/spu
+			spu.module.cpp.includes		+= -include icetypes.h
+			spu.module.cpp.includes		+= -I$/ice/src/runtime/ice/mesh
+			spu.module.cpp.defines		= -DUSE_WWS_JOB_MANAGER=1 -DWWS_JOB_USE_C_VERSION=0 -DMESH_PRINTF_ENABLED=0
+			spu.module.cpp.switches		= -fno-pic
+			spu.module.cpp.linkscript	= 
+		</settings>
+	</target>
+</targets>

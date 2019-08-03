@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="hkserialize"
+	ProjectGUID="{5909BFCD-A283-4AFD-9D9F-BCB840019C71}"
+	>
+	<Platforms>
+		<Platform
+			Name="Xbox 360"
+		/>
+	</Platforms>
+	<ToolFiles>
+	</ToolFiles>
+	<Configurations>
+		<Configuration
+			Name="Release Multithreaded|Xbox 360"
+			OutputDirectory="..\..\..\lib\xbox360-net\release_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_8-0\havok_2+mayhem_client\release_multithreaded\hkserialize"
+			ConfigurationType="4"
+			UseOfMFC="-1"
+			UseOfATL="0"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLX360CompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="1"
+				PrecompiledHeaderThrough="hkserialize/hkSerialize.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkserialize.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkserialize.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded|Xbox 360"
+			OutputDirectory="..\..\..\lib\xbox360-net\fulldebug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_8-0\havok_2+mayhem_client\fulldebug_multithreaded\hkserialize"
+			ConfigurationType="4"
+			UseOfMFC="-1"
+			UseOfATL="0"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLX360CompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="1"
+				PrecompiledHeaderThrough="hkserialize/hkSerialize.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkserialize.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkserialize.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded|Xbox 360"
+			OutputDirectory="..\..\..\lib\xbox360-net\debug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_8-0\havok_2+mayhem_client\debug_multithreaded\hkserialize"
+			ConfigurationType="4"
+			UseOfMFC="-1"
+			UseOfATL="0"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLX360CompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="1"
+				PrecompiledHeaderThrough="hkserialize/hkSerialize.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkserialize.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkserialize.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+			<Filter
+Name="classes"
+>
+	<File
+RelativePath=".\classes\hkSerializeClasses.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="classlist"
+>
+	<File
+RelativePath=".\classlist\hkAnimationClasses.h"
+>
+</File>
+	<File
+RelativePath=".\classlist\hkCompleteClasses.h"
+>
+</File>
+	<File
+RelativePath=".\classlist\hkPhysicsClasses.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="copier"
+>
+	<File
+RelativePath=".\copier\hkDeepCopier.cpp"
+>
+</File>
+	<File
+RelativePath=".\copier\hkDeepCopier.h"
+>
+</File>
+	<File
+RelativePath=".\copier\hkObjectCopier.cpp"
+>
+</File>
+	<File
+RelativePath=".\copier\hkObjectCopier.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="packfile"
+>
+	<File
+RelativePath=".\packfile\hkPackfileData.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\hkPackfileData.h"
+>
+</File>
+	<File
+RelativePath=".\packfile\hkPackfileReader.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\hkPackfileReader.h"
+>
+</File>
+	<File
+RelativePath=".\packfile\hkPackfileWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\hkPackfileWriter.h"
+>
+</File>
+	<Filter
+Name="binary"
+>
+	<File
+RelativePath=".\packfile\binary\hkBinaryPackfileReader.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\binary\hkBinaryPackfileReader.h"
+>
+</File>
+	<File
+RelativePath=".\packfile\binary\hkBinaryPackfileWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\binary\hkBinaryPackfileWriter.h"
+>
+</File>
+	<File
+RelativePath=".\packfile\binary\hkPackfileHeader.h"
+>
+</File>
+	<File
+RelativePath=".\packfile\binary\hkPackfileHeaderClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\binary\hkPackfileSectionHeader.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\binary\hkPackfileSectionHeader.h"
+>
+</File>
+	<File
+RelativePath=".\packfile\binary\hkPackfileSectionHeaderClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="xml"
+>
+	<File
+RelativePath=".\packfile\xml\hkXmlPackfileReader.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\xml\hkXmlPackfileReader.h"
+>
+</File>
+	<File
+RelativePath=".\packfile\xml\hkXmlPackfileWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\packfile\xml\hkXmlPackfileWriter.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="resource"
+>
+	<File
+RelativePath=".\resource\hkResource.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="serialize"
+>
+	<File
+RelativePath=".\serialize\hkObjectReader.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkObjectWriter.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkRelocationInfo.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkRelocationInfo.h"
+>
+</File>
+	<Filter
+Name="platform"
+>
+	<File
+RelativePath=".\serialize\platform\hkPlatformObjectWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\platform\hkPlatformObjectWriter.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="xml"
+>
+	<File
+RelativePath=".\serialize\xml\hkXmlObjectReader.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\xml\hkXmlObjectReader.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\xml\hkXmlObjectWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\xml\hkXmlObjectWriter.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="util"
+>
+	<File
+RelativePath=".\util\hkBuiltinTypeRegistry.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkBuiltinTypeRegistry.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkChainedClassNameRegistry.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkChainedClassNameRegistry.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkClassNameRegistry.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkFinishLoadedObjectRegistry.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkLoader.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkLoader.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkNativePackfileUtils.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkNativePackfileUtils.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkObjectInspector.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkObjectInspector.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkPointerMultiMap.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkPointerMultiMap.inl"
+>
+</File>
+	<File
+RelativePath=".\util\hkRenamedClassNameRegistry.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkRootLevelContainer.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkRootLevelContainer.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkRootLevelContainerClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkStructureLayout.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkStructureLayout.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkVersionCheckingUtils.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkVersionCheckingUtils.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkVersioningExceptionsArray.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkVersioningExceptionsArray.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkVersioningExceptionsArrayClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkVtableClassRegistry.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkVtableClassRegistry.h"
+>
+</File>
+	<Filter
+Name="xml"
+>
+	<File
+RelativePath=".\util\xml\hkXmlParser.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\xml\hkXmlParser.h"
+>
+</File>
+	<File
+RelativePath=".\util\xml\hkXmlParser.inl"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="version"
+>
+	<File
+RelativePath=".\version\hkObjectUpdateTracker.h"
+>
+</File>
+	<File
+RelativePath=".\version\hkPackfileObjectUpdateTracker.h"
+>
+</File>
+	<File
+RelativePath=".\version\hkVersionRegistry.cpp"
+>
+</File>
+	<File
+RelativePath=".\version\hkVersionRegistry.h"
+>
+</File>
+	<File
+RelativePath=".\version\hkVersionUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\version\hkVersionUtil.h"
+>
+</File>
+	</Filter>
+	<File
+RelativePath=".\hkSerialize.cpp"
+>
+	<FileConfiguration Name="fulldebug multithreaded|Xbox360"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="debug multithreaded|Xbox360"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded|Xbox360"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+</File>
+	<File
+RelativePath=".\hkSerialize.h"
+>
+</File>
+
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
+

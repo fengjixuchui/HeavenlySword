@@ -1,0 +1,60 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.reg outputTo
+.extern GetPageMasks
+.global WwsJob_GetPageMasks
+WwsJob_GetPageMasks:
+		.cset $3, $4
+		ai outputTo, $5, 0							brsl $5, GetPageMasks [#GetPageMasksCC]
+		{nop}									stqd $3, 0(outputTo);
+		{nop}									stqd $4, 16(outputTo);
+		nop									bi $lr
+.end
+.endif
+
+
+.start
+.include "conventions.inl"
+.usecc GetPageMasksCC
+.text
+
+// Note: Modified so that it returns the page masks, isntead of storing them on the stack
+// void WwsJob_GetPageMasks( U32 firstPageNum, U32 numPages, QuadWord *pPageMask )
+.reg pageEnd
+.reg leftShiftRight, leftShiftLeft, leftShiftRight1, leftShiftRight2
+.reg rightShiftRight, rightShiftLeft, rightShiftRight1, rightShiftRight2
+.reg lslMask, rsrMask
+.reg negOne
+.reg vPageMaskLeftShiftRight, vPageMaskLeftShiftLeft
+.reg vPageMaskRightShiftRight, vPageMaskRightShiftLeft
+.global GetPageMasks
+GetPageMasks: // 26 instructions, 104 bytes
+		a pageEnd, $3, $4							fsmbi negOne, 0xFFFF
+		ai rightShiftRight, $3, -128						hbr GpmExit, $5
+		sfi leftShiftLeft, pageEnd, 128						{lnop}
+		cgti rsrMask, rightShiftRight, -1					{lnop}
+		cgti lslMask, leftShiftLeft, -1						{lnop}
+		and rightShiftRight, rightShiftRight, rsrMask				{lnop}
+		sfi rightShiftLeft, pageEnd, 256					{lnop}
+		and leftShiftLeft, leftShiftLeft, lslMask				{lnop}
+		sfi rightShiftRight1, rightShiftRight, 7				shlqbybi vPageMaskRightShiftLeft, negOne, rightShiftLeft
+		sfi leftShiftRight1, $3, 7						shlqbybi vPageMaskLeftShiftLeft, negOne, leftShiftLeft
+		sfi rightShiftRight2, rightShiftRight, 0				rotqmbybi vPageMaskRightShiftRight, negOne, rightShiftRight1
+		sfi leftShiftRight2, $3, 0						rotqmbybi vPageMaskLeftShiftRight, negOne, leftShiftRight1
+		{nop}									shlqbi vPageMaskRightShiftLeft, vPageMaskRightShiftLeft, rightShiftLeft
+		{nop}									shlqbi vPageMaskLeftShiftLeft, vPageMaskLeftShiftLeft, leftShiftLeft
+		{nop}									rotqmbi vPageMaskRightShiftRight, vPageMaskRightShiftRight, rightShiftRight2
+		{nop}									rotqmbi vPageMaskLeftShiftRight, vPageMaskLeftShiftRight, leftShiftRight2
+		and $4, vPageMaskRightShiftLeft, vPageMaskRightShiftRight		lnop
+		and $3, vPageMaskLeftShiftLeft, vPageMaskLeftShiftRight		GpmExit: bi $5
+
+.end

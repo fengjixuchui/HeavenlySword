@@ -1,0 +1,67 @@
+
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.global CmdSetupMatrices
+; Implements CmdSetupMatrices() in ice/mesh/icemeshdecompress.cpp
+; void CmdSetupMatrices(U32 *pStaticMem, Ice::IceQuadWord cmdQuad1, Ice::IceQuadWord cmdQuad2); 
+
+.include "icemeshinternal.spu.h"
+
+.text
+
+; Input
+.reg pStaticMemIn	3	; Pointer to static memory area.
+.reg cmdQuad1		4	; First 8 command halfwords.
+.reg cmdQuad2		5	; Last 8 command haflwords.  Not used.
+
+; Call to matrix setup functions
+.reg pMats		3
+.reg pInMats		4
+.reg sizeArg		5
+
+.reg doDecomp
+.reg matrixCount
+.reg matrixSize
+.reg miscFlags
+.reg newWorkFree
+.reg pCopyQWords
+.reg pDecompMats
+.reg pInputBuffer
+.reg pMatFunc
+.reg pStaticMem
+.reg sel_AbCdEfGh
+
+.align 7
+
+CmdSetupMatrices:
+{e2}	ori	$2, $sp, 0					{o4}	rotqbyi	matrixCount, cmdQuad1, 2
+{e2}	ori	pStaticMem, pStaticMemIn, 0			{o6}	lqd	pMats, kStaticWorkFreeStart(pStaticMemIn)
+{e2}	ai	$sp, $sp, -0x20					{o6}	stqd	$2, -0x20($2)
+{e2}	ila	sel_AbCdEfGh, 0xFFFF				{o6}	stqd	$lr, 0x10($2)
+{e2}	ahi	matrixSize, matrixCount, 1			{o4}	rotqmbyi miscFlags, cmdQuad1, -2
+{e2}	and	matrixCount, matrixCount, sel_AbCdEfGh		{o6}	lqd	pInputBuffer, kStaticInputBufferPtr(pStaticMem)
+{e2}	andhi	matrixSize, matrixSize, -2				{lnop}
+{e2}	and	pInMats, cmdQuad1, sel_AbCdEfGh				{lnop}
+{e7}	mpyi	matrixSize, matrixSize, 48			{o6}	stqd	pMats, kStaticMatrixPtr(pStaticMem)
+{e2}	andi	miscFlags, miscFlags, 0xF				{lnop}
+{e2}	ila	pDecompMats, DecompressMatrices				{lnop}
+	nop								{lnop}
+{e2}	ceqi	doDecomp, miscFlags, kFormatMatrix44			{lnop}
+{e2}	ila	pCopyQWords, CopyQWords					{lnop}
+{e2}	a	pInMats, pInputBuffer, pInMats				{lnop}
+{e2}	a	newWorkFree, pMats, matrixSize				{lnop}
+{e2}	selb	pMatFunc, pCopyQWords, pDecompMats, doDecomp		{lnop}
+{e2}	selb	sizeArg, matrixSize, matrixCount, doDecomp	{o6}	stqd	newWorkFree, kStaticWorkFreeStart(pStaticMem)
+	{nop}							{o?}	bisl	$lr, pMatFunc	[#func]
+
+	{nop}							{o6}	lqd	$lr, 0x30($sp)
+	{nop}							{o6}	lqd	$sp, 0x00($sp)
+	{nop}							{o?}	bi	$lr
+
+.end
+

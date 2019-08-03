@@ -1,0 +1,1458 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+	
+.global TrimTriangles
+; Implements TrimTriangles() in ice/mesh/icemeshtrim.cpp
+; void TrimTriangles(U16 *pTris, U32 *trimCounts, const U8 *pViewportInfo, const F32 *pRigidXformInfo,
+;     const U8 *pObjectInfo, U32 *pVertTemp, U16 *pReindex, const F32 *pVertPositions);
+;
+; Performs a series of tests on the triangles in the input index buffer (pTris), trimming
+; away any which won't actually be visible and updating the original index buffer to contain
+; only the untrimmed triangles. If the pReindex argument is not 0, the function also creates a
+; reindex table which is used by the vertex compression routines to strip any unreferenced vertexes
+; out of the output vertex buffer, saving DMA bandwidth.  In this case, the output triangles are
+; indexed using these remapped indexes.
+;
+; Note:	all pointer arguments must be 16-byte aligned.
+; pInTris: The index buffer to trim.  4 U16s per triangle.  Must have an extra quadword on the end to allow for overwrite.
+; trimCounts: An quad of U32s.
+;             The first is the input triangle count, and is filled in by the calling function.
+;             The second is the input vertex count.
+;             The number of elements written to the reindex table will be stored in the third element.
+;             The fourth element is unused.
+; pViewportInfo: Address of the ViewportInfo structure (see icemeshtrim.cpp)
+; pRigidXformInfo: Address of the root object-to-world matrix (16 F32s)
+; pObjectInfo: Address of object information structure.
+; pVertPositions: Address of the vertex position uniform table.  4 F32s per vertex.  Note that we cannot guarentee that the
+;                 w component of the position is 1.0!	
+; pVertTemp: Address of the temporary buffer used for various purposes by the trimming algorithm.  It should
+;          contain one quad per input vertex, padded up to the next multiple of four quads.
+; pReindex: Address of the reindex table, filled in by the vertex trimming code.  It should contain one halfword per non-halo vertex,
+;           rounded up to the nearest quadword, with an extra quadword on the end for padding.  If this pointer is NULL,
+;           vertex trimming will be disabled.
+;
+; High-level overview of the trimming algorithm: there are six loops involved (serial, not nested).
+; Loop #1 operates on every input vertex.  It transforms the position to screen-space and stores the results in pVertTemp.
+; Loop #2 operates on every input triangle.  It runs the trimming tests and re-writes the triangle list in-place so that
+;	  it only contains visible triangles.
+; [If vertex trimming is disabled, or if no triangles survived the trimming tests, the function returns here.]
+; Loop #3 operates on every input vertex.  It clears the pVertTemp array to zero (the screen-space positions are no longer
+;	  needed).
+; Loop #4 operates on every untrimmed triangle.  It writes -1 to the pVertTemp array for each of its three vertexes.  This
+;	  gives us a list of which vertexes are used (pVertTemp[i] = 0 -> unused, pVertTemp[i] = -1 -> used).
+; Loop #5 operates on every input vertex.  If the vertex is marked as used, it writes a new entry to the end of the reindex
+;	  table and updates the pVertTemp entry to contain the vertex's new index.  At the end of this loop, pVertTemp is the
+;	  rename table.
+; Loop #6 operates on every untrimmed triangle.  It translates the triangle's indexes from the old ordering to the new one
+;	  using the rename table.
+.data
+
+.align 4
+m_stagger:		.dw	-64,	-48,	-32,	-16
+	
+.align 4
+.extern m_abAB 
+.extern m_AaBb 
+.extern m_ABcd 
+.extern m_BcD0 
+.extern m_BCa0 
+.extern m_BCbc 
+.extern m_CcCc 
+.extern m_dAD0 
+.extern m_DAad 
+.extern m_AbCdEfGh 
+.extern m_ABCDEFGH 
+.extern m_BbB0bBb0 
+.extern m_0E0F0G0H 
+.extern m_00Aa00Ee00Ii00Mm 
+.extern m_ABa0EFe0IJi0MNm0 
+.extern m_000D000d00000000 
+
+.include "rgmstable.spu"
+	
+.text
+
+.reg	pTris 3
+.reg	pTrimCounts 4
+.reg	pViewportInfo 5
+.reg	pRigidXformInfo 6
+.reg	pObjectInfo 7
+.reg	pVertTemp 8
+.reg	pReindex 9
+.reg	pVertPositions 10
+
+.reg	stackOffset	; the amount of space to push onto the stack (16 bytes per register).  Also, it's negative.
+.reg	xyz0, xyz1, xyz2, xyz3	; Four vertexes, in mixed format (object-space x,y,z)
+.reg	xyz0_, xyz1_, xyz2_, xyz3_, xyz0__, xyz1__, xyz2__, xyz3__	
+.reg	hvw0, hvw1, hvw2, hvw3	; Four vertexes (screenspace h,v and w).
+.reg	xxxx0, xxxx1, xxxx2, yyyy0, yyyy1, yyyy2, zzzz0, zzzz1, zzzz2, wwww0, wwww1, wwww2 ; vertex positions for 12 verts, in channel format
+.reg	xxxx0_, yyyy0_, wwww0_, mmult0_, mmult1_, mmult2_, recipA_, recipA__, xxxx0__, yyyy0__
+.reg	trans0A, trans1A, trans2A, trans3A	; temporary registers used to transpose vertex data from mixed to channel format
+.reg	trans0B, trans1B, trans2B, trans3B
+.reg	trans0A_, trans1A_, trans2A_, trans3A_, trans0A__, trans1A__, trans2A__, trans3A__
+.reg	trans0A___, trans0A____
+.reg	identity0, identity1, identity2, identity3	; rows of identity matrix
+.reg	hasO2W	; all bits set if pRigidXformInfo is non-NULL, all bits clear otherwise
+.reg	o2w0, o2w1, o2w2, o2w3	; rows of object-ot-world matrix
+.reg	w2hdc0, w2hdc1, w2hdc2, w2hdc3	; rows of world-to-HDC (homogenous device coordinates) matrix.
+.reg	o2hdc0, o2hdc1, o2hdc2, o2hdc3	; rows of object-to-HDC matrix.
+.reg	hdc2s, offsetOffset, mask_0F0F	; HDC-to-screen: [x scale, x offset, y scale, y offset]
+.reg	o2s0, o2s1, o2s2, o2s3		; rows of object-to-screen matrix
+.reg	o2s00, o2s01, o2s02, o2s03	; first 12 elements of object-to-screen matrix, each broadcast to a whole register
+.reg    o2s10, o2s11, o2s12, o2s13
+.reg    o2s30, o2s31, o2s32, o2s33
+.reg	mmult0, mmult1, mmult2, mmult3	; temporary registers used in matrix multiply
+.reg	recipA, recipB	; temporary registers used in zzzz reciprocal calculation
+.reg	pVertPositions0, pVertPositions1, pVertPositions2, pVertPositions3	; pVertPositionsN = pVertPositions + inVertCount*16 + 16*N
+.reg	pVertTemp0, pVertTemp1, pVertTemp2, pVertTemp3	; pVertTempN = pVertTemp + inVertCount*16 + 16*N
+.reg	s_BCbc, s_DAad, s_BcD0, s_dAD0, mask_0FF0, mask_F0F0	; Masks used in vertex position transposition
+.reg	s_BCa0	; masks used for loop counter delays
+.reg	pInTris0, pInTris1	; pInTris + 16.  Note that we modify pInTris to point to the first byte past the END of the input index buffer
+.reg	inBytes		; How many bytes in the input index buffer?
+.reg	s_AAAAAAAAAAAAAAAA, s_0E0F0G0H, s_AAAA, s_BBBB, s_CCCC, s_DDDD, shufInc	; shuffle masks used in initialization code
+.reg	screenBounds	; left, right, top, bottom of scissor rectangle
+.reg	enableRgms	; is rotated-grid multisampling enabled?
+.reg	reverseBfc	; are the triangles wound "backwards" (CW instead of CCW).  If so, the backface test is reversed.
+.reg	disableBfc, hasObjectInfo	; preferred word will be 16 if the backfacing test should be ignored; 0 otherwise
+.reg	inOffset, inOffsetOld	; offset from the END of pInTris0 to the next triangles to read; doubles as a loop counter
+.reg	inOffset_, inOffset__
+.reg	outOffset	; offset from pTris where the next untrimmed triangle should be written
+.reg	inTriCount, inVertCount, outTriCount, reindexCount	; input and output triangle and vertex counts
+.reg	inTri0, inTri1, inTri2, inTri3	; The four input triangles.  0 and 2 are the exact quadwords loaded from pInTris; 1 and 3 are 0 and 2 rotated 8 bytes.
+.reg	inTri0_, inTri2_
+.reg	index00, index01, index02, index10, index11, index12 ; One index from each triangle in the preferred halfword
+.reg	index20, index21, index22, index30, index31, index32
+.reg	index00_, index01_, index02_, index10_, index11_, index12_
+.reg	index20_, index21_, index22_, index30_, index31_, index32_
+.reg	index00__, index01__, index02__, index20__, index21__, index22__
+.reg	index21___
+.reg	loop2Hint, loop2Norm, loop24xRgms	; Used to select which version of Loop 2 to run, based on enableRgms
+.reg	s_AaBb, s_BbAa, s_CcCc, s_ABcd, s_cdAB, s_CcAa, s_BbCc, mask_00FF	; shuffle masks used in mixed->channel transpose
+.reg	k1_0f, k0_5f, k0_0f, kNeg1, k0_0625f
+.reg	xMin, yMin, xMax, yMax	; screen-space bounding box values for the four triangles.
+.reg	xMin_, yMin_, xMax_, yMax_, xMax__, yMax__
+.reg	cmpX, cmpY	; temporary registers used to calculate bounding box
+.reg	cmpX_, cmpY_, cmpX__, cmpY__
+.reg	epsTimes2	; constant used to bias bounding box maxima
+.reg	pRgmsLut	; lookup table used in 4xRGMS code
+.reg	xOrigin, yOrigin, boxWidth, boxHeight	; origin and dimensions of triangle bounding boxes, in 8ths of a pixel
+.reg	xOrigin_, yOrigin_, boxWidth_, boxHeight_
+.reg	yOrigin__, boxHeight__, boxHeight___, boxHeight____
+.reg	k7, clampCmp	; comparison result used to clamp boxHeight to 7
+.reg	rgmsInd0, rgmsInd1, rgmsInd2, rgmsInd3	; indexes into the RGMS lookup table for each triangle
+.reg	rgmsInd0_
+.reg	s_000D000d00000000
+.reg	boxWidthMin0, boxWidthMin1, boxWidthMin2, boxWidthMin3	; minimum box width to hit pixel sample (loaded from RGMS lookup table)
+.reg	boxWidthMin0_, boxWidthMin1_, boxWidthMin2_, boxWidthMin3_
+.reg	boxWidthMin0__, boxWidthMin2__, boxWidthMin0___
+.reg	missesSamples	; w[N] != 0 -> triangle N misses all pixel samples
+.reg	xMinInt, yMinInt, xMaxInt, yMaxInt	; bounding box, converted to integers
+.reg	sameRow, sameColumn	; w[N] != 0 -> triangle N misses pixel centers
+.reg	tooClose0, tooClose1, tooClose2	; Flags indicating whether vertex 0-2 is too close to the camera, invalidating tests for that tri.
+.reg	tooLargeX, tooLargeY	; Flags indicating that the triangle is offscreen due to its X or Y coordinates being too high
+.reg	screenW, screenH	; Screen dimensions (as floats), broadcast to all four words of the quad.
+.reg	zNear	; Near clipping plane distance, broadcast to all four words of the quad.
+.reg	backFacing	; Flags indicating whether each triangle is back-facing
+.reg	backFacing_, backFacing__, backFacing___
+.reg	diff0X, diff0Y, diff1X, diff1Y, bfError, bfSumTemp	; Temporary registers used to calculate backFacing
+.reg	bfError_, bfError__
+.reg	absDiff0X, absDiff0Y, absDiff1X, absDiff1Y	; more back-facing temporaries
+.reg	epsilon, epsSquared	; more epsilon constants.  If the object is mirrored, their signs will be flipped.
+.reg	signBit	; The high bit of each word is set.
+.reg	signFlipIfRev	; If mirrored, xor'ing with this register will flip the sign bits of all four words.  If not, no effect.
+.reg	keeper	; if w[n] == 0xFFFFFFFF, the triangle is a keeper.  Otherwise, it'll be zero and should be trimmed.
+.reg	keeper_, keeper__, keeper___, keeper____
+.reg	s_Aa00Ee00Ii00Mm00, s_00Aa00Ee00Ii00Mm, s_AbCdEfGh, s_ABa0EFe0IJi0MNm0	; shuffle masks used to calculate keeper
+.reg	trimFlags0, trimFlags1, trimFlags2, safeToTrim	; temporary registers used to calculate keeper
+.reg	trimFlags0_, trimFlags1_, safeToTrim_, safeToTrim__
+.reg	outInc0, outInc1, outInc2, outInc3	; how much to increment outOffset by after triangle N (0 if it was trimmed, 8 if not)
+.reg	outShuf0, outShuf1, outShuf2, outShuf3	; output shuffle masks for each triangle
+.reg	outOffset1, outOffset2, outOffset3	; output offsets of triangles 1-3 (outOffset is the offset for triangle 0)
+.reg	k1, ignoreLastMask, isLastIteration	; Used to ignore the last 0-3 triangles if inTriCount isn't a multiple of 4.
+.reg	isLastIteration_
+.reg	rotateBtoA, replaceCD, rotateBtoA_L, replaceCD_L, k8	; Used in TrimLoop4 to effectively ignore last 0-3 triangles
+.reg	s_abAB	; shuffle mask used to rotate output triangles into correct slots
+.reg	outTri	; a triangle to output is written here.  If that triangle is in the first doubleword, it is preserved and written again with the next tri.
+.reg	outTri_, outTri__, outTri___
+.reg	countIns	; insertion mask used to build final triangle count qword
+.reg	vertexTrim, hasTrisLeft, afterIndexTrim ; used to decide whether to run vertex trimming or not
+.reg	stagger	; used to create a staggered offset quad: offset, offset+16, offset+32, offset+64
+.reg	reindexOut, reindexOut_, reindexOut__, reindexOut___, reindexCount
+.reg	reindexInc0, reindexInc1, reindexInc2, reindexInc3
+.reg	reindexOff0, reindexOff1, reindexOff2, reindexOff3
+.reg	renameOut0, renameOut1, renameOut2, renameOut3
+.reg	s_insert0, s_insert1, s_insert2, s_insert3	; insertion masks used to build reindex table
+.reg	mask_used0, mask_used1, mask_used2, mask_used3	; all 0s or 1s, depending on whether that vertex is used.
+.reg	s_ABCDEFGH, s_BCDEFGHA, s_BCDEFGHb, s_BCDEFGHd, s_BCDEFGHf, s_BCDEFGHh, mask_0003	; shuffle masks used to build reindex table
+.reg	rotateFinal	; used to rotate last quad of reindex table into place
+.reg	s_BbB0bBb0, mask_0FFF, mask_003F, outTri0, outTri1	; used to gather six indexes into one quad
+.reg	outTri0_, outTri1_
+.align 7
+
+TrimTriangles:
+;;	Loop 1:	 Transform each vertex position into screen-space, storing the results in the pVertTemp table.	
+{e2}	ila	s_AAAA, 0x10203					{o6}	lqd	inTriCount, 0x00(pTrimCounts)	
+{e2}	il	s_AAAAAAAAAAAAAAAA, 0				{o6}	lqd	enableRgms, 0x00(pViewportInfo)
+{e2}	ilh	shufInc, 0x0404					{o4}	fsmbi	identity3, 0x3f80
+{e2}	ila	loop2Norm, TrimLoop2_Norm			{o6}	lqr	s_BCa0, m_BCa0
+{e2}	ilhu	k1_0f, 0x3f80					{o6}	lqd	o2w0, 0x00(pRigidXformInfo)
+{e2}	a	s_BBBB, s_AAAA, shufInc				{o6}	lqd	o2w1, 0x10(pRigidXformInfo)
+{e2}	cgti	hasO2W, pRigidXformInfo, 0			{o6}	lqd	o2w2, 0x20(pRigidXformInfo)
+{e2}	a	s_CCCC, s_BBBB, shufInc				{o?}	biz	inTriCount, $lr
+{e2}	ilhu	k0_0625f, 0x3d80				{o4}	shufb	enableRgms, enableRgms, enableRgms, s_AAAAAAAAAAAAAAAA
+{e2}	ilhu	k0_5f, 0x3f00					{o4}	gbb	identity3, identity3
+{e2}	a	s_DDDD, s_CCCC, shufInc				{o6}	lqd	o2w3, 0x30(pRigidXformInfo)
+{e2}	ilhu	epsilon, 0x3400					{o4}	fsmb	hasO2W, hasO2W
+{e2}	ila	loop24xRgms, TrimLoop2_4xRgms			{o6}    lqd     hdc2s, 0x50(pViewportInfo)
+{e2}	cgtbi	enableRgms, enableRgms, 0			{o4}	fsmbi	mask_0F0F, 0x0F0F
+	nop							{o4}	rotqbyi	identity0, identity3, 2
+{e2}	selb	offsetOffset, k0_5f, k0_0625f, enableRgms	{o4}	rotqbyi	identity1, identity3, 14
+	nop							{o4}	rotqbyi	identity2, identity3, 10
+{e2}	and	offsetOffset, offsetOffset, mask_0F0F		{o4}	rotqbyi	identity3, identity3, 6
+
+;	Load identity matrix (or rigid object xform matrix, if it exists) into o2w0-3
+{e2}	selb	o2w0, identity0, o2w0, hasO2W			{o6}	lqd	w2hdc0, 0x10(pViewportInfo)
+{e2}	selb	o2w1, identity1, o2w1, hasO2W			{o6}	lqd	w2hdc1, 0x20(pViewportInfo)
+{e2}	selb	o2w2, identity2, o2w2, hasO2W			{o6}	lqd	w2hdc2, 0x30(pViewportInfo)
+{e2}	selb	o2w3, identity3, o2w3, hasO2W			{o6}	lqd	w2hdc3, 0x40(pViewportInfo)
+
+;	Compute the object-to-HDC matrix
+{e6}	fa	hdc2s, hdc2s, offsetOffset			{o4}	shufb	mmult0, w2hdc0, w2hdc0, s_AAAA
+	nop							{o4}	shufb	mmult1, w2hdc1, w2hdc1, s_AAAA
+	nop							{o4}	shufb	mmult2, w2hdc2, w2hdc2, s_AAAA
+	nop							{o4}	shufb	mmult3, w2hdc3, w2hdc3, s_AAAA
+{e6}	fm	o2hdc0, mmult0, o2w0				{o4}	shufb	mmult0, w2hdc0, w2hdc0, s_BBBB
+{e6}	fm	o2hdc1, mmult1, o2w0				{o4}	shufb	mmult1, w2hdc1, w2hdc1, s_BBBB
+{e6}	fm	o2hdc2, mmult2, o2w0				{o4}	shufb	mmult2, w2hdc2, w2hdc2, s_BBBB
+{e6}	fm	o2hdc3, mmult3, o2w0				{o4}	shufb	mmult3, w2hdc3, w2hdc3, s_BBBB
+	nop							{o4}	rotqbyi	inVertCount, inTriCount, 4
+	nop							{o4}	fsmbi	mask_00FF, 0x00FF
+{e6}	fma	o2hdc0, mmult0, o2w1, o2hdc0			{o4}	shufb	mmult0, w2hdc0, w2hdc0, s_CCCC
+{e6}	fma	o2hdc1, mmult1, o2w1, o2hdc1			{o4}	shufb	mmult1, w2hdc1, w2hdc1, s_CCCC
+{e6}	fma	o2hdc2, mmult2, o2w1, o2hdc2			{o4}	shufb	mmult2, w2hdc2, w2hdc2, s_CCCC
+{e6}	fma	o2hdc3, mmult3, o2w1, o2hdc3			{o4}	shufb	mmult3, w2hdc3, w2hdc3, s_CCCC
+{e2}	ai	inVertCount, inVertCount, 3			{o6}	lqr	s_AaBb, m_AaBb
+	nop							{o6}	lqr	s_ABcd, m_ABcd
+{e6}	fma	o2hdc0, mmult0, o2w2, o2hdc0			{o4}	shufb	mmult0, w2hdc0, w2hdc0, s_DDDD
+{e6}	fma	o2hdc1, mmult1, o2w2, o2hdc1			{o4}	shufb	mmult1, w2hdc1, w2hdc1, s_DDDD
+{e6}	fma	o2hdc2, mmult2, o2w2, o2hdc2			{o4}	shufb	mmult2, w2hdc2, w2hdc2, s_DDDD
+{e6}	fma	o2hdc3, mmult3, o2w2, o2hdc3			{o4}	shufb	mmult3, w2hdc3, w2hdc3, s_DDDD
+{e2}	andi	inVertCount, inVertCount, -4			{o4}	rotqbyi	s_BbAa, s_AaBb, 8
+	nop							{o4}	rotqbyi	s_cdAB, s_ABcd, 8
+{e6}	fma	o2hdc0, mmult0, o2w3, o2hdc0			{o4}	shufb	mmult0, hdc2s, hdc2s, s_AAAA ; 0
+{e6}	fma	o2hdc1, mmult1, o2w3, o2hdc1			{o4}	shufb	mmult1, hdc2s, hdc2s, s_CCCC ; 5
+{e6}	fma	o2s2,   mmult2, o2w3, o2hdc2			{o4}	shufb	mmult2, hdc2s, hdc2s, s_BBBB ; 3
+{e6}	fma	o2s3,   mmult3, o2w3, o2hdc3			{o4}	shufb	mmult3, hdc2s, hdc2s, s_DDDD ; 7
+	.cuse	o2s2
+	
+;;	Construct HDC-to-screen matrix, and multiply by that to get object-to-screen.
+;;	(Though in fact, since HDC-to-screen is pretty sparse, we can get away with a
+;;	subset of the full matrix multiply)
+{e6}	fm	o2s0, mmult0, o2hdc0				{o?}	hbrr	BTM_TrimLoop1, TOP_TrimLoop1
+{e6}	fm	o2s1, mmult1, o2hdc1				{o6}	lqr	s_CcCc, m_CcCc
+{e4}	shli	inOffset, inVertCount, 4			{o6}	lqr	s_BCbc, m_BCbc
+	nop							{o6}	lqr	s_DAad, m_DAad
+	nop							{o4}	fsmbi	mask_0FF0, 0x0FF0
+	nop							{o6}	lqr	s_BcD0, m_BcD0
+{e6}	fma	o2s0, mmult2, o2s3, o2s0			{o6}	lqr	s_dAD0, m_dAD0
+{e6}	fma	o2s1, mmult3, o2s3, o2s1			{o4}	fsmbi	mask_F0F0, 0xF0F0
+
+;;	Broadcast each of 12 elements in rows 1, 2 and 4 of the object-to-screen matrix to its own register.
+;;	The third row isn't needed, because we don't care about z.
+{e2}	a	pVertTemp0, pVertTemp, inOffset			{o4}	shufb	o2s00, o2s0, o2s0, s_AAAA
+{e2}	a	pVertPositions0, pVertPositions, inOffset	{o4}	shufb	o2s01, o2s0, o2s0, s_BBBB
+{e2}	sfi	inOffset, inOffset, 0				{o4}	shufb	o2s02, o2s0, o2s0, s_CCCC
+{e2}	ai	pVertPositions1, pVertPositions0, 16		{o4}	shufb	o2s03, o2s0, o2s0, s_DDDD
+	nop							{o4}	shufb	outOffset, inOffset, inOffset, s_AAAA
+{e2}	ai	pVertPositions2, pVertPositions0, 32		{o4}	shufb	o2s10, o2s1, o2s1, s_AAAA
+{e2}	ai	pVertPositions3, pVertPositions0, 48		{o4}	shufb	o2s11, o2s1, o2s1, s_BBBB
+{e2}	ai	pVertTemp1, pVertTemp0, 16			{o4}	shufb	o2s12, o2s1, o2s1, s_CCCC
+{e2}	ai	pVertTemp2, pVertTemp0, 32			{o4}	shufb	o2s13, o2s1, o2s1, s_DDDD
+{e2}	ai	pVertTemp3, pVertTemp0, 48			{o4}	shufb	o2s30, o2s3, o2s3, s_AAAA
+{e2}	selb	s_CcAa, s_CcCc, s_BbAa, mask_00FF		{o4}	shufb	o2s31, o2s3, o2s3, s_BBBB
+{e2}	selb	s_BbCc, s_BbAa, s_CcCc, mask_00FF		{o4}	shufb	o2s32, o2s3, o2s3, s_CCCC
+	nop							{o4}	shufb	o2s33, o2s3, o2s3, s_DDDD	
+
+.cset	xxxx0, yyyy0, zzzz0, wwww0, xxxx0_, yyyy0_, wwww0_, xxxx0__, yyyy0__, recipA
+TOP_TrimLoop1: ; 24 cycles (20e/20o) per 4 vertexes =======================================================
+{e7 3}	fi	recipB, wwww0, recipA				{o6 1}	lqx	xyz3, inOffset, pVertPositions3
+	nop							{o4 4}	shufb	trans1B, yyyy0__, wwww0_, s_DAad
+{e6 2}	fma	mmult2, xxxx0, o2s30, o2s33			{o6 1}	lqx	xyz0, inOffset, pVertPositions0
+{e6 2}	fma	mmult0, xxxx0, o2s00, o2s03			{o6 1}	lqx	xyz2, inOffset, pVertPositions2
+{e6 2}	fma	mmult1, xxxx0, o2s10, o2s13			{o4 4}	shufb	trans0B, xxxx0__, wwww0_, s_BCbc
+{e2 4}	selb	hvw0, xxxx0__, trans1B, mask_0FF0		{o4 4}	shufb	hvw3, trans1B, xxxx0__, s_dAD0
+{e2 3}	ori	wwww0_, wwww0, 0				{o6 1}	lqx	xyz1, inOffset, pVertPositions1
+{e6 3}	fnms	recipA_, recipB, wwww0, k1_0f			{o6 4}	stqx	hvw0, outOffset, pVertTemp0
+{e6 2}	fma	mmult2_, yyyy0, o2s31, mmult2			{o4 4}	shufb	hvw2, trans0B, yyyy0__, s_BcD0
+{e6 2}	fma	mmult0_, yyyy0, o2s01, mmult0			{o6 4}	stqx	hvw3, outOffset, pVertTemp3
+{e2 4}	selb	hvw1, yyyy0__, trans0B, mask_F0F0		{o4 1}	shufb	trans1A, xyz2, xyz3, s_BbAa
+{e6 2}	fma	mmult1_, yyyy0, o2s11, mmult1			{o4 1}	shufb	trans3A, xyz2, xyz3, s_CcCc
+	nop							{o6 4}	stqx	hvw2, outOffset, pVertTemp2
+{e6 3}	fma	recipA__, recipA_, recipB, recipB		{o4 1}	shufb	trans0A, xyz0, xyz1, s_AaBb
+{e6 2}	fma	wwww0, zzzz0, o2s32, mmult2_			{o6 4}	stqx	hvw1, outOffset, pVertTemp1
+	nop							{o4 1}	shufb	outOffset, outOffset, inOffset, s_BCa0
+{e2 1}	ai	inOffset, inOffset, 64				{o4 1}	shufb	trans2A, xyz0, xyz1, s_CcCc
+{e2 1}	selb	xxxx0, trans0A, trans1A, mask_00FF		{o4 1}	shufb	yyyy0, trans1A, trans0A, s_cdAB
+	nop								{lnop}
+{e6 3}	fms	yyyy0__, yyyy0_, recipA__, epsilon			{lnop}
+{e6 2}	fma	yyyy0_, zzzz0, o2s12, mmult1_			{o4 2}	frest	recipA, wwww0
+{e6 3}	fms	xxxx0__, xxxx0_, recipA__, epsilon			{lnop}
+{e6 2}	fma	xxxx0_, zzzz0, o2s02, mmult0_				{lnop}
+{e2 1}	selb	zzzz0, trans2A, trans3A, mask_00FF	BTM_TrimLoop1:	brnz	outOffset, TOP_TrimLoop1
+; ========================================================================================================
+	
+	
+; Loop 2: Perform trimming tests, and write output triangle list (using original indexes).
+{e2}	selb	loop2Hint, loop2Norm, loop24xRgms, enableRgms	{o6}	lqd	screenBounds, 0x00(pViewportInfo)
+{e2}	ilhu	epsTimes2, 0x3480				{o6}	lqr	s_0E0F0G0H, m_0E0F0G0H
+{e2}	il	outOffset, 0					{o6}	lqd	disableBfc, 0x00(pObjectInfo)
+{e2}	cgti	hasObjectInfo, pObjectInfo, 0			{o?}	hbr	TrimLoop2_Choice, loop2Hint
+{e4}	shli	inBytes, inTriCount, 3				{o6}	lqr	s_AbCdEfGh, m_AbCdEfGh
+{e2}	ilhu	signBit, 0x8000					{o6}	lqd     zNear, 0x60(pViewportInfo)
+{e2}	sfi	ignoreLastMask, inTriCount, 4			{o4}	shlqbyi	reverseBfc, screenBounds, 1
+{e2}	il	k1, 1						{o4}	shufb	screenBounds, screenBounds, screenBounds, s_0E0F0G0H
+{e2}	and	disableBfc, disableBfc, hasObjectInfo		{o6}	lqr	s_ABa0EFe0IJi0MNm0, m_ABa0EFe0IJi0MNm0
+{e2}	ai	inBytes, inBytes, 31				{o6}	lqr	s_00Aa00Ee00Ii00Mm, m_00Aa00Ee00Ii00Mm
+{e2}	cgtbi	reverseBfc, reverseBfc, 0			{o4}	shufb	disableBfc, disableBfc, disableBfc, s_AAAAAAAAAAAAAAAA
+{e7}	csflt	screenBounds, screenBounds, 0			{o6}	lqr	s_abAB, m_abAB
+{e2}	andi	inBytes, inBytes, -32				{o4}	shufb	reverseBfc, reverseBfc, reverseBfc, s_AAAAAAAAAAAAAAAA
+{e2}	ila	pRgmsLut, m_rgmsLut				{o4}	shufb	zNear, zNear, zNear, s_AAAA
+{e2}	cgtbi	disableBfc, disableBfc, 0			{o6}	lqr	s_000D000d00000000, m_000D000d00000000
+{e2}	andi	ignoreLastMask, ignoreLastMask, 3		{o4}	rotqbyi	s_Aa00Ee00Ii00Mm00, s_00Aa00Ee00Ii00Mm, 2
+{e2}	andi	disableBfc, disableBfc, 16			{o6}	lqd	inTri0, 0x00(pTris)
+{e4}	shl	ignoreLastMask, k1, ignoreLastMask		{o6}	lqd	inTri2, 0x00(pTris)
+{e2}	ila	afterIndexTrim, TrimVertexes			{o4}	shlqbyi	screenW, screenBounds, 4
+{e2}	ilhu	epsSquared, 0x2880				{o4}	fsmbi	tooClose0, 0x0000
+{e2}	and	signFlipIfRev, signBit, reverseBfc		{o4}	fsmbi	tooClose1, 0x0000
+{e2}	sfi	inOffset, inBytes, 0				{o4}	fsmbi	tooClose2, 0x0000
+{e2}	ai	ignoreLastMask, ignoreLastMask, -1			lnop
+{e6}	fs	screenW, screenW, screenBounds			{o4}	shufb	inOffset, inOffset, inOffset, s_AAAA
+{e2}	a	pInTris0, pTris, inBytes			{o4}	fsm	ignoreLastMask, ignoreLastMask
+{e2}	cgti	vertexTrim, pReindex, 0				{o4}	rotqbyi	inTri0, inTri0, 8
+{e2}	ai	pInTris1, pInTris0, 16				{o4}	rotqbyi	inTri2, inTri2, 8
+{e2}	selb	afterIndexTrim, $lr, afterIndexTrim, vertexTrim	{o4}	fsmbi	xMax__, 0xFFFF
+{e2}	il	k7, 7						{o4}	fsmbi	yMax__, 0xFFFF
+{e6}	fa	wwww0, zNear, k1_0f				{o4}	shufb	screenH, screenW, screenW, s_CCCC
+{e6}	fa	wwww1, zNear, k1_0f				{o4}	shufb	screenW, screenW, screenW, s_AAAA
+{e6}	fa	wwww2, zNear, k1_0f				{o4}	rotqbyi	inTri0_, inTri0, 0
+{e2}	ilhu	xxxx0, 0xBF80					{o4}	rotqbyi	inTri2_, inTri2, 0
+{e2}	ilhu	xxxx1, 0xBF80						lnop
+{e2}	ilhu	xxxx2, 0xBF80						lnop
+{e2}	ori	inOffset_, inOffset, 0		TrimLoop2_Choice:	bi	loop2Hint [TrimLoop2_Norm TrimLoop2_4xRgms]
+
+	
+	
+
+; Normal (no multisampling) version of loop 2
+TrimLoop2_Norm:
+	nop								hbrr	BTM_TrimLoop2_Norm, TOP_TrimLoop2_Norm
+	.cset	yyyy1, yyyy2
+	.cset	sameRow, sameColumn, tooLargeX, tooLargeY, backFacing___
+	.cset	outTri___
+TOP_TrimLoop2_Norm: ; 71 cycles (67e/65o) per 4 triangles =================================================
+{e2 3}	ceqi	isLastIteration, inOffset_, 0			{o4 3}	shufb	safeToTrim, tooClose0, tooClose1, s_Aa00Ee00Ii00Mm00
+{e6 2}	fs	diff1Y, yyyy2, yyyy0				{o4 3}	shufb	trimFlags0, xMax__, yMax__, s_Aa00Ee00Ii00Mm00
+{e2 3}	and	isLastIteration_, isLastIteration, ignoreLastMask{o4 3}	shufb	trimFlags1, sameRow, sameColumn, s_Aa00Ee00Ii00Mm00
+{e2 2}	fcgt	cmpX, xxxx0, xxxx1				{o4 3}	shufb	trimFlags2, tooLargeX, tooLargeY, s_00Aa00Ee00Ii00Mm
+{e6 2}	fs	diff0X, xxxx1, xxxx0				{o4 3}	shufb	safeToTrim_, safeToTrim, tooClose2, s_ABa0EFe0IJi0MNm0
+{e2 2}	selb	xMax, xxxx1, xxxx0, cmpX			{o4 3}	rotqby	outShuf0, s_abAB, outOffset
+{e6 2}	fs	diff0Y, yyyy1, yyyy0				{o4 3}	shufb	trimFlags1_, trimFlags1, backFacing___, s_ABa0EFe0IJi0MNm0
+{e2 2}	andc	absDiff1Y, diff1Y, signBit			{o4 3}	shufb	trimFlags0_, trimFlags0, trimFlags2, s_AbCdEfGh
+{e2 3}	ceqi	safeToTrim__, safeToTrim_, 0			{o4 3}	rotqbyi	inTri1, inTri0_, 8
+{e2 2}	selb	xMin, xxxx0, xxxx1, cmpX			{o4 3}	shufb	outTri, outTri___, inTri0_, outShuf0
+{e2 2}	ori	inTri0_, inTri0, 0				{o6 1}	lqx	inTri0, inOffset, pInTris0
+{e2 3}	or	keeper, trimFlags0_, trimFlags1_		{o4 3}	rotqbyi	inTri3, inTri2_, 8
+{e2 2}	fcgt	cmpY, yyyy0, yyyy1				{o4 2}	rotqbyi	inOffset_, inOffset, 0
+{e2 3}	andbi	keeper_, keeper, 0x80				{o6 3}	stqx	outTri, outOffset, pTris
+{e2 2}	selb	yMax, yyyy1, yyyy0, cmpY				{lnop}
+{e2 3}	ceqi	keeper__, keeper_, 0					{lnop}
+{e4 1}	shlhi	index01, inTri0, 4					{lnop}
+{e2 3}	orc	keeper___, keeper__, safeToTrim__			{lnop}
+{e2 2}	andc	absDiff0Y, diff0Y, signBit				{lnop}
+{e2 3}	andc	keeper____, keeper___, isLastIteration_			{lnop}
+{e6 2}	fs	diff1X, xxxx2, xxxx0				{o4 1}	rotqbyi	index11, index01, 8
+{e2 3}	andi	outInc0, keeper____, 8				{o4 1}	rotqbyi	index02, index01, 2
+{e6 2}	fa	bfSumTemp, absDiff0Y, absDiff1Y			{o6 1}	lqx	xyz0, index01, pVertTemp
+{e2 3}	a	outOffset1, outOffset, outInc0			{o4 3}	rotqbyi	outInc1, outInc0, 4
+{e2 2}	andc	absDiff0X, diff0X, signBit			{o4 1}	rotqmbyi	index10, index11, -2
+{e2 2}	selb	yMin, yyyy0, yyyy1, cmpY			{o4 3}	rotqby	outShuf1, s_abAB, outOffset1
+{e2 2}	andc	absDiff1X, diff1X, signBit			{o4 1}	rotqbyi	index12, index11, 2
+{e2 3}	a	outOffset2, outOffset1, outInc1			{o6 1}	lqx	xyz1, index11, pVertTemp
+{e6 2}	fa	bfError, absDiff0X, absDiff1X			{o6 1}	lqx	xyz1_, index10, pVertTemp
+{e2 2}	fcgt	cmpY__, yyyy2, yMax				{o4 3}	shufb	outTri_, outTri, inTri1, outShuf1
+{e2 2}	fcgt	cmpY_, yyyy2, yMin				{o4 3}	rotqby	outShuf2, s_abAB, outOffset2
+{e2 2}	fcgt	cmpX__, xxxx2, xMax				{o6 1}	lqx	xyz1__, index12, pVertTemp
+{e4 1}	rotmi	index00, index01, -16				{o4 3}	rotqbyi	outInc2, outInc0, 8
+{e2 2}	selb	yMax_, yMax, yyyy2, cmpY__			{o6 3}	stqx	outTri_, outOffset1, pTris
+{e6 2}	fa	bfError_, bfError, bfSumTemp			{o4 3}	shufb	outTri__, outTri_, inTri2_, outShuf2
+{e2 2}	ori	inTri2_, inTri2, 0				{o6 1}	lqx	inTri2, inOffset, pInTris1
+{e2 2}	fcgt	cmpX_, xxxx2, xMin				{o6 1}	lqx	xyz0__, index02, pVertTemp
+{e2 2}	selb	yMin_, yyyy2, yMin, cmpY_			{o4 1}	shufb	trans0A, xyz0, xyz1, s_AaBb
+{e2 2}	selb	xMax_, xMax, xxxx2, cmpX__			{o6 1}	lqx	xyz0_, index00, pVertTemp
+{e2 2}	selb	xMin_, xxxx2, xMin, cmpX_			{o4 1}	shufb	trans2A, xyz0, xyz1, s_CcCc
+{e6 2}	fma	bfError__, bfError_, epsilon, epsSquared	{o6 3}	stqx	outTri__, outOffset2, pTris
+{e6 2}	fa	xMax__, xMax_, epsTimes2			{o4 1}	shlqbii	index21, inTri2, 4
+{e6 2}	fa	yMax__, yMax_, epsTimes2			{o4 1}	shufb	trans0A__, xyz0__, xyz1__, s_AaBb
+{e2 3}	a	outOffset3, outOffset2, outInc2			{o4 1}	shufb	trans2A__, xyz0__, xyz1__, s_CcCc
+{e7 2}	cflts	xMinInt, xMin_, 0				{o4 1}	shufb	trans0A_, xyz0_, xyz1_, s_AaBb
+{e4 1}	rotmi	index20, index21, -16				{o4 1}	rotqbyi	index31, index21, 8
+{e6 2}	fnms	backFacing, diff0X, diff1Y, bfError__		{o4 1}	rotqbyi	index22, index21, 2
+{e7 2}	cflts	xMaxInt, xMax__, 0				{o6 1}	lqx	xyz2, index21, pVertTemp
+{e7 2}	cflts	yMaxInt, yMax__, 0				{o4 3}	rotqby	outShuf3, s_abAB, outOffset3
+{e7 2}	cflts	yMinInt, yMin_, 0				{o4 1}	rotqmbyi	index30, index31, -2
+{e2 2}	fcgt	tooClose0, zNear, wwww0				{o4 1}	rotqbyi	index32, index31, 2
+{e2 2}	fcgt	tooClose2, zNear, wwww2				{o6 1}	lqx	xyz2__, index22, pVertTemp
+{e6 2}	fma	backFacing_, diff1X, diff0Y, backFacing		{o6 1}	lqx	xyz2_, index20, pVertTemp
+{e2 2}	fcgt	tooClose1, zNear, wwww1				{o6 1}	lqx	xyz3_, index30, pVertTemp
+{e2 1}	ai	inOffset, inOffset, 32				{o6 1}	lqx	xyz3__, index32, pVertTemp
+{e2 2}	ceq	sameColumn, xMinInt, xMaxInt			{o6 1}	lqx	xyz3, index31, pVertTemp
+{e2 2}	fcgt	tooLargeX, xMin_, screenW			{o4 3}	rotqbyi	outInc3, outInc0, 12
+{e2 2}	fcgt	tooLargeY, yMin_, screenH			{o4 1}	shufb	trans2A_, xyz0_, xyz1_, s_CcCc
+{e2 2}	xor	backFacing__, backFacing_, signFlipIfRev	{o4 3}	shufb	outTri___, outTri__, inTri3, outShuf3
+{e2 2}	ceq	sameRow, yMinInt, yMaxInt			{o4 1}	shufb	trans1A_, xyz2_, xyz3_, s_BbAa
+{e2 3}	a	outOffset, outOffset3, outInc3			{o4 1}	shufb	trans1A__, xyz2__, xyz3__, s_BbAa
+	{nop}							{o4 1}	shufb	trans3A, xyz2, xyz3, s_CcCc
+	{nop}							{o4 1}	shufb	trans3A__, xyz2__, xyz3__, s_CcCc
+{e2 1}	selb	xxxx0, trans0A_, trans1A_, mask_00FF		{o4 1}	shufb	yyyy0, trans1A_, trans0A_, s_cdAB
+{e2 1}	selb	xxxx2, trans0A__, trans1A__, mask_00FF		{o4 1}	shufb	yyyy2, trans1A__, trans0A__, s_cdAB
+{e2 1}	selb	wwww1, trans2A, trans3A, mask_00FF		{o4 1}	shufb	trans1A, xyz2, xyz3, s_BbAa
+{e2 1}	selb	wwww2, trans2A__, trans3A__, mask_00FF		{o4 1}	shufb	trans3A_, xyz2_, xyz3_, s_CcCc
+	{nop}							{o4 2}	shlqby	backFacing___, backFacing__, disableBfc
+	{nop}							{o6 3}	stqx	outTri___, outOffset3, pTris
+{e2 1}	selb	xxxx1, trans0A, trans1A, mask_00FF		{o4 1}	shufb	yyyy1, trans1A, trans0A, s_cdAB
+{e2 1}	selb	wwww0, trans2A_, trans3A_, mask_00FF   BTM_TrimLoop2_Norm:	brz	isLastIteration, TOP_TrimLoop2_Norm
+; ========================================================================================================
+	nop								br	TrimLoop2_Postamble
+
+
+; 4x rotated-grid multisampling (RGMS) version of loop 2
+TrimLoop2_4xRgms:
+;; Push registers onto the stack, because this loop is just too huge
+{e2}	il	stackOffset, -0x140					hbrr	BTM_TrimLoop2_4xRgms, TOP_TrimLoop2_4xRgms
+{e2}	ori	$2, $sp, 0						lnop
+{e2}	a	$sp, $sp, stackOffset					lnop
+	nop								lnop
+	nop							{o6}	stqd	$2,  0x000($sp)	
+	nop							{o6}	stqd	$lr, 0x150($sp)	
+	nop							{o6}	stqd	$80, 0x020($sp)	
+	nop							{o6}	stqd	$81, 0x030($sp)	
+	nop							{o6}	stqd	$82, 0x040($sp)	
+	nop							{o6}	stqd	$83, 0x050($sp)	
+	nop							{o6}	stqd	$84, 0x060($sp)	
+	nop							{o6}	stqd	$85, 0x070($sp)	
+	nop							{o6}	stqd	$86, 0x080($sp)	
+	nop							{o6}	stqd	$87, 0x090($sp)	
+	nop							{o6}	stqd	$88, 0x0A0($sp)	
+	nop							{o6}	stqd	$89, 0x0B0($sp)	
+	nop							{o6}	stqd	$90, 0x0C0($sp)	
+	nop							{o6}	stqd	$91, 0x0D0($sp)	
+	nop							{o6}	stqd	$92, 0x0E0($sp)	
+	nop							{o6}	stqd	$93, 0x0F0($sp)	
+	nop							{o6}	stqd	$94, 0x100($sp)	
+	nop							{o6}	stqd	$95, 0x110($sp)	
+	nop							{o6}	stqd	$96, 0x120($sp)	
+	nop							{o6}	stqd	$97, 0x130($sp)	
+	
+	.cset	yyyy1, yyyy2
+	.cset	missesSamples, tooLargeX, tooLargeY, backFacing___
+	.cset	outTri___
+TOP_TrimLoop2_4xRgms: ; 84 cycles (78e/78o) per 4 triangles ===============================================
+{e2 2}	fcgt	cmpY, yyyy0, yyyy1				{o4 3}	shufb	trimFlags0, xMax__, yMax__, s_Aa00Ee00Ii00Mm00
+{e2 3}	ceqi	isLastIteration, inOffset_, 0			{o4 3}	shufb	trimFlags1, missesSamples, backFacing___, s_Aa00Ee00Ii00Mm00
+{e2 2}	selb	yMin, yyyy0, yyyy1, cmpY			{o4 3}	shufb	trimFlags2, tooLargeX, tooLargeY, s_00Aa00Ee00Ii00Mm
+{e2 3}	and	isLastIteration_, isLastIteration, ignoreLastMask{o4 3}	rotqby	outShuf0, s_abAB, outOffset
+{e2 2}	fcgt	cmpY_, yyyy2, yMin				{o4 3}	rotqbyi	inTri1, inTri0_, 8
+{e2 2}	selb	yMax, yyyy1, yyyy0, cmpY			{o4 3}	shufb	safeToTrim, tooClose0, tooClose1, s_Aa00Ee00Ii00Mm00
+{e2 2}	selb	yMin_, yyyy2, yMin, cmpY_			{o4 3}	shufb	trimFlags0_, trimFlags0, trimFlags2, s_AbCdEfGh
+{e2 2}	fcgt	cmpY__, yyyy2, yMax				{o4 3}	shufb	outTri, outTri___, inTri0_, outShuf0
+{e2 2}	ori	inTri0_, inTri0, 0				{o6 1}	lqx	inTri0, inOffset, pInTris0
+{e2 2}	selb	yMax_, yMax, yyyy2, cmpY__			{o4 3}	shufb	safeToTrim_, safeToTrim, tooClose2, s_ABa0EFe0IJi0MNm0
+{e2 3}	or	keeper, trimFlags0_, trimFlags1			{o4 3}	rotqbyi	inTri3, inTri2_, 8
+{e6 2}	fa	yMax__, yMax_, epsTimes2			{o6 3}	stqx	outTri, outOffset, pTris
+{e2 3}	andbi	keeper_, keeper, 0x80				{o4 2}	rotqbyi	inOffset_, inOffset, 0
+{e2 3}	ceqi	safeToTrim__, safeToTrim_, 0				{lnop}
+{e2 3}	ceqi	keeper__, keeper_, 0					{lnop}
+{e4 1}	shlhi	index01, inTri0, 4					{lnop}
+{e2 3}	orc	keeper___, keeper__, safeToTrim__			{lnop}
+{e7 2}	cflts	boxHeight, yMax__, 3					{lnop}
+{e2 3}	andc	keeper____, keeper___, isLastIteration_			{lnop}
+{e7 2}	cflts	yOrigin, yMin_, 3				{o4 1}	rotqbyi	index11, index01, 8
+{e2 3}	andi	outInc0, keeper____, 8				{o4 1}	rotqbyi	index02, index01, 2
+{e2 2}	fcgt	cmpX, xxxx0, xxxx1				{o6 1}	lqx	xyz0, index01, pVertTemp
+{e2 3}	a	outOffset1, outOffset, outInc0			{o4 3}	rotqbyi	outInc1, outInc0, 4
+{e2 2}	selb	xMin, xxxx0, xxxx1, cmpX			{o4 1}	rotqbyi	index12, index11, 2
+{e6 2}	fs	diff1Y, yyyy2, yyyy0				{o4 3}	rotqby	outShuf1, s_abAB, outOffset1
+{e2 2}	fcgt	cmpX_, xxxx2, xMin				{o4 1}	rotqmbyi	index10, index11, -2
+{e2 2}	sf	boxHeight_, yOrigin, boxHeight			{o6 1}	lqx	xyz0__, index02, pVertTemp
+{e2 3}	a	outOffset2, outOffset1, outInc1			{o6 1}	lqx	xyz1, index11, pVertTemp
+{e2 2}	clgti	clampCmp, boxHeight_, 7				{o4 3}	shufb	outTri_, outTri, inTri1, outShuf1
+{e2 2}	selb	xMin_, xxxx2, xMin, cmpX_			{o4 3}	rotqby	outShuf2, s_abAB, outOffset2
+{e2 2}	andi	yOrigin_, yOrigin, 0x7				{o6 1}	lqx	xyz1_, index10, pVertTemp
+{e7 2}	cflts	xOrigin, xMin_, 3				{o6 1}	lqx	xyz1__, index12, pVertTemp
+{e2 2}	selb	boxHeight__, boxHeight_, k7, clampCmp		{o6 3}	stqx	outTri_, outOffset1, pTris
+{e6 2}	fs	diff0X, xxxx1, xxxx0				{o4 3}	shufb	outTri__, outTri_, inTri2_, outShuf2
+{e2 2}	ori	inTri2_, inTri2, 0				{o6 1}	lqx	inTri2, inOffset, pInTris1
+{e6 2}	fs	diff0Y, yyyy1, yyyy0				{o4 2}	shlqbii boxHeight___, boxHeight__, 6
+{e2 2}	selb	xMax, xxxx1, xxxx0, cmpX			{o4 2}	shlqbii	yOrigin__, yOrigin_, 3
+{e2 2}	andc	absDiff1Y, diff1Y, signBit			{o4 1}	shufb	trans0A____, xyz0__, xyz1__, s_AaBb
+{e2 2}	andi	xOrigin_, xOrigin, 0x7				{o4 1}	shufb	trans3A, xyz0, xyz1, s_BbCc
+{e6 2}	fs	diff1X, xxxx2, xxxx0				{o4 1}	shufb	trans2A__, xyz0__, xyz1__, s_CcCc
+{e2 2}	andc	absDiff0X, diff0X, signBit			{o4 1}	shlqbii	index21, inTri2, 4
+{e2 2}	a	rgmsInd0, xOrigin_, yOrigin__			{o4 3}	rotqbyi	outInc2, outInc0, 8
+{e2 2}	andc	absDiff0Y, diff0Y, signBit			{o6 3}	stqx	outTri__, outOffset2, pTris
+{e2 2}	a	rgmsInd0_, rgmsInd0, boxHeight___		{o4 3}	rotqbyi	outInc3, outInc0, 12
+{e6 2}	fa	bfSumTemp, absDiff0Y, absDiff1Y			{o4 1}	rotqbyi	index31, index21, 8
+{e4 1}	rotmi	index00, index01, -16				{o4 2}	shlqbyi rgmsInd2, rgmsInd0_, 8
+{e4 1}	rotmi	index20, index21, -16				{o4 2}	shlqbyi rgmsInd1, rgmsInd0_, 4
+{e2 2}	andc	absDiff1X, diff1X, signBit			{o4 2}	shlqbyi rgmsInd3, rgmsInd0_, 12
+{e2 2}	fcgt	cmpX__, xxxx2, xMax				{o4 1}	rotqmbyi	index30, index31, -2
+{e6 2}	fa	bfError, absDiff0X, absDiff1X			{o6 1}	lqx	xyz0_, index00, pVertTemp
+{e2 2}	selb	xMax_, xMax, xxxx2, cmpX__			{o4 1}	rotqbyi	index22, index21, 2
+{e2 3}	a	outOffset3, outOffset2, outInc2			{o4 1}	rotqbyi	index32, index31, 2
+{e6 2}	fa	xMax__, xMax_, epsTimes2			{o6 1}	lqx	xyz2, index21, pVertTemp
+{e2 2}	fcgt	tooClose1, zNear, wwww1				{o6 2}	lqx	boxWidthMin2, rgmsInd2, pRgmsLut
+{e2 2}	fcgt	tooClose0, zNear, wwww0				{o6 1}	lqx	xyz2__, index22, pVertTemp
+{e6 2}	fa	bfError_, bfError, bfSumTemp			{o6 1}	lqx	xyz3__, index32, pVertTemp
+{e2 2}	fcgt	tooLargeY, yMin_, screenH			{o6 1}	lqx	xyz2_, index20, pVertTemp
+{e2 3}	a	outOffset, outOffset3, outInc3			{o6 2}	lqx	boxWidthMin1, rgmsInd1, pRgmsLut
+{e7 2}	cflts	boxWidth, xMax__, 3				{o6 1}	lqx	xyz3, index31, pVertTemp
+{e2 1}	selb	trans0A, xyz0, xyz2, mask_0FF0			{o6 2}	lqx	boxWidthMin0, rgmsInd0_, pRgmsLut
+{e2 1}	ai	inOffset, inOffset, 32				{o6 2}	lqx	boxWidthMin3, rgmsInd3, pRgmsLut
+{e6 2}	fma	bfError__, bfError_, epsilon, epsSquared	{o4 2}	shlqby	boxWidthMin2_, boxWidthMin2, rgmsInd2
+{e2 1}	selb	trans0A__, xyz0_, xyz2_, mask_0FF0		{o6 1}	lqx	xyz3_, index30, pVertTemp
+{e2 2}	fcgt	tooLargeX, xMin_, screenW			{o4 2}	shlqby	boxWidthMin1_, boxWidthMin1, rgmsInd1
+{e2 1}	selb	trans1A, xyz1, xyz3, mask_0FF0			{o4 1}	shufb	trans3A_, xyz0_, xyz1_, s_BbCc
+{e2 2}	sf	boxWidth_, xOrigin, boxWidth			{o4 2}	shlqby	boxWidthMin0_, boxWidthMin0, rgmsInd0_
+{e2 2}	fcgt	tooClose2, zNear, wwww2				{o4 2}	shlqby	boxWidthMin3_, boxWidthMin3, rgmsInd3
+{e6 2}	fnms	backFacing, diff0X, diff1Y, bfError__		{o4 1}	shufb	trans0A_, trans0A, trans1A, s_AaBb
+{e2 1}	selb	trans1A_, xyz1_, xyz3_, mask_0FF0		{o4 1}	shufb	trans2A_, xyz2_, xyz3_, s_CcAa
+	{nop}							{o4 2}	shufb	boxWidthMin0__, boxWidthMin0_, boxWidthMin1_, s_000D000d00000000
+	{nop}							{o4 2}	shufb	boxWidthMin2__, boxWidthMin2_, boxWidthMin3_, s_000D000d00000000
+{e2 1}	selb	yyyy1, trans3A, trans0A_, mask_00FF		{o4 3}	rotqby	outShuf3, s_abAB, outOffset3
+	nop							{o4 1}	shufb	trans1A__, xyz2__, xyz3__, s_BbAa
+{e6 2}	fma	backFacing_, diff1X, diff0Y, backFacing		{o4 1}	shufb	trans2A, xyz2, xyz3, s_CcAa
+	{nop}							{o4 1}	shufb	trans0A___, trans0A__, trans1A_, s_AaBb
+	{nop}							{o4 1}	shufb	trans3A__, xyz2__, xyz3__, s_CcCc
+{e2 1}	selb	xxxx2, trans0A____, trans1A__, mask_00FF	{o4 3}	shufb	outTri___, outTri__, inTri3, outShuf3
+{e2 1}	selb	xxxx1, trans0A_, trans2A, mask_00FF		{o4 1}	shufb	wwww1, trans2A, trans3A, s_cdAB
+{e2 1}	selb	xxxx0, trans0A___, trans2A_, mask_00FF		{o4 2}	shufb	boxWidthMin0___, boxWidthMin2__, boxWidthMin0__, s_abAB
+{e2 2}	xor	backFacing__, backFacing_, signFlipIfRev	{o4 1}	shufb	yyyy2, trans1A__, trans0A____, s_cdAB
+{e2 1}	selb	wwww2, trans2A__, trans3A__, mask_00FF		{o4 1}	shufb	wwww0, trans2A_, trans3A_, s_cdAB
+{e2 1}	selb	yyyy0, trans3A_, trans0A___, mask_00FF		{o4 2}	shlqby	backFacing___, backFacing__, disableBfc
+{e2 2}	cgt	missesSamples, boxWidthMin0___, boxWidth_	{o6 3}	stqx	outTri___, outOffset3, pTris
+	nop					BTM_TrimLoop2_4xRgms:	brz	isLastIteration, TOP_TrimLoop2_4xRgms
+; ========================================================================================================
+	nop							{o6}	lqd	$lr, 0x150($sp)	
+	nop							{o6}	lqd	$80, 0x020($sp)	
+	nop							{o6}	lqd	$81, 0x030($sp)	
+	nop							{o6}	lqd	$82, 0x040($sp)	
+	nop							{o6}	lqd	$83, 0x050($sp)	
+	nop							{o6}	lqd	$84, 0x060($sp)	
+	nop							{o6}	lqd	$85, 0x070($sp)	
+	nop							{o6}	lqd	$86, 0x080($sp)	
+	nop							{o6}	lqd	$87, 0x090($sp)	
+	nop							{o6}	lqd	$88, 0x0A0($sp)	
+	nop							{o6}	lqd	$89, 0x0B0($sp)	
+	nop							{o6}	lqd	$90, 0x0C0($sp)	
+	nop							{o6}	lqd	$91, 0x0D0($sp)	
+	nop							{o6}	lqd	$92, 0x0E0($sp)	
+	nop							{o6}	lqd	$93, 0x0F0($sp)	
+	nop							{o6}	lqd	$94, 0x100($sp)	
+	nop							{o6}	lqd	$95, 0x110($sp)	
+	nop							{o6}	lqd	$96, 0x120($sp)	
+	nop							{o6}	lqd	$97, 0x130($sp)	
+	nop							{o6}	lqd	$sp, 0x000($sp)	
+
+
+	
+TrimLoop2_Postamble:	
+;	Write out the final triangle counts.
+{e4}	rotmi	outTriCount, outOffset, -3			{o?}	hbr	END_TrimIndexes, afterIndexTrim
+	nop							{o4}	cwd	countIns, 0x08(pTrimCounts)
+	nop								lnop
+	nop								lnop
+{e2}	cgti	hasTrisLeft, outTriCount, 0				lnop
+	nop							{o4}	shufb	inTriCount, outTriCount, inTriCount, countIns
+{e2}	selb	afterIndexTrim, $lr, afterIndexTrim, hasTrisLeft	lnop
+	nop								lnop
+	nop								lnop
+	nop							{o6}	stqd	inTriCount, 0x00(pTrimCounts)
+	nop					END_TrimIndexes:	bi	afterIndexTrim	[TrimVertexes]
+
+;; Vertex trimming begins here.
+TrimVertexes:
+	
+
+;; Loop 3: Clear each entry in pVertTemp to zero.
+{e4}	shli	outOffset2, inVertCount, 4			{o?}	hbrr	BTM_TrimLoop3, TOP_TrimLoop3
+{e2}	il	k0_0f, 0						lnop
+	nop								lnop
+	nop								lnop
+{e2}	sfi	outOffset1, outOffset2, 0				lnop
+{e2}	sfi	outOffset2, outOffset2, 0				lnop
+
+TOP_TrimLoop3: ; 5 cycles (2e/5o) per 4 vertexes =========================================================
+	nop							{o6 1}	stqx	k0_0f, outOffset1, pVertTemp0
+	nop							{o6 1}	stqx	k0_0f, outOffset1, pVertTemp1
+{e2 1}	ai	outOffset1, outOffset1, 64			{o6 1}	stqx	k0_0f, outOffset2, pVertTemp2
+	nop							{o6 1}	stqx	k0_0f, outOffset2, pVertTemp3
+{e2 1}	ai	outOffset2, outOffset2, 64		BTM_TrimLoop3:	brnz	outOffset1, TOP_TrimLoop3
+; ========================================================================================================	
+
+; Loop 4: For each vertex that appears in the untrimmed triangle list, set the corresponding entry in
+; pVertTemp to 0xFFFFFFFF.  We process 4 triangles at a time; to effectively ignore the last 1-3 if necessary,
+; we replace the indexes of the excess triangles in that batch with a copy of the indexes of the batch's
+; first triangle, which is guarenteed to be valid.
+; The tricky initialization code below ensures this by calculating the following values for
+; rotateBtoA and replaceCD:	
+;	# to ignore at end:	rotateBtoA:	replaceCD:
+;	0			8		mask_0000
+;	1			8		mask_00FF
+;	2			8		mask_FFFF
+;	3			0		mask_FFFF
+
+{e4}	shli	inBytes, outTriCount, 3				{o?}	hbrr	BTM_TrimLoop4, TOP_TrimLoop4
+{e2}	sfi	ignoreLastMask, outTriCount, 4			{o6}	lqd	inTri0, 0x00(pTris)
+{e2}	il	k8, 8							lnop
+{e2}	andi	ignoreLastMask, ignoreLastMask, 3			lnop
+{e2}	ai	inBytes, inBytes, 31					lnop
+{e2}	a	replaceCD_L, ignoreLastMask, ignoreLastMask		lnop
+{e2}	ceqi	ignoreLastMask, ignoreLastMask, 3			lnop
+{e4}	shlhi	inTri0, inTri0, 4				{o4}	lnop
+{e4}	shl	replaceCD_L, k1, replaceCD_L				lnop
+{e2}	selb	rotateBtoA_L, k8, k0_0f, ignoreLastMask			lnop
+{e2}	ilh	kNeg1, 0xFFFF						lnop
+{e2}	andi	inBytes, inBytes, -32				{o4}	shufb	inTri0, inTri0, inTri0, s_abAB
+{e2}	ai	replaceCD_L, replaceCD_L, -1				lnop
+{e2}	a	pInTris0, pTris, inBytes				lnop
+{e2}	sfi	inOffset, inBytes, 0				{o4}	fsm	replaceCD_L, replaceCD_L
+{e2}	ai	pInTris1, pInTris0, 16				{o4}	rotqbyi	index00, inTri0, 0
+{e2}	ori	index11, inTri0, 0				{o4}	rotqbyi	index01, inTri0, 0
+{e2}	ori	index12, inTri0, 0				{o4}	rotqbyi	index02, inTri0, 0
+{e2}	ori	index21_, inTri0, 0					lnop
+
+
+TOP_TrimLoop4: ; 21 cycles (12e/21o) per 4 untrimmed triangles =============================================
+{e4 2}	rotmi	index20, index21_, -16				{o6 2}	stqx	kNeg1, index00, pVertTemp
+{e2 1}	ori	inOffsetOld, inOffset, 0			{o6 2}	stqx	kNeg1, index01, pVertTemp
+{e2 1}	ceqi	isLastIteration, inOffset, -32			{o6 2}	stqx	kNeg1, index02, pVertTemp
+{e4 2}	rotmi	index10, index11, -16				{o6 1}	lqx	inTri0, inOffset, pInTris0
+{e2 1}	selb	rotateBtoA, k8, rotateBtoA_L, isLastIteration	{o6 1}	lqx	inTri2, inOffset, pInTris1
+{e2 1}	selb	replaceCD, k0_0f, replaceCD_L, isLastIteration	{o4 2}	rotqbyi index31, index21_, 8
+{e2 1}	ai	inOffset, inOffset, 32				{o4 2}	rotqbyi index22, index21_, 2
+	{nop}							{o6 2}	stqx	kNeg1, index10, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index11, pVertTemp
+{e4 1}	shlhi	index01, inTri0, 4				{o6 2}	stqx	kNeg1, index12, pVertTemp
+{e4 2}	rotmi	index30, index31, -16				{o6 2}	stqx	kNeg1, index20, pVertTemp
+{e4 1}	shlhi	index21, inTri2, 4				{o6 2}	stqx	kNeg1, index21_, pVertTemp
+	nop							{o4 2}	rotqbyi	index32, index31, 2
+{e4 1}	rotmi	index00, index01, -16				{o4 1}	rotqby	index11, index01, rotateBtoA
+	{nop}							{o6 2}	stqx	kNeg1, index22, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index30, pVertTemp
+	nop							{o4 1}	rotqbyi	index02, index01, 2
+{e2 1}	selb index21_, index21, index11, replaceCD		{o4 1}	rotqbyi	index12, index11, 2
+	{nop}							{o6 2}	stqx	kNeg1, index31, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index32, pVertTemp
+	nop						BTM_TrimLoop4:	brnz	inOffsetOld, TOP_TrimLoop4
+; ========================================================================================================
+
+
+; Loop 5: Iterate over the entries in pVertTemp, which are currently all zeros for unused verts and all 1s for
+; used verts.  From this data, build the final reindex table (in pReindex) and the rename table (in pVertTemp,
+; in-place).
+; For this loop, we need inOffset to be positive, so we modify pVertTemp0-3 to be pVertTemp+0, +16, +32 and +48.
+{e4}	shli	inOffset, inVertCount, 4			{o?}	hbrr	BTM_TrimLoop5, TOP_TrimLoop5
+{e2}	il	reindexOff0, 0					{o6}	lqr	s_ABCDEFGH, m_ABCDEFGH
+{e2}	ilh	s_BCDEFGHb, 0x1213				{o6}	lqr	stagger, m_stagger
+{e2}	ilh	s_BCDEFGHd, 0x1617				{o4}	fsmbi	mask_0003, 0x0003
+{e2}	ai	pVertTemp0, pVertTemp, 0			{o4}	shufb	inOffset, inOffset, inOffset, s_AAAA
+{e2}	ilh	s_BCDEFGHf, 0x1A1B				{o4}	fsmbi	mask_used0, 0x0000
+{e2}	ilh	s_BCDEFGHh, 0x1E1F				{o4}	fsmbi	mask_used1, 0x0000
+{e2}	ai	pVertTemp1, pVertTemp, 16			{o4}	rotqbyi	s_BCDEFGHA, s_ABCDEFGH, 2
+{e2}	a	inOffset, inOffset, stagger			{o4}	fsmbi	mask_used2, 0x0000
+{e2}	ai	pVertTemp2, pVertTemp, 32			{o4}	fsmbi	mask_used3, 0x0000
+{e2}	ai	pVertTemp3, pVertTemp, 48			{o4}	rotqbyi	inOffsetOld, inOffset, 0
+{e2}	selb	s_BCDEFGHb, s_BCDEFGHA, s_BCDEFGHb, mask_0003		lnop
+{e2}	selb	s_BCDEFGHd, s_BCDEFGHA, s_BCDEFGHd, mask_0003		lnop
+{e2}	selb	s_BCDEFGHf, s_BCDEFGHA, s_BCDEFGHf, mask_0003		lnop
+{e2}	selb	s_BCDEFGHh, s_BCDEFGHA, s_BCDEFGHh, mask_0003		lnop
+
+	.cset	s_insert1, s_insert2, s_insert3, reindexOut_
+TOP_TrimLoop5: ; 19 cycles (19e/17o) per 4 vertexes ======================================================
+{e2 2}	andi	reindexInc0, mask_used0, 2				{o4 2}	lnop
+{e4 2}	rotmi	renameOut0, reindexOff0, -1				{o4 2}	shufb	reindexOut__, reindexOut_, inOffsetOld, s_insert1
+{e2 2}	a	reindexOff1, reindexOff0, reindexInc0			{o6 2}	stqx	reindexOut_, reindexOff0, pReindex
+{e2 2}	andi	reindexInc1, mask_used1, 2				{o6 1}	lqx	mask_used0, inOffset, pVertTemp0
+{e4 2}	rotmi	renameOut1, reindexOff1, -1				{o6 1}	lqx	mask_used1, inOffset, pVertTemp1
+{e2 2}	a	reindexOff2, reindexOff1, reindexInc1			{o4 2}	shufb	reindexOut___, reindexOut__, inOffsetOld, s_insert2
+{e2 2}	andi	reindexInc2, mask_used2, 2				{o6 2}	stqx	reindexOut__, reindexOff1, pReindex
+{e4 2}	rotmi	renameOut2, reindexOff2, -1				{o6 1}	lqx	mask_used2, inOffset, pVertTemp2
+{e2 2}	a	reindexOff3, reindexOff2, reindexInc2			{o6 2}	stqx	renameOut0, inOffsetOld, pVertTemp0
+{e2 2}	andi	reindexInc3, mask_used3, 2				{o4 2}	shufb	reindexOut, reindexOut___, inOffsetOld, s_insert3
+{e4 2}	rotmi	renameOut3, reindexOff3, -1				{o6 2}	stqx	reindexOut___, reindexOff2, pReindex
+{e2 2}	a	reindexOff0, reindexOff3, reindexInc3			{o6 1}	lqx	mask_used3, inOffset, pVertTemp3
+{e2 1}	ceqi	isLastIteration, inOffset, -64				{o6 2}	stqx	renameOut1, inOffsetOld, pVertTemp1
+{e2 1}	selb	s_insert0, s_ABCDEFGH, s_BCDEFGHb, mask_used0		{o6 2}	stqx	renameOut2, inOffsetOld, pVertTemp2
+{e2 1}	selb	s_insert1, s_ABCDEFGH, s_BCDEFGHd, mask_used1		{o6 2}	stqx	renameOut3, inOffsetOld, pVertTemp3
+{e2 1}	ori	inOffsetOld, inOffset, 0				{o6 2}	stqx	reindexOut, reindexOff3, pReindex
+{e2 1}	selb	s_insert2, s_ABCDEFGH, s_BCDEFGHf, mask_used2		{o4 1}	shufb	reindexOut_, reindexOut, inOffset, s_insert0
+{e2 1}	ai	inOffset, inOffset, -64						lnop
+{e2 1}	selb	s_insert3, s_ABCDEFGH, s_BCDEFGHh, mask_used3	BTM_TrimLoop5:	brz	isLastIteration, TOP_TrimLoop5
+; ========================================================================================================	
+
+; Loop 6: use the rename table to translate the output triangles to their new indexes.  We can reuse most
+; of the initialization from Loop 4, so mostly we're cleaning up loop 5 in the preamble here.
+; The last quad of the reindex table must be rotated left by 16 - (reindexOff0 % 16) bytes.
+{e2}	sfi	rotateFinal, reindexOff0, 16			{o6}	lqx	reindexOut, reindexOff0, pReindex
+{e4}	rotmi	reindexCount,reindexOff0, -1			{o4}	cwd	countIns, 0x0C(pTrimCounts)
+{e2}	sfi	inOffset, inBytes, 0				{o?}	hbrr	BTM_TrimLoop6, TOP_TrimLoop6
+{e2}	sfi	outOffset, inBytes, 0				{o4}	fsmbi	mask_0FFF, 0x0FFF
+	nop							{o4}	fsmbi	mask_003F, 0x003F
+{e2}	ai	outOffset1, outOffset, -32			{o4}	shufb	inTriCount, reindexCount, inTriCount, countIns
+	nop							{o4}	rotqby	reindexOut, reindexOut, rotateFinal
+	nop							{o6}	lqr	s_BbB0bBb0, m_BbB0bBb0
+	nop							{o6}	stqd	inTriCount, 0x00(pTrimCounts)
+	nop							{o6}	stqx	reindexOut, reindexOff0, pReindex
+
+	.cset	index00_, index01_, index02_, index10_
+TOP_TrimLoop6: ; 29 cycles (15e/29o) per 4 untrimmed triangles ============================================
+{e2 1}	ceqi	isLastIteration, inOffset, 0			{o4 2}	shufb index00__, index00_, index01_, s_BbB0bBb0
+{e2 2}	ai	outOffset1, outOffset1, 32			{o6 2}	lqx index31_, index31, pVertTemp
+{e2 1}	selb	rotateBtoA, k8, rotateBtoA_L, isLastIteration	{o6 2}	lqx index21__, index21_, pVertTemp
+{e2 1}	selb	replaceCD, k0_0f, replaceCD_L, isLastIteration	{o6 2}	lqx index20_, index20, pVertTemp
+{e2 1}	ori	inOffsetOld, inOffset, 0			{o6 1}	lqx	inTri0, inOffset, pInTris0
+	{nop}							{o6 2}	lqx index22_, index22, pVertTemp
+	{nop}							{o6 2}	lqx index30_, index30, pVertTemp
+	{nop}							{o6 2}	lqx index12_, index12, pVertTemp
+	{nop}							{o6 1}	lqx	inTri2, inOffset, pInTris1
+{e2 1}	ai	inOffset, inOffset, 32				{o4 2}	shufb index20__, index20_, index21__, s_BbB0bBb0
+{e4 1}	shlhi	index01, inTri0, 4				{o6 2}	lqx index32_, index32, pVertTemp
+	{nop}							{o6 2}	lqx index11_, index11, pVertTemp
+	{nop}							{o4 2}	shufb index01__, index02_, index10_, s_BbB0bBb0
+	nop							{o4 2}	shufb index21___, index22_, index30_, s_BbB0bBb0
+{e4 1}	shlhi	index21, inTri2, 4				{o6 1}	lqx index01_, index01, pVertTemp
+{e4 1}	rotmi	index00, index01, -16				{o4 1}	rotqby	index11, index01, rotateBtoA
+{e2 2}	selb outTri0, index00__, index01__, mask_0FFF		{o4 1}	rotqbyi	index02, index01, 2
+{e2 2}	selb outTri1, index20__, index21___, mask_0FFF		{o4 2}	shufb index02__, index11_, index12_, s_BbB0bBb0
+	nop							{o4 2}	shufb index22__, index31_, index32_, s_BbB0bBb0
+{e2 1}	selb index21_, index21, index11, replaceCD		{o4 1}	rotqbyi	index12, index11, 2
+{e4 1}	rotmi	index10, index11, -16				{o6 1}	lqx index02_, index02, pVertTemp
+{e2 2}	selb outTri0_, outTri0, index02__, mask_003F		{o4 1}	rotqbyi index31, index21_, 8
+{e2 2}	selb outTri1_, outTri1, index22__, mask_003F		{o6 1}	lqx index00_, index00, pVertTemp
+{e4 1}	rotmi index20, index21_, -16				{o6 2}	stqx outTri0_, outOffset, pInTris0
+	nop							{o6 1}	lqx index10_, index10, pVertTemp
+{e4 1}	rotmi	index30, index31, -16				{o4 1}	rotqbyi	index32, index31, 2
+	nop							{o6 2}	stqx outTri1_, outOffset, pInTris1
+{e2 2}	ori	outOffset, outOffset1, 0			{o4 1}	rotqbyi index22, index21_, 2
+	nop						BTM_TrimLoop6:	brnz	inOffsetOld, TOP_TrimLoop6
+; ========================================================================================================
+	nop					END_TrimVertexes:	bi	$lr
+
+
+
+
+	
+.if 0	;; Unrolled loops
+TOP_TrimLoop1: ; 24 cycles (20e/20o) per 4 vertexes =======================================================
+	{nop}							{o6 1}	lqx	xyz1, inOffset, pVertPositions1
+	{nop}							{o6 1}	lqx	xyz0, inOffset, pVertPositions0
+	{nop}							{o6 1}	lqx	xyz2, inOffset, pVertPositions2
+	{nop}							{o6 1}	lqx	xyz3, inOffset, pVertPositions3
+	{nop}							{o4 1}	shufb	trans0A, xyz0, xyz1, s_AaBb
+	{nop}							{o4 1}	shufb	trans2A, xyz0, xyz1, s_CcCc
+	{nop}							{o4 1}	shufb	trans1A, xyz2, xyz3, s_BbAa
+	{nop}							{o4 1}	shufb	trans3A, xyz2, xyz3, s_CcCc
+{e2 1}	selb	xxxx0, trans0A, trans1A, mask_00FF		{o4 1}	shufb	yyyy0, trans1A, trans0A, s_cdAB
+{e2 1}	selb	zzzz0, trans2A, trans3A, mask_00FF			{lnop}
+{e6 2}	fma	mmult2, xxxx0, o2s30, o2s33				{lnop}
+{e6 2}	fma	mmult0, xxxx0, o2s00, o2s03				{lnop}
+{e6 2}	fma	mmult1, xxxx0, o2s10, o2s13				{lnop}
+{e6 2}	fma	mmult2_, yyyy0, o2s31, mmult2				{lnop}
+{e6 2}	fma	mmult0_, yyyy0, o2s01, mmult0				{lnop}
+{e6 2}	fma	mmult1_, yyyy0, o2s11, mmult1				{lnop}
+{e6 2}	fma	wwww0, zzzz0, o2s32, mmult2_				{lnop}
+{e6 2}	fma	xxxx0_, zzzz0, o2s02, mmult0_				{lnop}
+{e6 2}	fma	yyyy0_, zzzz0, o2s12, mmult1_				{lnop}
+	{nop}							{o4 2}	frest	recipA, wwww0
+{e7 3}	fi	recipB, wwww0, recipA				{o4 1}	shufb	outOffset, outOffset, inOffset, s_BCa0
+{e2 3}	ori	wwww0_, wwww0, 0					lnop
+{e6 3}	fnms	recipA_, recipB, wwww0, k1_0f				{lnop}
+{e6 3}	fma	recipA__, recipA_, recipB, recipB			{lnop}
+{e6 3}	fms	yyyy0__, yyyy0_, recipA__, epsilon			{lnop}
+{e6 3}	fms	xxxx0__, xxxx0_, recipA__, epsilon			{lnop}
+	{nop}							{o4 4}	shufb	trans1B, yyyy0__, wwww0_, s_DAad
+	{nop}							{o4 4}	shufb	trans0B, xxxx0__, wwww0_, s_BCbc
+{e2 4}	selb	hvw0, xxxx0__, trans1B, mask_0FF0		{o4 4}	shufb	hvw3, trans1B, xxxx0__, s_dAD0
+{e2 4}	selb	hvw1, yyyy0__, trans0B, mask_F0F0		{o4 4}	shufb	hvw2, trans0B, yyyy0__, s_BcD0
+	{nop}							{o6 4}	stqx	hvw0, outOffset, pVertTemp0
+	{nop}							{o6 4}	stqx	hvw1, outOffset, pVertTemp1
+	{nop}							{o6 4}	stqx	hvw3, outOffset, pVertTemp3
+	{nop}							{o6 4}	stqx	hvw2, outOffset, pVertTemp2
+{e2 1}	ai	inOffset, inOffset, 64					{lnop}
+BTM_TrimLoop1:								brnz	outOffset, TOP_TrimLoop1
+; ========================================================================================================	
+
+TOP_TrimLoop2_Norm: ; 71 cycles (67e/65o) per 4 triangles ================================================
+	{nop}							{o6 1}	lqx	inTri0, inOffset, pInTris0
+	{nop}							{o6 1}	lqx	inTri2, inOffset, pInTris1
+{e2 1}	ai	inOffset, inOffset, 32					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e4 1}	shlhi	index01, inTri0, 4					lnop
+	{nop}							{o4 1}	shlqbii	index21, inTri2, 4
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqbyi	index11, index01, 8
+	{nop}							{o4 1}	rotqbyi	index31, index21, 8
+	{nop}							{o6 1}	lqx	xyz0, index01, pVertTemp
+{e4 1}	rotmi	index00, index01, -16				{o6 1}	lqx	xyz2, index21, pVertTemp
+{e4 1}	rotmi	index20, index21, -16				{o6 1}	lqx	xyz1, index11, pVertTemp
+	{nop}							{o6 1}	lqx	xyz3, index31, pVertTemp
+	{nop}							{o4 1}	rotqmbyi	index10, index11, -2
+	{nop}							{o4 1}	rotqmbyi	index30, index31, -2
+	{nop}								lnop
+	{nop}							{o4 1}	rotqbyi	index02, index01, 2
+	{nop}							{o4 1}	shufb	trans0A, xyz0, xyz1, s_AaBb
+	{nop}							{o4 1}	shufb	trans1A, xyz2, xyz3, s_BbAa
+	{nop}							{o4 1}	shufb	trans2A, xyz0, xyz1, s_CcCc
+	{nop}							{o4 1}	shufb	trans3A, xyz2, xyz3, s_CcCc
+	{nop}							{o6 1}	lqx	xyz0_, index00, pVertTemp
+{e2 1}	selb	xxxx1, trans0A, trans1A, mask_00FF		{o4 1}	shufb	yyyy1, trans1A, trans0A, s_cdAB
+	nop							{o6 1}	lqx	xyz1_, index10, pVertTemp
+{e2 1}	selb	wwww1, trans2A, trans3A, mask_00FF		{o6 1}	lqx	xyz2_, index20, pVertTemp
+	{nop}							{o6 1}	lqx	xyz3_, index30, pVertTemp
+	{nop}							{o4 1}	rotqbyi	index12, index11, 2
+	{nop}							{o4 1}	rotqbyi	index22, index21, 2
+	{nop}							{o4 1}	rotqbyi	index32, index31, 2
+	{nop}							{o4 1}	shufb	trans0A_, xyz0_, xyz1_, s_AaBb
+	{nop}							{o4 1}	shufb	trans2A_, xyz0_, xyz1_, s_CcCc
+	{nop}							{o4 1}	shufb	trans1A_, xyz2_, xyz3_, s_BbAa
+	{nop}							{o4 1}	shufb	trans3A_, xyz2_, xyz3_, s_CcCc
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 1}	selb	xxxx0, trans0A_, trans1A_, mask_00FF		{o4 1}	shufb yyyy0, trans1A_, trans0A_, s_cdAB
+{e2 1}	selb	wwww0, trans2A_, trans3A_, mask_00FF			lnop
+	{nop}							{o6 1}	lqx	xyz0__, index02, pVertTemp
+	{nop}							{o6 1}	lqx	xyz1__, index12, pVertTemp
+	{nop}							{o6 1}	lqx	xyz2__, index22, pVertTemp
+	{nop}							{o6 1}	lqx	xyz3__, index32, pVertTemp
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								lnop
+	{nop}							{o4 1}	shufb	trans0A__, xyz0__, xyz1__, s_AaBb
+	{nop}							{o4 1}	shufb	trans2A__, xyz0__, xyz1__, s_CcCc
+	{nop}							{o4 1}	shufb	trans1A__, xyz2__, xyz3__, s_BbAa
+	{nop}							{o4 1}	shufb	trans3A__, xyz2__, xyz3__, s_CcCc
+	{nop}								{lnop}
+	nop								{lnop}
+{e2 1}	selb	xxxx2, trans0A__, trans1A__, mask_00FF		{o4 1}	shufb	yyyy2, trans1A__, trans0A__, s_cdAB
+{e2 1}	selb	wwww2, trans2A__, trans3A__, mask_00FF			{lnop}	
+{e2 2}	fcgt	cmpX, xxxx0, xxxx1					{lnop}
+{e2 2}	fcgt	cmpY, yyyy0, yyyy1					{lnop}
+{e2 2}	selb	xMin, xxxx0, xxxx1, cmpX				{lnop}
+{e2 2}	selb	yMin, yyyy0, yyyy1, cmpY				{lnop}
+{e2 2}	selb	xMax, xxxx1, xxxx0, cmpX				{lnop}
+{e2 2}	selb	yMax, yyyy1, yyyy0, cmpY				{lnop}
+{e2 2}	fcgt	cmpX_, xxxx2, xMin					{lnop}
+{e2 2}	fcgt	cmpY_, yyyy2, yMin					{lnop}
+{e2 2}	selb	xMin_, xxxx2, xMin, cmpX_				{lnop}
+{e2 2}	selb	yMin_, yyyy2, yMin, cmpY_				{lnop}
+{e2 2}	fcgt	cmpX__, xxxx2, xMax					{lnop}
+{e2 2}	fcgt	cmpY__, yyyy2, yMax					{lnop}
+{e2 2}	selb	xMax_, xMax, xxxx2, cmpX__				{lnop}
+{e2 2}	selb	yMax_, yMax, yyyy2, cmpY__				{lnop}
+{e6 2}	fa	xMax__, xMax_, epsTimes2				{lnop}
+{e6 2}	fa	yMax__, yMax_, epsTimes2				{lnop}
+{e7 2}	cflts	xMinInt, xMin_, 0					{lnop}
+{e7 2}	cflts	yMinInt, yMin_, 0					{lnop}
+{e2 2}	fcgt	tooLargeX, xMin_, screenW				{lnop}
+{e2 2}	fcgt	tooLargeY, yMin_, screenH				{lnop}
+{e7 2}	cflts	xMaxInt, xMax__, 0					{lnop}
+{e7 2}	cflts	yMaxInt, yMax__, 0					{lnop}
+{e2 2}	fcgt	tooClose0, zNear, wwww0					{lnop}
+{e2 2}	fcgt	tooClose1, zNear, wwww1					{lnop}
+{e2 2}	fcgt	tooClose2, zNear, wwww2					{lnop}
+{e6 2}	fs	diff0X, xxxx1, xxxx0					{lnop}
+{e6 2}	fs	diff1X, xxxx2, xxxx0					{lnop}
+{e2 2}	ceq	sameColumn, xMinInt, xMaxInt				{lnop}
+{e2 2}	ceq	sameRow, yMinInt, yMaxInt				{lnop}
+{e6 2}	fs	diff0Y, yyyy1, yyyy0					{lnop}
+{e6 2}	fs	diff1Y, yyyy2, yyyy0					{lnop}
+{e2 2}	ori	inTri0_, inTri0, 0					{lnop}
+{e2 2}	ori	inTri2_, inTri2, 0					{lnop}
+{e2 2}	andc	absDiff0X, diff0X, signBit				{lnop}
+{e2 2}	andc	absDiff1X, diff1X, signBit				{lnop}
+{e2 2}	andc	absDiff0Y, diff0Y, signBit				{lnop}
+{e2 2}	andc	absDiff1Y, diff1Y, signBit				{lnop}
+{e6 2}	fa	bfError, absDiff0X, absDiff1X				{lnop}
+{e6 2}	fa	bfSumTemp, absDiff0Y, absDiff1Y				{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	rotqbyi	inOffset_, inOffset, 0
+	{nop}								lnop
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fa	bfError_, bfError, bfSumTemp				{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fma	bfError__, bfError_, epsilon, epsSquared		{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fnms	backFacing, diff0X, diff1Y, bfError__			{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fma	backFacing_, diff1X, diff0Y, backFacing			{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e2 2}	xor	backFacing__, backFacing_, signFlipIfRev		{lnop}
+	{nop}								lnop
+	{nop}							{o4 2}	shlqby	backFacing___, backFacing__, disableBfc
+
+	{nop}							{o4 3}	shufb	trimFlags0, xMax__, yMax__, s_Aa00Ee00Ii00Mm00
+	{nop}							{o4 3}	shufb	trimFlags2, tooLargeX, tooLargeY, s_00Aa00Ee00Ii00Mm
+	{nop}							{o4 3}	shufb	trimFlags1, sameRow, sameColumn, s_Aa00Ee00Ii00Mm00
+	{nop}							{o4 3}	shufb	safeToTrim, tooClose0, tooClose1, s_Aa00Ee00Ii00Mm00
+	{nop}								lnop
+	{nop}							{o4 3}	shufb	trimFlags0_, trimFlags0, trimFlags2, s_AbCdEfGh
+	{nop}							{o4 3}	shufb	trimFlags1_, trimFlags1, backFacing___, s_ABa0EFe0IJi0MNm0
+	{nop}							{o4 3}	shufb	safeToTrim_, safeToTrim, tooClose2, s_ABa0EFe0IJi0MNm0
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 3}	or	keeper, trimFlags0_, trimFlags1_			{lnop}
+{e2 3}	ceqi	safeToTrim__, safeToTrim_, 0				{lnop}
+{e2 3}	andbi	keeper_, keeper, 0x80					{lnop}
+{e2 3}	ceqi	isLastIteration, inOffset_, 0				{lnop}
+{e2 3}	ceqi	keeper__, keeper_, 0					{lnop}
+{e2 3}	and	isLastIteration_, isLastIteration, ignoreLastMask	{lnop}
+{e2 3}	orc	keeper___, keeper__, safeToTrim__			{lnop}
+	nop								{lnop}
+{e2 3}	andc	keeper____, keeper___, isLastIteration_			lnop
+	nop							{o4 3}	rotqby	outShuf0, s_abAB, outOffset
+{e2 3}	andi	outInc0, keeper____, 8				{o4 3}	rotqbyi	inTri1, inTri0_, 8
+	nop							{o4 3}	rotqbyi	inTri3, inTri2_, 8
+{e2 3}	a	outOffset1, outOffset, outInc0			{o4 3}	rotqbyi	outInc1, outInc0, 4
+	{nop}							{o4 3}	rotqbyi	outInc2, outInc0, 8
+	{nop}							{o4 3}	shufb	outTri, outTri___, inTri0_, outShuf0
+	nop							{o4 3}	rotqby	outShuf1, s_abAB, outOffset1
+{e2 3}	a	outOffset2, outOffset1, outInc1			{o4 3}	rotqbyi	outInc3, outInc0, 12
+	nop								lnop
+{e2 3}	a	outOffset3, outOffset2, outInc2			{o6 3}	stqx	outTri, outOffset, pTris
+	nop							{o4 3}	shufb	outTri_, outTri, inTri1, outShuf1
+{e2 3}	a	outOffset, outOffset3, outInc3			{o4 3}	rotqby	outShuf2, s_abAB, outOffset2
+	{nop}							{o4 3}	rotqby	outShuf3, s_abAB, outOffset3
+	{nop}								lnop
+	{nop}							{o6 3}	stqx	outTri_, outOffset1, pTris
+	{nop}							{o4 3}	shufb	outTri__, outTri_, inTri2_, outShuf2
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								lnop
+	{nop}							{o6 3}	stqx	outTri__, outOffset2, pTris
+	{nop}							{o4 3}	shufb	outTri___, outTri__, inTri3, outShuf3
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								lnop
+	{nop}							{o6 3}	stqx	outTri___, outOffset3, pTris
+	{nop}
+BTM_TrimLoop2_Norm:							brz	isLastIteration, TOP_TrimLoop2_Norm
+; ========================================================================================================
+
+TOP_TrimLoop2_4xRgms: ; 84 cycles (78e/78o) per 4 triangles ==============================================
+	{nop}							{o6 1}	lqx	inTri0, inOffset, pInTris0
+	{nop}							{o6 1}	lqx	inTri2, inOffset, pInTris1
+{e2 1}	ai	inOffset, inOffset, 32					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e4 1}	shlhi	index01, inTri0, 4					lnop
+	{nop}							{o4 1}	shlqbii	index21, inTri2, 4
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqbyi	index11, index01, 8
+	{nop}							{o4 1}	rotqbyi	index31, index21, 8
+	{nop}							{o6 1}	lqx	xyz0, index01, pVertTemp
+{e4 1}	rotmi	index00, index01, -16				{o6 1}	lqx	xyz2, index21, pVertTemp
+{e4 1}	rotmi	index20, index21, -16				{o6 1}	lqx	xyz1, index11, pVertTemp
+	{nop}							{o6 1}	lqx	xyz3, index31, pVertTemp
+	{nop}							{o4 1}	rotqmbyi	index10, index11, -2
+	{nop}							{o4 1}	rotqmbyi	index30, index31, -2
+	{nop}								{lnop}
+{e2 1}	selb	trans0A, xyz0, xyz2, mask_0FF0				{lnop}
+	nop							{o4 1}	shufb	trans3A, xyz0, xyz1, s_BbCc
+{e2 1}	selb	trans1A, xyz1, xyz3, mask_0FF0			{o4 1}	shufb	trans2A, xyz2, xyz3, s_CcAa
+	{nop}								lnop
+	{nop}							{o4 1}	shufb	trans0A_, trans0A, trans1A, s_AaBb
+	{nop}							{o6 1}	lqx	xyz0_, index00, pVertTemp
+	{nop}							{o4 1}	shufb	wwww1, trans2A, trans3A, s_cdAB
+	nop							{o6 1}	lqx	xyz1_, index10, pVertTemp
+{e2 1}	selb	xxxx1, trans0A_, trans2A, mask_00FF		{o6 1}	lqx	xyz2_, index20, pVertTemp
+{e2 1}	selb	yyyy1, trans3A, trans0A_, mask_00FF		{o6 1}	lqx	xyz3_, index30, pVertTemp
+	{nop}							{o4 1}	rotqbyi	index02, index01, 2
+	{nop}							{o4 1}	rotqbyi	index12, index11, 2
+	{nop}							{o4 1}	rotqbyi	index22, index21, 2
+	{nop}							{o4 1}	rotqbyi	index32, index31, 2
+{e2 1}	selb	trans0A__, xyz0_, xyz2_, mask_0FF0		{o4 1}	shufb	trans3A_, xyz0_, xyz1_, s_BbCc
+{e2 1}	selb	trans1A_, xyz1_, xyz3_, mask_0FF0		{o4 1}	shufb	trans2A_, xyz2_, xyz3_, s_CcAa
+	{nop}								lnop
+	{nop}							{o4 1}	shufb	trans0A___, trans0A__, trans1A_, s_AaBb
+	{nop}								lnop
+	{nop}							{o4 1}	shufb	wwww0, trans2A_, trans3A_, s_cdAB
+	nop								{lnop}
+{e2 1}	selb	xxxx0, trans0A___, trans2A_, mask_00FF			{lnop}
+{e2 1}	selb	yyyy0, trans3A_, trans0A___, mask_00FF			lnop
+	{nop}							{o6 1}	lqx	xyz0__, index02, pVertTemp
+	{nop}							{o6 1}	lqx	xyz1__, index12, pVertTemp
+	{nop}							{o6 1}	lqx	xyz2__, index22, pVertTemp
+	{nop}							{o6 1}	lqx	xyz3__, index32, pVertTemp
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								lnop
+	{nop}							{o4 1}	shufb	trans0A____, xyz0__, xyz1__, s_AaBb
+	{nop}							{o4 1}	shufb	trans2A__, xyz0__, xyz1__, s_CcCc
+	{nop}							{o4 1}	shufb	trans1A__, xyz2__, xyz3__, s_BbAa
+	{nop}							{o4 1}	shufb	trans3A__, xyz2__, xyz3__, s_CcCc
+	{nop}								{lnop}
+	nop								{lnop}
+{e2 1}	selb	xxxx2, trans0A____, trans1A__, mask_00FF	{o4 1}	shufb	yyyy2, trans1A__, trans0A____, s_cdAB
+{e2 1}	selb	wwww2, trans2A__, trans3A__, mask_00FF			{lnop}
+{e2 2}	fcgt	cmpX, xxxx0, xxxx1					{lnop}
+{e2 2}	fcgt	cmpY, yyyy0, yyyy1					{lnop}
+{e2 2}	selb	xMin, xxxx0, xxxx1, cmpX				{lnop}
+{e2 2}	selb	yMin, yyyy0, yyyy1, cmpY				{lnop}
+{e2 2}	selb	xMax, xxxx1, xxxx0, cmpX				{lnop}
+{e2 2}	selb	yMax, yyyy1, yyyy0, cmpY				{lnop}
+{e2 2}	fcgt	cmpX_, xxxx2, xMin					{lnop}
+{e2 2}	fcgt	cmpY_, yyyy2, yMin					{lnop}
+{e2 2}	selb	xMin_, xxxx2, xMin, cmpX_				{lnop}
+{e2 2}	selb	yMin_, yyyy2, yMin, cmpY_				{lnop}
+{e2 2}	fcgt	cmpX__, xxxx2, xMax					{lnop}
+{e2 2}	fcgt	cmpY__, yyyy2, yMax					{lnop}
+{e2 2}	selb	xMax_, xMax, xxxx2, cmpX__				{lnop}
+{e2 2}	selb	yMax_, yMax, yyyy2, cmpY__				{lnop}
+{e6 2}	fa	xMax__, xMax_, epsTimes2				{lnop}
+{e6 2}	fa	yMax__, yMax_, epsTimes2				{lnop}
+{e7 2}	cflts	xOrigin, xMin_, 3					{lnop}
+{e7 2}	cflts	yOrigin, yMin_, 3					{lnop}
+{e2 2}	fcgt	tooLargeX, xMin_, screenW				{lnop}
+{e2 2}	fcgt	tooLargeY, yMin_, screenH				{lnop}
+{e7 2}	cflts	boxWidth, xMax__, 3					{lnop}
+{e7 2}	cflts	boxHeight, yMax__, 3					{lnop}
+{e2 2}	fcgt	tooClose0, zNear, wwww0					{lnop}
+{e2 2}	fcgt	tooClose1, zNear, wwww1					{lnop}
+{e2 2}	fcgt	tooClose2, zNear, wwww2					{lnop}
+{e2 2}	ori	inTri0_, inTri0, 0					{lnop}
+{e2 2}	ori	inTri2_, inTri2, 0					{lnop}
+{e2 2}	sf	boxWidth_, xOrigin, boxWidth				{lnop}
+{e2 2}	sf	boxHeight_, yOrigin, boxHeight				{lnop}
+{e2 2}	andi	yOrigin_, yOrigin, 0x7					{lnop}
+{e2 2}	clgti	clampCmp, boxHeight_, 7					{lnop}
+{e2 2}	andi	xOrigin_, xOrigin, 0x7				{o4 2}	shlqbii	yOrigin__, yOrigin_, 3
+{e2 2}	selb	boxHeight__, boxHeight_, k7, clampCmp			{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	shlqbii boxHeight___, boxHeight__, 6
+{e2 2}	a	rgmsInd0, xOrigin_, yOrigin__				{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 2}	a	rgmsInd0_, rgmsInd0, boxHeight___			{lnop}
+	{nop}							{o4 2}	rotqbyi	inOffset_, inOffset, 0
+	{nop}							{o4 2}	shlqbyi rgmsInd1, rgmsInd0_, 4
+	{nop}							{o4 2}	shlqbyi rgmsInd2, rgmsInd0_, 8
+	{nop}							{o4 2}	shlqbyi rgmsInd3, rgmsInd0_, 12
+	{nop}							{o6 2}	lqx	boxWidthMin0, rgmsInd0_, pRgmsLut
+	{nop}							{o6 2}	lqx	boxWidthMin1, rgmsInd1, pRgmsLut
+	{nop}							{o6 2}	lqx	boxWidthMin2, rgmsInd2, pRgmsLut
+	{nop}							{o6 2}	lqx	boxWidthMin3, rgmsInd3, pRgmsLut
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	shlqby	boxWidthMin0_, boxWidthMin0, rgmsInd0_
+	{nop}							{o4 2}	shlqby	boxWidthMin1_, boxWidthMin1, rgmsInd1
+	{nop}							{o4 2}	shlqby	boxWidthMin2_, boxWidthMin2, rgmsInd2
+	{nop}							{o4 2}	shlqby	boxWidthMin3_, boxWidthMin3, rgmsInd3
+	{nop}								lnop
+	{nop}							{o4 2}	shufb	boxWidthMin0__, boxWidthMin0_, boxWidthMin1_, s_000D000d00000000
+	{nop}								lnop
+	{nop}							{o4 2}	shufb	boxWidthMin2__, boxWidthMin2_, boxWidthMin3_, s_000D000d00000000
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								lnop
+	{nop}							{o4 2}	shufb	boxWidthMin0___, boxWidthMin2__, boxWidthMin0__, s_abAB
+{e6 2}	fs	diff0X, xxxx1, xxxx0					{lnop}
+{e6 2}	fs	diff1X, xxxx2, xxxx0					{lnop}
+{e6 2}	fs	diff0Y, yyyy1, yyyy0					{lnop}
+{e2 2}	cgt	missesSamples, boxWidthMin0___, boxWidth_		{lnop}
+{e6 2}	fs	diff1Y, yyyy2, yyyy0					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 2}	andc	absDiff0X, diff0X, signBit				{lnop}
+{e2 2}	andc	absDiff1X, diff1X, signBit				{lnop}
+{e2 2}	andc	absDiff0Y, diff0Y, signBit				{lnop}
+{e2 2}	andc	absDiff1Y, diff1Y, signBit				{lnop}
+{e6 2}	fa	bfError, absDiff0X, absDiff1X				{lnop}
+{e6 2}	fa	bfSumTemp, absDiff0Y, absDiff1Y				{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fa	bfError_, bfError, bfSumTemp				{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fma	bfError__, bfError_, epsilon, epsSquared		{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fnms	backFacing, diff0X, diff1Y, bfError__			{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fma	backFacing_, diff1X, diff0Y, backFacing			{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e2 2}	xor	backFacing__, backFacing_, signFlipIfRev		{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	shlqby	backFacing___, backFacing__, disableBfc
+	{nop}							{o4 3}	shufb	trimFlags0, xMax__, yMax__, s_Aa00Ee00Ii00Mm00
+	{nop}							{o4 3}	shufb	trimFlags2, tooLargeX, tooLargeY, s_00Aa00Ee00Ii00Mm
+	{nop}								lnop
+	{nop}							{o4 3}	shufb	safeToTrim, tooClose0, tooClose1, s_Aa00Ee00Ii00Mm00
+	{nop}								lnop
+	{nop}							{o4 3}	shufb	trimFlags0_, trimFlags0, trimFlags2, s_AbCdEfGh
+	{nop}							{o4 3}	shufb	trimFlags1, missesSamples, backFacing___, s_Aa00Ee00Ii00Mm00
+	{nop}							{o4 3}	shufb	safeToTrim_, safeToTrim, tooClose2, s_ABa0EFe0IJi0MNm0
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 3}	or	keeper, trimFlags0_, trimFlags1				{lnop}
+{e2 3}	ceqi	safeToTrim__, safeToTrim_, 0				{lnop}
+{e2 3}	andbi	keeper_, keeper, 0x80					{lnop}
+{e2 3}	ceqi	isLastIteration, inOffset_, 0				{lnop}
+{e2 3}	ceqi	keeper__, keeper_, 0					{lnop}
+{e2 3}	and	isLastIteration_, isLastIteration, ignoreLastMask	{lnop}
+{e2 3}	orc	keeper___, keeper__, safeToTrim__			{lnop}
+	nop								{lnop}
+{e2 3}	andc	keeper____, keeper___, isLastIteration_			lnop
+	nop							{o4 3}	rotqby	outShuf0, s_abAB, outOffset
+{e2 3}	andi	outInc0, keeper____, 8				{o4 3}	rotqbyi	inTri1, inTri0_, 8
+	nop							{o4 3}	rotqbyi	inTri3, inTri2_, 8
+{e2 3}	a	outOffset1, outOffset, outInc0			{o4 3}	rotqbyi	outInc1, outInc0, 4
+	{nop}							{o4 3}	rotqbyi	outInc2, outInc0, 8
+	{nop}							{o4 3}	shufb	outTri, outTri___, inTri0_, outShuf0
+	nop							{o4 3}	rotqby	outShuf1, s_abAB, outOffset1
+{e2 3}	a	outOffset2, outOffset1, outInc1			{o4 3}	rotqbyi	outInc3, outInc0, 12
+	nop								lnop
+{e2 3}	a	outOffset3, outOffset2, outInc2			{o6 3}	stqx	outTri, outOffset, pTris
+	nop							{o4 3}	shufb	outTri_, outTri, inTri1, outShuf1
+{e2 3}	a	outOffset, outOffset3, outInc3			{o4 3}	rotqby	outShuf2, s_abAB, outOffset2
+	{nop}							{o4 3}	rotqby	outShuf3, s_abAB, outOffset3
+	{nop}								lnop
+	{nop}							{o6 3}	stqx	outTri_, outOffset1, pTris
+	{nop}							{o4 3}	shufb	outTri__, outTri_, inTri2_, outShuf2
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								lnop
+	{nop}							{o6 3}	stqx	outTri__, outOffset2, pTris
+	{nop}							{o4 3}	shufb	outTri___, outTri__, inTri3, outShuf3
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								lnop
+	{nop}							{o6 3}	stqx	outTri___, outOffset3, pTris
+	{nop}
+BTM_TrimLoop2_4xRgms:							brz	isLastIteration, TOP_TrimLoop2_4xRgms
+; ========================================================================================================
+
+	
+TOP_TrimLoop3: ; 5 cycles (2e/5o) per 4 vertexes =========================================================
+	nop							{o6 1}	stqx	k0_0f, outOffset1, pVertTemp0
+	nop							{o6 1}	stqx	k0_0f, outOffset1, pVertTemp1
+{e2 1}	ai	outOffset1, outOffset1, 64			{o6 1}	stqx	k0_0f, outOffset2, pVertTemp2
+	nop							{o6 1}	stqx	k0_0f, outOffset2, pVertTemp3
+{e2 1}	ai	outOffset2, outOffset2, 64		BTM_TrimLoop3:	brnz	outOffset1, TOP_TrimLoop3
+; ========================================================================================================
+
+
+TOP_TrimLoop4: ; 21 cycles (12e/21o) per 4 untrimmed triangles ===========================================
+{e2 1}	ceqi	isLastIteration, inOffset, 0			{o6 1}	lqx	inTri0, inOffset, pInTris0
+{e2 1}	ori	inOffsetOld, inOffset, 0			{o6 1}	lqx	inTri2, inOffset, pInTris1
+{e2 1}	selb	rotateBtoA, k8, rotateBtoA_L, isLastIteration		{lnop}
+	nop								{lnop}
+{e2 1}	selb	replaceCD, k0_0f, replaceCD_L, isLastIteration		{lnop}
+{e2 1}	ai	inOffset, inOffset, 32					{lnop}
+{e4 1}	shlhi	index01, inTri0, 4					{lnop}
+{e4 1}	shlhi	index21, inTri2, 4					{lnop}
+{e4 1}	rotmi	index00, index01, -16				{o4 1}	rotqby	index11, index01, rotateBtoA
+	nop							{o4 1}	rotqbyi	index02, index01, 2
+{e2 1}	selb index21_, index21, index11, replaceCD		{o4 1}	rotqbyi	index12, index11, 2
+{e4 2}	rotmi	index10, index11, -16				{o6 2}	stqx	kNeg1, index00, pVertTemp
+{e4 2}	rotmi	index20, index21_, -16				{o4 2}	rotqbyi index31, index21_, 8
+	{nop}							{o4 2}	rotqbyi index22, index21_, 2
+	{nop}							{o6 2}	stqx	kNeg1, index01, pVertTemp
+	nop							{o6 2}	stqx	kNeg1, index02, pVertTemp
+{e4 2}	rotmi	index30, index31, -16				{o4 2}	rotqbyi	index32, index31, 2
+	{nop}							{o6 2}	stqx	kNeg1, index10, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index11, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index12, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index20, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index21_, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index22, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index30, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index31, pVertTemp
+	{nop}							{o6 2}	stqx	kNeg1, index32, pVertTemp
+BTM_TrimLoop4:								brnz	inOffsetOld, TOP_TrimLoop4	
+; ========================================================================================================
+
+
+TOP_TrimLoop5: ; 19 cycles (19e/17o) per 4 vertexes ======================================================
+	{nop}							{o6 1}	lqx	mask_used0, inOffset, pVertTemp0
+	{nop}							{o6 1}	lqx	mask_used1, inOffset, pVertTemp1
+	nop							{o6 1}	lqx	mask_used2, inOffset, pVertTemp2
+{e2 1}	ceqi	isLastIteration, inOffset, -64			{o6 1}	lqx	mask_used3, inOffset, pVertTemp3
+{e2 1}	ori	inOffsetOld, inOffset, 0				{lnop}
+{e2 1}	ai	inOffset, inOffset, -64					{lnop}
+{e2 1}	selb	s_insert0, s_ABCDEFGH, s_BCDEFGHb, mask_used0		{lnop}
+{e2 1}	selb	s_insert1, s_ABCDEFGH, s_BCDEFGHd, mask_used1		{lnop}
+{e2 1}	selb	s_insert2, s_ABCDEFGH, s_BCDEFGHf, mask_used2	{o4 1}	shufb	reindexOut_, reindexOut, inOffsetOld, s_insert0
+{e2 1}	selb	s_insert3, s_ABCDEFGH, s_BCDEFGHh, mask_used3		{lnop}
+{e2 2}	andi	reindexInc0, mask_used0, 2				{lnop}
+{e4 2}	rotmi	renameOut0, reindexOff0, -1				lnop
+{e2 2}	a	reindexOff1, reindexOff0, reindexInc0		{o4 2}	shufb	reindexOut__, reindexOut_, inOffsetOld, s_insert1
+{e2 2}	andi	reindexInc1, mask_used1, 2			{o6 2}	stqx	reindexOut_, reindexOff0, pReindex
+{e4 2}	rotmi	renameOut1, reindexOff1, -1				{lnop}
+{e2 2}	a	reindexOff2, reindexOff1, reindexInc1			{lnop}
+{e2 2}	andi	reindexInc2, mask_used2, 2			{o4 2}	shufb	reindexOut___, reindexOut__, inOffsetOld, s_insert2
+{e4 2}	rotmi	renameOut2, reindexOff2, -1			{o6 2}	stqx	reindexOut__, reindexOff1, pReindex
+{e2 2}	a	reindexOff3, reindexOff2, reindexInc2			{lnop}
+{e2 2}	andi	reindexInc3, mask_used3, 2				{lnop}
+{e4 2}	rotmi	renameOut3, reindexOff3, -1			{o4 2}	shufb	reindexOut, reindexOut___, inOffsetOld, s_insert3
+{e2 2}	a	reindexOff0, reindexOff3, reindexInc3		{o6 2}	stqx	reindexOut___, reindexOff2, pReindex
+	{nop}							{o6 2}	stqx	renameOut0, inOffsetOld, pVertTemp0
+	{nop}							{o6 2}	stqx	renameOut1, inOffsetOld, pVertTemp1
+	{nop}							{o6 2}	stqx	reindexOut, reindexOff3, pReindex
+	{nop}							{o6 2}	stqx	renameOut2, inOffsetOld, pVertTemp2
+	{nop}							{o6 2}	stqx	renameOut3, inOffsetOld, pVertTemp3
+	{nop}						BTM_TrimLoop5:	brz	isLastIteration, TOP_TrimLoop5
+; ========================================================================================================
+
+TOP_TrimLoop6: ; 29 cycles (15e/29o) per 4 untrimmed triangles ===========================================
+{e2 1}	ceqi	isLastIteration, inOffset, 0			{o6 1}	lqx	inTri0, inOffset, pInTris0
+{e2 1}	ori	inOffsetOld, inOffset, 0			{o6 1}	lqx	inTri2, inOffset, pInTris1
+{e2 1}	selb	rotateBtoA, k8, rotateBtoA_L, isLastIteration		{lnop}
+{e2 1}	ai	inOffset, inOffset, 32					{lnop}
+{e2 1}	selb	replaceCD, k0_0f, replaceCD_L, isLastIteration		{lnop}
+	nop								{lnop}
+{e4 1}	shlhi	index01, inTri0, 4					{lnop}
+{e4 1}	shlhi	index21, inTri2, 4					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e4 1}	rotmi	index00, index01, -16				{o4 1}	rotqby	index11, index01, rotateBtoA
+	{nop}							{o4 1}	rotqbyi	index02, index01, 2
+	{nop}							{o6 1}	lqx index01_, index01, pVertTemp
+	nop								lnop
+{e2 1}	selb index21_, index21, index11, replaceCD		{o4 1}	rotqbyi	index12, index11, 2
+{e4 1}	rotmi	index10, index11, -16				{o6 1}	lqx index00_, index00, pVertTemp
+{e4 1}	rotmi index20, index21_, -16				{o4 1}	rotqbyi index31, index21_, 8
+	{nop}							{o4 1}	rotqbyi index22, index21_, 2
+	{nop}							{o6 1}	lqx index02_, index02, pVertTemp
+	nop							{o6 1}	lqx index10_, index10, pVertTemp
+{e4 1}	rotmi	index30, index31, -16				{o4 1}	rotqbyi	index32, index31, 2
+	{nop}							{o6 2}	lqx index11_, index11, pVertTemp
+	{nop}							{o6 2}	lqx index12_, index12, pVertTemp
+	{nop}							{o4 2}	shufb index00__, index00_, index01_, s_BbB0bBb0
+	{nop}							{o6 2}	lqx index20_, index20, pVertTemp
+	{nop}							{o4 2}	shufb index01__, index02_, index10_, s_BbB0bBb0
+	{nop}							{o6 2}	lqx index21__, index21_, pVertTemp
+	{nop}							{o6 2}	lqx index22_, index22, pVertTemp
+	{nop}							{o4 2}	shufb index02__, index11_, index12_, s_BbB0bBb0
+{e2 2}	selb outTri0, index00__, index01__, mask_0FFF		{o6 2}	lqx index30_, index30, pVertTemp
+	{nop}							{o6 2}	lqx index31_, index31, pVertTemp
+	{nop}							{o6 2}	lqx index32_, index32, pVertTemp
+{e2 2}	selb outTri0_, outTri0, index02__, mask_003F		{o4 2}	shufb index20__, index20_, index21__, s_BbB0bBb0
+	{nop}								lnop
+	{nop}							{o6 2}	stqx outTri0_, outOffset, pInTris0
+	{nop}							{o4 2}	shufb index21___, index22_, index30_, s_BbB0bBb0
+	{nop}								lnop
+	{nop}							{o4 2}	shufb index22__, index31_, index32_, s_BbB0bBb0
+	{nop}								{lnop}
+{e2 2}	selb outTri1, index20__, index21___, mask_0FFF			{lnop}
+	nop								{lnop}
+{e2 2}	selb outTri1_, outTri1, index22__, mask_003F			{lnop}
+{e2 2}	ai	outOffset1, outOffset1, 32				lnop
+	{nop}							{o6 2}	stqx outTri1_, outOffset, pInTris1
+{e2 2}	ori	outOffset, outOffset1, 0				lnop
+BTM_TrimLoop6:								brnz	inOffsetOld, TOP_TrimLoop6
+; ========================================================================================================	
+.endif
+
+	
+
+; self-test code -- may not be kept up to date!
+.if TEST
+
+.data
+.align 12
+
+.align 4
+m_in:		.dh	0x00,	0x01,	0x02,	0x00,	0x03,	0x04,	0x05,	0x03
+		.dh	0x10,	0x11,	0x12,	0x10,	0x13,	0x14,	0x15,	0x13
+		.dh	0x20,	0x21,	0x22,	0x20,	0x23,	0x24,	0x25,	0x23
+
+.align 4
+m_out:		.dh	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead
+		.dh	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead
+		.dh	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead
+		.dh	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead,	0xdead
+.align 4
+m_vertPos:	.df	0.1,	0.2,	0.3,	1.0
+		.df	1.1,	1.2,	1.3,	1.0	
+		.df	2.1,	2.2,	2.3,	1.0	
+		.df	3.1,	3.2,	3.3,	1.0	
+		.df	4.1,	4.2,	4.3,	1.0	
+		.df	5.1,	5.2,	5.3,	1.0	
+		.df	6.1,	6.2,	6.3,	1.0	
+		.df	7.1,	7.2,	7.3,	1.0	
+		.df	8.1,	8.2,	8.3,	1.0	
+		.df	9.1,	9.2,	9.3,	1.0	
+		.df	10.1,	10.2,	10.3,	1.0	
+		.df	11.1,	11.2,	11.3,	1.0	
+		.df	12.1,	12.2,	12.3,	1.0	
+		.df	13.1,	13.2,	13.3,	1.0	
+		.df	14.1,	14.2,	14.3,	1.0	
+		.df	15.1,	15.2,	15.3,	1.0	
+		.df	16.1,	16.2,	16.3,	1.0	
+		.df	17.1,	17.2,	17.3,	1.0	
+		.df	18.1,	18.2,	18.3,	1.0	
+		.df	19.1,	19.2,	19.3,	1.0	
+		.df	20.1,	20.2,	20.3,	1.0	
+		.df	21.1,	21.2,	21.3,	1.0	
+		.df	22.1,	22.2,	22.3,	1.0	
+		.df	23.1,	23.2,	23.3,	1.0	
+		.df	24.1,	24.2,	24.3,	1.0	
+		.df	25.1,	25.2,	25.3,	1.0	
+		.df	26.1,	26.2,	26.3,	1.0	
+		.df	27.1,	27.2,	27.3,	1.0	
+		.df	28.1,	28.2,	28.3,	1.0	
+		.df	29.1,	29.2,	29.3,	1.0	
+		.df	30.1,	30.2,	30.3,	1.0	
+		.df	31.1,	31.2,	31.3,	1.0	
+		.df	32.1,	32.2,	32.3,	1.0	
+		.df	33.1,	33.2,	33.3,	1.0	
+		.df	34.1,	34.2,	34.3,	1.0	
+		.df	35.1,	35.2,	35.3,	1.0	
+		.df	36.1,	36.2,	36.3,	1.0	
+		.df	37.1,	37.2,	37.3,	1.0	
+		.df	38.1,	38.2,	38.3,	1.0	
+		.df	39.1,	39.2,	39.3,	1.0	
+.align 4
+m_vpi:		.db	0x00, 0x00				;; rgms flag, mirror flag
+		.dh	0, 0, 0					;; padding
+		.dh	0, 1280, 0, 720				;; scissor area (left, right, top, bottom)
+		.df	1.0,	0.0,	0.0,	0.0		;; world-to-hdc matrix
+		.df	0.0,	1.0,	0.0,	0.0		;; world-to-hdc matrix
+		.df	0.0,	0.0,	1.0,	0.0		;; world-to-hdc matrix
+		.df	0.0,	0.0,	0.0,	1.0		;; world-to-hdc matrix
+		.df	640,	640,	-360,	360		;; hdc-to-screen (h scale, h offset, v scale, v offset)
+		.df	0,	1000				;; depth bounds (close, far)
+.align 4
+m_objinfo:	.db	0x00					;; disable backface cull?
+.align 4
+m_rigidXform:	.df	1.0,	0.0,	0.0,	0.0		;; rigid body transformation matrix
+		.df	0.0,	1.0,	0.0,	0.0
+		.df	0.0,	0.0,	1.0,	0.0
+		.df	0.0,	0.0,	0.0,	1.0
+.align 4
+m_vertTemp:	.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+		.dw	0xdeadc0de, 0xdeadc0de, 0xdeadc0de, 0xdeadc0de
+.align 4
+m_reindex:	.dh	0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead
+		.dh	0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead
+		.dh	0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead
+		.dh	0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead, 0xdead
+.align 4
+m_trimCounts:	.dw	4,	40,	4,	40
+	
+.text
+.align 7
+
+.global _start
+_start:
+	ila	pTris, m_in						hbrr	CALL_TrimTriangles, TrimTriangles
+	ila	pTrimCounts, m_trimCounts				lnop
+	ila	pViewportInfo, m_vpi					lnop
+	ila	pObjectInfo, m_objinfo					lnop
+	ila	pRigidXformInfo, m_rigidXform				lnop
+	ila	pVertPositions, m_vertPos				lnop
+	ila	pVertTemp, m_vertTemp					lnop
+	ila	pReindex, m_reindex					lnop
+	nop					CALL_TrimTriangles:	brsl	$lr, TrimTriangles
+	
+.endif ; TEST
+
+.end

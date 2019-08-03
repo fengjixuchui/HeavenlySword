@@ -1,0 +1,502 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=Windows-1252">
+</head>
+<body>
+
+<table width="100%" border="1" cellspacing="0" cellpadding="2" bordercolor="#660099">
+<tr bgcolor="#0099CC" bordercolor="#0099CC">
+    <td height="16" bgcolor="#660099" bordercolor="#660099" width="50%"><font size="2" color="#FFFFFF"><b><b><font face="Verdana, Arial, Helvetica, sans-serif" size="4" color="#FFFFFF">
+    <b>Project Details</b></font></td>
+</tr>
+
+<tr bgcolor="#FFFFFF" bordercolor="#0099CC" valign="TOP">
+    <td height="20" bordercolor="#660099" colspan="2">
+    <table width="100%" border="0" cellspacing="3" cellpadding="2">
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="100%"><font face="Verdana, Arial, Helvetica, sans-serif" size="2">
+            <b>Project: heavenly_sword, Configuration: dbg_ps3|Win32</b>
+            </a></font></td>
+    </table>
+    </td>
+</tr>
+</table>
+
+<p>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" bordercolor="#996699">
+<tr bgcolor="#0099CC" bordercolor="#0099CC">
+    <td height="16" bgcolor="#996699" bordercolor="#996699" width="50%"><font size="2" color="#FFFFFF"><b><b><font face="Verdana, Arial, Helvetica, sans-serif" size="2" color="#FFFFFF">
+    <b>Project Configuration Properties</b></font></td>
+</tr>
+
+<tr bgcolor="#FFFFFF" bordercolor="#0099CC" valign="TOP">
+    <td height="20" bordercolor="#996699" colspan="2">
+    <table width="100%" border="0" cellspacing="3" cellpadding="2">
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">General</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Output Directory
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            $(ConfigurationName)
+            </a></font></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Intermediate Directory
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            $(ConfigurationName)
+            </a></font></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Extensions to Delete on Clean
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            *.obj;*.d;*.map;*.lst;*.pch;$(TargetPath)
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">C/C++</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Additional Include Directories
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            "$(SN_PS3_PATH)\ppu\include\sn";"$(SCE_PS3_ROOT)\target\ppu\";code;code_ps3;code_ps3\3rdparty\atg\Include;code_ps3\3rdparty\ice\src;code_ps3\3rdparty\ice\src\system;code\3rdparty\hk330\include\common;code\3rdparty\hk330\include\physics;code\3rdparty\hk330\include\animation;code\3rdparty\hk330\include\complete;code_ps3\3rdparty\Speedtree\include
+            </a></font></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Preprocessor Definitions
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            SN_TARGET_PS3;_DEBUG;__GCC__;PLATFORM_PS3;ATG_PS3_PLATFORM;ATG_DEBUG_BUILD;_HAS_EXCEPTIONS=0;SCEA_TARGET_OS_PS3_PU
+            </a></font></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Object File Name
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            $(IntDir)/
+            </a></font></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -fno-rtti -fno-strict-aliasing -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">Linker</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Output File
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            $(InputDir)hs_dbg.elf
+            </a></font></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Additional Dependencies
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            "$(SN_PS3_PATH)\ppu\lib\sn\libsn.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libm.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libio.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libnet.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libspurs.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libaudio.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libmixer.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libmstream.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libfs.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libpad.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libkb.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libmouse.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libusbd.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libsync.a" "$(SCE_PS3_ROOT)\target\ppu\lib\libnetctl.a" code_ps3\3rdparty\atg\lib\Debug\Fw.a code_ps3\3rdparty\atg\lib\Debug\Gc.a code_ps3\3rdparty\atg\lib\Debug\FpInput.a code_ps3\3rdparty\atg\lib\Debug\FpGeom.a code_ps3\3rdparty\atg\lib\Debug\GpBasicText.a code_ps3\3rdparty\atg\lib\Debug\GpHdr.a code_ps3\3rdparty\atg\lib\Debug\GpBasicPrims.a code_ps3\3rdparty\atg\lib\Debug\FpResource.a code_ps3\3rdparty\atg\lib\Debug\SpuKernel.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkanimation.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkbase.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkcollide.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkcompression.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkconstraintsolver.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkdynamics.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkinternal.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkmath.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkragdoll.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkscenedata.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkserialize.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkutilities.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkvehicle.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkvisualize.a code_ps3\3rdparty\hk330\lib\ppu\debug\libhkcompat.a code_ps3\3rdparty\ice\src\job\Debug\IceJob.a code_ps3\3rdparty\ice\lib\libicerender-debug.a code_ps3\3rdparty\atg\lib\Debug\nextsynth.a code_ps3\3rdparty\atg\lib\Debug\scream.a "$(SN_PS3_PATH)\ppu\lib\sn\SNTuner.a"
+            </a></font></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            Additional Library Directories
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            code_ps3\3rdparty\atg\lib\Debug\
+            </a></font></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for Linker
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            
+            </a></font></td>
+        </tr>
+        </table>
+    </td>
+</tr>
+</table>
+<p>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" bordercolor="#996699">
+<tr bgcolor="#0099CC" bordercolor="#0099CC">
+    <td height="16" bgcolor="#996699" bordercolor="#996699" width="50%"><font size="2" color="#FFFFFF"><b><b><font face="Verdana, Arial, Helvetica, sans-serif" size="2" color="#FFFFFF">
+    <b>Individual File Properties</b></font></td>
+</tr>
+
+<tr bgcolor="#FFFFFF" bordercolor="#0099CC" valign="TOP">
+    <td height="20" bordercolor="#996699" colspan="2">
+    <table width="100%" border="0" cellspacing="3" cellpadding="2">
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lapi.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lbaselib.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lcode.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">ldblib.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">ldebug.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">ldo.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">ldump.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lfunc.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lgc.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">linit.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">liolib.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">llex.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lmathlib.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lmem.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">loadlib.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lobject.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lopcodes.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">loslib.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lparser.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lstate.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lstring.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lstrlib.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">ltable.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">ltablib.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">ltm.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lundump.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lvm.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">lzio.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        <tr bgcolor="#FFFFCC">
+        <td width="30%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399">print.c</font></b></td>
+    	<td width="70%" bgcolor="#CCCCCC"><b><font face="Verdana, Arial, Helvetica, sans-serif" size="1" color="#333399"></font></b></td>
+        </tr>
+        <tr valign="TOP" bgcolor="#FFFFCC">
+        <td width="30%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            All Options for CC
+            </a></font></td>
+        <td width="70%"><font face="Verdana, Arial, Helvetica, sans-serif" size="1">
+            -g -Wall -fno-exceptions -Werror -include game/pch.h 
+            </a></font></td>
+        </tr>
+        </table>
+    </td>
+</tr>
+</table>
+</body>
+</html>

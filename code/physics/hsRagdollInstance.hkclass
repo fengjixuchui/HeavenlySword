@@ -1,0 +1,29 @@
+<file>
+	<product>HAVOK_2</product>
+	<platform>ALL</platform>
+	<visibility>PUBLIC</visibility>
+	<headerfile>#include &lt;hkmath/hkMath.h&gt;
+#include &lt;hkdynamics/entity/hkRigidBody.h&gt;
+#include &lt;hkdynamics/world/hkPhysicsSystem.h&gt;
+#include &lt;hkscenedata/rig/hkSkeleton.h&gt;
+#include &lt;hkutilities/ragdoll/instance/hkRagdollInstance.inl&gt;
+</headerfile>
+	<class>
+		<name>hkRagdollInstance</name>
+		<abstract>0</abstract>
+		<vtable>1</vtable>
+		<parent>hkReferencedObject</parent>
+		<member>
+			<name>physicsSystem</name>
+			<type>const hkPhysicsSystem*</type>
+			<visibility>protected</visibility>
+		</member>
+		<member>
+			<name>skeleton</name>
+			<type>const hkSkeleton*</type>
+			<visibility>protected</visibility>
+		</member>
+		<ownsobjects>0</ownsobjects>
+		<fromheader>1</fromheader>
+	</class>
+</file>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="fixedaddrmodule"
+	ProjectGUID="{F43E2D58-600E-4D88-8D59-5856C53E0F48}"
+	RootNamespace="fixedaddrmodule"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=debug"
+				ReBuildCommandLine="make all VERSION=debug"
+				CleanCommandLine="make clean VERSION=debug"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=release"
+				ReBuildCommandLine="make all VERSION=release"
+				CleanCommandLine="make clean VERSION=release"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{A39E91CD-49F2-4FD3-89FB-CD2A48FD994C}">
+			<File
+				RelativePath=".\fixedaddrmodule.cpp">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{6501664D-5DB1-46D4-93B0-99B65ACFFA0C}">
+			<File
+				RelativePath=".\fixedaddrmodule.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{EDD86A80-209E-4102-A658-37D1459998A4}">
+			<File
+				RelativePath=".\makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

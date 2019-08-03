@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="auditsmodule"
+	ProjectGUID="{1B4D1988-3036-4F0D-8ABA-6ECFE3696251}"
+	RootNamespace="auditsmodule"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=debug"
+				ReBuildCommandLine="make all VERSION=debug"
+				CleanCommandLine="make clean VERSION=debug"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=release"
+				ReBuildCommandLine="make all VERSION=release"
+				CleanCommandLine="make clean VERSION=release"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{68BBE243-33D8-40F6-8FD9-C10AA8A400AA}">
+			<File
+				RelativePath=".\auditsmodule.cpp">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{3E7398BA-8227-4D64-8F58-07432D0A9758}">
+			<File
+				RelativePath=".\auditsmodule.h">
+			</File>
+			<File
+				RelativePath=".\jobaudits.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{50CD6C4E-E6CB-48C9-B396-4BA9260C6FD4}">
+			<File
+				RelativePath=".\auditmoduleauditdata.inc">
+			</File>
+			<File
+				RelativePath=".\makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

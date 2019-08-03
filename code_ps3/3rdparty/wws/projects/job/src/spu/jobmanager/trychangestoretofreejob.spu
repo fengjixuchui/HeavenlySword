@@ -1,0 +1,313 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+.start
+.include "conventions.inl"
+.text
+
+.global WwsJob_TryChangeStoreToFreeJob
+// static Bool32 WwsJob_TryChangeStoreToFreeJob( void )
+
+.extern g_WwsJob_storeJobNum
+.extern g_WwsJob_bufferSetArray
+.extern g_WwsJob_jobDataArray
+.extern g_WwsJob_bufferArray
+.extern TryFreeTagAndUsedPages
+.extern DecrementDependency
+.extern StoreAuditDataInitialU64
+.extern StoreAuditDataParameterU64
+.extern TryChangeStoreToFreeJob_AssertBufferNumValid
+
+// Return value
+.reg returnVal			3
+
+.reg activeShareableBuffers
+.reg buffer
+.reg bufferArrayOffset
+.reg bufferClear
+.reg bufferIndex
+.reg bufferQword
+.reg bufferQwordOut
+.reg bufferSetArrayJobOffset
+.reg bufferSetNum
+.reg bufferSetOffset
+.reg bufferSetQword
+.reg comp01
+.reg compM2
+.reg dep1
+.reg dep2
+.reg dep3
+.reg doLoop
+.reg eaDeps
+.reg firstBufferNum
+.reg firstFreeBufferNum
+.reg jIndex0
+.reg jIndex1
+.reg jIndex2
+.reg jobDataDepOffset
+.reg jobDataOffset
+.reg jobDataQword
+.reg jobDataQword0
+.reg jobDataQword1
+.reg jobDataQword2
+.reg jobDataQwordOut
+.reg jobIndex0
+.reg jobIndex1
+.reg jobIndex2
+.reg jobListHeader
+.reg kDmaGetllar
+.reg kDmaPutllc
+.reg min01
+.reg minActive
+.reg minActiveStart
+.reg notReserved
+.reg numDeps
+.reg ongoingDma
+.reg pAtomicBuf
+.reg pBufferArray
+.reg pBufferSets
+.reg pJobDataArray
+.reg same0
+.reg same1
+.reg same2
+.reg s_bufferInsert
+.reg sel_aBcd
+.reg sel_Abcd
+.reg sel_ABCDEfGH
+.reg shareable
+.reg shareableMask
+.reg s_minActiveInsert
+.reg spuNum
+.reg spuOffset
+.reg status
+.reg storeJobNum
+.reg used
+.reg usedMask
+.reg mask_noShareableBufs
+.reg mask_jobEverExisted
+.reg _2
+.reg sel_clearJobData
+
+.if ENABLE_IMPORTANT_AUDITS
+.reg bufferNum
+.endif
+
+.if ASSERTS_ENABLED
+.reg bufferNumOk
+.reg numBuffers
+.endif
+
+WwsJob_TryChangeStoreToFreeJob:
+	{nop}									lqa	storeJobNum, g_WwsJob_storeJobNum
+	{nop}									stqd	$sp, -0x40($sp)
+	{nop}									stqd	$lr, 0x10($sp)
+	{nop}									{lnop}
+	ai	$sp, $sp, -0x40							{lnop}
+	{nop}									{lnop}
+	shli	jobDataOffset, storeJobNum, 5					stqd	$80, 0x20($sp)
+	shli	bufferSetArrayJobOffset, storeJobNum, 6				stqd	$81, 0x30($sp)
+	ila	pJobDataArray, g_WwsJob_jobDataArray				{lnop}
+	ila	pBufferSets, g_WwsJob_bufferSetArray				{lnop}
+	shli	bufferArrayOffset, storeJobNum, 8				lqx	jobDataQword, pJobDataArray, jobDataOffset
+	a	pBufferSets, pBufferSets, bufferSetArrayJobOffset		{lnop}
+	ai	bufferIndex, jobDataOffset, -1					{lnop}
+	ila	pBufferArray, g_WwsJob_bufferArray				lqa	spuNum, g_WwsJob_dataForJob
+	ai	bufferArrayOffset, bufferArrayOffset, -8			fsmbi	ongoingDma, 0x0000
+	il	activeShareableBuffers, 0					{lnop}
+	{nop}									rotqbyi	firstFreeBufferNum, jobDataQword, 2
+
+tcstfj_loop:
+	ai	bufferArrayOffset, bufferArrayOffset, 8				fsmbi	sel_Abcd, 0x0FFF
+	ai	bufferIndex, bufferIndex, 1					{lnop}							
+	{nop}									lqx	bufferQword, pBufferArray, bufferArrayOffset
+	cgth	doLoop, firstFreeBufferNum, bufferIndex				{lnop}
+	{nop}									{lnop}
+	{nop}									brhz	doLoop, tcstfj_loop_end
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									rotqby	buffer, bufferQword, bufferArrayOffset
+	{nop}									cdd	s_bufferInsert, 0(bufferArrayOffset)
+	{nop}									{lnop}
+	{nop}									{lnop}
+	cgti	notReserved, buffer, -1						rotqbyi	bufferSetNum, buffer, 4
+	and	bufferClear, buffer, sel_Abcd					brz	buffer, tcstfj_loop
+
+.cset bufferSetOffset, firstBufferNum
+	{nop}									brz	notReserved, tcstfj_store_buffer
+	{nop}									{lnop}
+	andi	bufferSetNum, bufferSetNum, 0xF					{lnop}
+	ilhu	usedMask, 0x0800						{lnop}
+	shli	bufferSetOffset, bufferSetNum, 2				{lnop}
+	and	used, buffer, usedMask						shlqbyi	usedMask, usedMask, 12
+	ori	$5{bufferIn}, buffer, 0						{lnop}
+	{nop}									{lnop}
+	{nop}									lqx	bufferSetQword, pBufferSets, bufferSetOffset
+	andc	buffer, buffer, usedMask					{lnop}
+	ilhu	shareableMask, 0x4000						{lnop}
+	{nop}									shufb	bufferQwordOut, buffer, bufferQword, s_bufferInsert
+	{nop}									{lnop}
+	and	shareable, buffer, shareableMask				{lnop}
+	{nop}									rotqby	$3{bufferSet}, bufferSetQword, bufferSetOffset
+	or	activeShareableBuffers, activeShareableBuffers, shareable	{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+
+.if ASSERTS_ENABLED
+	rotmi	numBuffers, $3{bufferSet}, -8					{lnop}
+	andi	firstBufferNum, $3{bufferSet}, 0xFF				{lnop}
+	{nop}									{lnop}
+	sf	$4{bufferNumIn}, firstBufferNum, bufferIndex			{lnop}
+	andi	numBuffers, numBuffers, 0x7F					{lnop}
+	{nop}									{lnop}
+	clgt	bufferNumOk, numBuffers, $4{bufferNumIn}			{lnop}
+	{nop}									{lnop}
+	{nop}									brz	bufferNumOk, TryChangeStoreToFreeJob_AssertBufferNumValid [#nojump]
+	{nop}									brz	used, tcstfj_buffer_not_used
+	{nop}									brsl	$6, TryFreeTagAndUsedPages [#TryFreeTagAndUsedPagesCC]
+.else
+	andi	firstBufferNum, $3{bufferSet}, 0xFF				brz	used, tcstfj_buffer_not_used
+	{nop}									{lnop}
+	sf	$4{bufferNumIn}, firstBufferNum, bufferIndex			brsl	$6, TryFreeTagAndUsedPages [#TryFreeTagAndUsedPagesCC]
+.endif
+	orc	ongoingDma, ongoingDma, $3{freeTagAndUsedPages}			brz	$3{freeTagAndUsedPages}, tcstfj_loop
+
+.if ENABLE_IMPORTANT_AUDITS
+	shli	$75{auditData}, bufferSetOffset, 6				{lnop}
+.endif
+	{nop}									stqx	bufferQwordOut, pBufferArray, bufferArrayOffset
+.if ENABLE_IMPORTANT_AUDITS
+	sf	bufferNum, firstBufferNum, bufferIndex				{lnop}
+	ila	$74{auditType}, kWwsJob_TryChangeStoreToFreeJob_clearUsed	{lnop}
+	il	$76{numAuditParams}, 1						{lnop}
+	or	$75{auditData}, $75{auditData}, bufferNum			brsl	$78{auditReturn}, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+	ori	$74{auditParam}, buffer, 0					brsl	$78{auditParamReturn}, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+
+tcstfj_buffer_not_used:
+	{nop}									brnz	shareable, tcstfj_loop
+
+tcstfj_store_buffer:
+	{nop}									shufb	bufferQword, bufferClear, bufferQword, s_bufferInsert
+	{nop}									{lnop}
+
+.if ENABLE_IMPORTANT_AUDITS
+	shli	$75{auditData}, bufferSetOffset, 6				{lnop}
+	sf	bufferNum, firstBufferNum, bufferIndex				lnop
+	ila	$74{auditType}, kWwsJob_TryChangeStoreToFreeJob_inactivateNonShareBuf	stqx	bufferQword, pBufferArray, bufferArrayOffset
+	il	$76{numAuditParams}, 1						brz	notReserved, tcstfj_loop
+	or	$75{auditData}, $75{auditData}, bufferNum			brsl	$78{auditReturn}, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+	ori	$74{auditParam}, bufferClear, 0					brsl	$78{auditParamReturn}, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.else
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									stqx	bufferQword, pBufferArray, bufferArrayOffset
+.endif
+	{nop}									br	tcstfj_loop
+
+tcstfj_loop_end:
+	{nop}									fsmbi	sel_aBcd, 0xF0FF
+	ceqi	mask_noShareableBufs, activeShareableBuffers, 0			fsm	ongoingDma, ongoingDma ;broadcast 0 or -1
+	{nop}									fsmbi	mask_jobEverExisted, 0x0300
+	{nop}									fsm	mask_noShareableBufs, mask_noShareableBufs ; broadcast 0 or -1
+	{nop}									fsmbi	sel_ABCDEfGH, 0x0030
+	{nop}									{lnop}		
+	andc	sel_clearJobData, sel_aBcd, ongoingDma				{lnop}
+	and	mask_noShareableBufs, mask_noShareableBufs, mask_jobEverExisted	{lnop}
+	selb	jobDataQwordOut, jobDataQword, sel_ABCDEfGH, sel_clearJobData	{lnop}
+	{nop}									{lnop}		
+	andc	jobDataQwordOut, jobDataQwordOut, mask_noShareableBufs		{lnop}
+	{nop}									{lnop}		
+	{nop}									stqx	jobDataQwordOut, pJobDataArray, jobDataOffset
+	il	returnVal, 0							brnz	ongoingDma, tcstfj_exit							
+
+.if ENABLE_IMPORTANT_AUDITS
+	ila	$74{auditType}, kWwsJob_TryChangeStoreToFreeJob_jobDone		lnop
+	ori	$75{auditData}, storeJobNum, 0					lqd	jobDataQword0, 0x00(pJobDataArray)
+	il	$76{numAuditParams}, 0						brsl	$78{auditReturn}, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+.else
+	nop									lqd	jobDataQword0, 0x00(pJobDataArray)
+.endif
+
+	ila	pAtomicBuf, g_tempUsageAtomicBuffer				lqd	jobDataQword1, 0x20(pJobDataArray)
+	ai	jobDataDepOffset, jobDataOffset, 0x10				lqd	jobDataQword2, 0x40(pJobDataArray)
+	{nop}									{lnop}
+	ila	minActiveStart, 0xFFFF						lqx	eaDeps, pJobDataArray, jobDataDepOffset
+	il	kDmaGetllar, 0xD0						stqa	sel_aBcd, g_WwsJob_storeJobNum
+	ceq	same0, jobDataQword, jobDataQword0				rotqbyi	jobIndex0, jobDataQword0, 8
+	ceq	same1, jobDataQword, jobDataQword1				rotqbyi	jobIndex1, jobDataQword1, 8
+	ceq	same2, jobDataQword, jobDataQword2				rotqbyi	jobIndex2, jobDataQword2, 8
+	a	spuOffset, spuNum, spuNum					lnop
+	selb	jIndex0, minActiveStart, jobIndex0, same0			rotqbyi	numDeps, jobDataQword, 12
+
+tcstfj_atomic_loop:
+	selb	jIndex1, minActiveStart, jobIndex1, same1			wrch	$ch16, pAtomicBuf
+	selb	jIndex2, minActiveStart, jobIndex2, same2			wrch	$ch18, jobDataQword
+	cgt	comp01, jIndex0, jIndex1					wrch	$ch21, kDmaGetllar
+	il	kDmaPutllc, 0xB4						rdch	status, $ch27
+.cuse status
+	selb	min01, jIndex0, jIndex1, comp01					lqd	jobListHeader, 0x10(pAtomicBuf)
+	{nop}									{lnop}
+	cgt	compM2, min01, jIndex2						chd	s_minActiveInsert, 4(spuOffset)
+	{nop}									{lnop}
+	selb	minActive, min01, jIndex2, compM2				hbrr	tcstfj_deps_branch, tcstfj_exit_true
+	{nop}									{lnop}
+	{nop}									shufb	jobListHeader, minActive, jobListHeader, s_minActiveInsert
+	{nop}									{lnop}
+	{nop}									wrch	$ch16, pAtomicBuf
+	{nop}									wrch	$ch18, jobDataQword
+	{nop}									stqd	jobListHeader, 0x10(pAtomicBuf)
+	{nop}									wrch	$ch21, kDmaPutllc
+	{nop}									rdch	status, $ch27
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+	andi	status, status, 1						{lnop}
+	{nop}									{lnop}
+	{nop}									brnz	status, tcstfj_atomic_loop
+	ila	$lr, tcstfj_dep1			tcstfj_deps_branch:	brz	numDeps, tcstfj_exit_true
+	ori	$3{eaDepIn}, eaDeps, 0						{lnop}
+										.cuse	$3
+	{nop}									brnz	eaDeps, DecrementDependency [#func]
+.cuse $4
+
+tcstfj_dep1:
+	ceqi	dep1, numDeps, 1						rotqbyi	$3{eaDepIn}, eaDeps, 4
+	{nop}									{lnop}
+	{nop}									brnz	dep1, tcstfj_exit_true
+	ila	$lr, tcstfj_dep2						{lnop}
+	{nop}									brnz	$3{eaDepIn}, DecrementDependency [#func]
+
+tcstfj_dep2:
+	ceqi	dep2, numDeps, 2						rotqbyi	$3{eaDepIn}, eaDeps, 8
+	{nop}									{lnop}
+	{nop}									brnz	dep2, tcstfj_exit_true
+	ila	$lr, tcstfj_dep3						{lnop}
+	{nop}									brnz	$3{eaDepIn}, DecrementDependency [#func]
+
+tcstfj_dep3:
+	ceqi	dep3, numDeps, 3						rotqbyi	$3{eaDepIn}, eaDeps, 12
+	{nop}									lnop
+	{nop}									{lnop}
+	{nop}									{lnop}
+	andc	$3{eaDepIn}, $3{eaDepIn}, dep3					{lnop}
+	ila	$lr, tcstfj_exit_true						{lnop}
+	{nop}									brnz	$3{eaDepIn}, DecrementDependency [#func]
+
+tcstfj_exit_true:
+	ilh	returnVal, -1							{lnop}
+
+tcstfj_exit:
+	{nop}									lqd	$lr, 0x50($sp)
+	{nop}									lqd	$80, 0x20($sp)
+	{nop}									lqd	$81, 0x30($sp)
+	{nop}									{lnop}
+	{nop}									{lnop}
+	ai	$sp, $sp, 0x40							{lnop}
+	{nop}									bi	$lr
+
+.end

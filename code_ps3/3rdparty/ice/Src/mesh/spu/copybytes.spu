@@ -1,0 +1,280 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global CopyBytes
+; Implements CopyBytes() in ice/mesh/icememcopy.cpp
+; void CopyBytes( void* pDst, const void* pSrc, const U32 numBytes );
+;
+; Copy memory from an unaligned source to an unaligned destination
+
+.data
+;; Program data
+.extern m_ABCDEFGHIJKLMNOP 
+
+.text
+	.reg	in_dst_ptr	3
+	.reg	in_src_ptr	4
+	.reg	in_size 	5
+	
+	.reg	src_offset		; Amount source pointer is offset from qword boundary
+	.reg	dst_offset		; Amount source pointer is offset from qword boundary
+	.reg	boundary_shuf		; Same as inner shuf, but for boundary case.  Will be overwritten by inner_shuf during first loop iteration
+	.reg	inner_shuf		; Shuffles bytes into place from 2 qwords
+	.reg	s_DDDDDDDDDDDDDDDD	; Used to offset shuffle masks
+	.reg	s_ABCDEFGHIJKLMNOP	; Used with s_DDDD... to pull data to correct offset from qword boundary
+	.reg	s_AAAA			; Copies preferred word into all words
+	.reg	s_abcdefghijklmnop	; Used with s_DDDD... to pull data to correct offset from qword boundary
+	.reg	shuf_mask		; Shuffle mask to move data from 2 qwords into proper place
+	.reg	src_offset1		; Offset from source pointer
+	.reg	src_offset2		; Offset from source pointer
+	.reg	src_offset3		; Offset from source pointer
+	.reg	src_offset4		; Offset from source pointer
+	.reg	src_offset5		; Offset from source pointer
+	.reg	src_offset6		; Offset from source pointer
+	.reg	data_offset		; Effectively the source pointer
+	.reg	lqword1			; First loaded qword
+	.reg	lqword2			; Second loaded qword
+	.reg	lqword3			; Third loaded qword
+	.reg	lqword4			; Fourth loaded qword
+	.reg	lqword5			; Fifth loaded qword
+	.reg	lqword6			; Sixth loaded qword
+	.reg	result1			; First final value that will be stored
+	.reg	result2			; Second final value that will be stored
+	.reg	result3			; Third final value that will be stored
+	.reg	result4			; Fourth final value that will be stored
+	.reg	delay_dest_offset	; Used to delay incrementing destination pointer until legitimate data has been written
+	.reg	offset			; difference between how far off of qword boundary source and destination pointers are
+	.reg	neg_dst_offset		; Negative destination offset, used to build save_fqword_mask
+	.reg	out_offset		; How far final write is from qword boundary
+	.reg	b_write1		; Select mask used to determine if value should be written after loop exit
+	.reg	b_write2		; Select mask used to determine if value should be written after loop exit
+	.reg	b_write3		; Select mask used to determine if value should be written after loop exit
+	.reg	b_write4		; Select mask used to determine if value should be written after loop exit
+	.reg	final_sel		; Select mask for the final write, so data is preserved properly
+	.reg	final_sel1		; Select mask for first qword of final write, so data is preserved properly
+	.reg	final_sel2		; Select mask for second qword of final write, so data is preserved properly
+	.reg	final_sel3		; Select mask for third qword of final write, so data is preserved properly
+	.reg	final_sel4		; Select mask for fourth qword of final write, so data is preserved properly
+	.reg	special_shuf		; Shuffle for first qword write only
+	.reg	preserve1		; Stores memory at end of copy so it can be restored
+	.reg	preserve2		; Stores memory at end of copy so it can be restored
+	.reg	preserve3		; Stores memory at end of copy so it can be restored
+	.reg	preserve4		; Stores memory at end of copy so it can be restored
+	.reg	far_addr		; Address where final write begins
+	.reg	qword_size		; How many sets of 4 qwords will be written
+	.reg	temp_end_ptr		; Pointer to memory which will be written over last
+	.reg	save_first_qword	; Select mask to insure memory isn't trashed on first qword write
+	.reg	save_fqword_mask	; Select mask to insure memory isn't trashed on first qword write, coupled with save_first_qword
+	.reg	fqword_mask_delay	; Holds save_fqword_mask
+	.reg	hexten			; Holds the value 0x10
+	.reg	zero			; Holds the value 0x0
+	.reg	temp1			; Temporary storage
+	.reg	temp2			; Temporary storage
+
+.align 7
+
+CopyBytes:
+	;; push inputs into all words					;;
+{e2}	ila	s_AAAA, 0x10203					{o?}	biz	in_size, $lr
+	{nop}								{lnop}
+	{nop}							{o4}	shufb	in_src_ptr, in_src_ptr, in_src_ptr, s_AAAA
+	{nop}							{o4}	shufb	in_dst_ptr, in_dst_ptr, in_dst_ptr, s_AAAA
+	{nop}							{o4}	shufb	in_size, in_size, in_size, s_AAAA
+	{nop}							{o6}	lqr 	s_ABCDEFGHIJKLMNOP, m_ABCDEFGHIJKLMNOP
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303			{o4}	fsmbi	zero, 0x0
+{e2}	andi	src_offset, in_src_ptr, 0xf 			{o?}	hbrr	BRANCH, MAINLOOP
+{e2}	andi	dst_offset, in_dst_ptr, 0xf				lnop
+{e2}	sfi	neg_dst_offset, dst_offset, 0x0				{lnop}
+{e2}	ilh	shuf_mask, 0xffff					{lnop}
+{e2}	ori	boundary_shuf, s_ABCDEFGHIJKLMNOP, 0x0			{lnop}
+{e2}	sf	offset, dst_offset, src_offset				{lnop}
+	nop							{o4}	rotqmby save_fqword_mask, shuf_mask, neg_dst_offset
+{e2}	cgti	temp1, offset, 0x0					lnop
+{e2}	il	hexten, 0x10						{lnop}
+{e2}	selb	temp1, hexten, zero, temp1 				{lnop}
+{e2}	a	offset, offset, temp1					{lnop}
+{e2}	sf	in_src_ptr, temp1, in_src_ptr				{lnop}
+	nop							{o4}	shufb	inner_shuf, offset, offset, s_DDDDDDDDDDDDDDDD
+{e2}	a	inner_shuf, inner_shuf, s_ABCDEFGHIJKLMNOP		{lnop}
+{e2}	a	far_addr, in_dst_ptr, in_size				{lnop}
+{e2}	andi	out_offset, far_addr, 0xf				{lnop}
+{e2}	sfi	out_offset, out_offset, 0x10				{lnop}
+{e2}	nop							{o4}	shlqby	final_sel, shuf_mask, out_offset
+{e2}	andi	out_offset, in_dst_ptr, 0xf				lnop
+{e2}	andi	temp2, in_size, 0x3f					{lnop}
+{e2}	a	out_offset, out_offset, temp2				{lnop}
+{e2}	andi	special_shuf, out_offset, 0xf				{lnop}
+{e2}	sfi	special_shuf, special_shuf, 0x0				{lnop}
+{e2}	cgti	b_write1, out_offset, 0xf			{o4}	rotqmby	special_shuf, shuf_mask, special_shuf
+{e2}	selb	final_sel1, final_sel, shuf_mask, b_write1		lnop
+{e2}	cgti	b_write2, out_offset, 0xf				{lnop}
+{e2}	selb	final_sel2, zero, final_sel, b_write2			{lnop}
+{e2}	cgti	b_write2, out_offset, 0x1f				{lnop}
+{e2}	selb	final_sel2, final_sel2, shuf_mask, b_write2   		{lnop}
+{e2}	cgti	b_write3, out_offset, 0x1f				{lnop}
+{e2}	selb	final_sel3, zero, final_sel, b_write3			{lnop}
+{e2}	cgti	b_write3, out_offset, 0x2f				{lnop}
+{e2}	selb	final_sel3, final_sel3, shuf_mask, b_write3		{lnop}
+{e2}	cgti	b_write4, out_offset, 0x2f				{lnop}
+{e2}	selb	final_sel4, zero, final_sel, b_write4			{lnop}
+{e2}	cgti	b_write4, out_offset, 0x3f				{lnop}
+{e2}	selb	final_sel4, final_sel4, shuf_mask, b_write4		{lnop}
+{e2}	selb	temp1, temp1, shuf_mask, b_write4			{lnop}
+{e4}	rotmi	qword_size, in_size, -6					{lnop}
+{e2}	ai	in_size, qword_size, 0x1				{lnop}
+{e4}	shli	in_size, in_size, 0x6					{lnop}
+{e2}	a	src_offset1, in_src_ptr, in_size			{lnop}
+{e2}	ai	src_offset2, src_offset1, 0x10				{lnop}
+{e2}	ai	src_offset3, src_offset1, 0x20				{lnop}
+{e2}	ai	src_offset4, src_offset1, 0x30				{lnop}
+{e2}	ai	src_offset5, src_offset1, 0x40				{lnop}
+{e2}	sfi	data_offset, in_size, 0x0				{lnop}
+{e2}	il	delay_dest_offset, 0x0				{o6}	lqd 	lqword1, 0x00(in_dst_ptr)
+{e4}	shli	temp_end_ptr, qword_size, 0x6			{o6}	lqx 	lqword2, src_offset1, data_offset
+{e2}	a	temp_end_ptr, temp_end_ptr, in_dst_ptr		{o6}	lqx 	lqword3, src_offset2, data_offset
+	{nop}							{o4}	shufb	lqword2, lqword2, lqword3, inner_shuf
+	{nop}							{o6}	lqd 	preserve1, 0x00(temp_end_ptr)
+	{nop}							{o6}	lqd 	preserve2, 0x10(temp_end_ptr)
+	{nop}							{o6}	lqd 	preserve3, 0x20(temp_end_ptr)
+{e2}	andc	lqword1, lqword1, save_fqword_mask		{o6}	lqd 	preserve4, 0x30(temp_end_ptr)
+{e2}	and	lqword2, lqword2, save_fqword_mask			{lnop}
+{e2}	or	lqword1, lqword1, lqword2				{lnop}
+{e2}	ori	fqword_mask_delay, save_fqword_mask, 0x0		lnop
+									
+.cset	result1, result2, result3, result4
+
+MAINLOOP:
+	{nop}							{o6 1}	lqx 	lqword2, src_offset2, data_offset
+	{nop}							{o6 1}	lqx 	lqword3, src_offset3, data_offset
+	{nop}							{o6 1}	lqx 	lqword4, src_offset4, data_offset
+	{nop}							{o6 1}	lqx 	lqword5, src_offset5, data_offset
+{e2 1}	ai	data_offset, data_offset, 0x40			{o6 2}	stqd	result1, 0x00(in_dst_ptr)
+	{nop}							{o6 2}	stqd	result2, 0x10(in_dst_ptr)
+	{nop}							{o6 2}	stqd	result3, 0x20(in_dst_ptr)
+{e2 2}	ori	save_fqword_mask, fqword_mask_delay, 0x0	{o6 2}	stqd	result4, 0x30(in_dst_ptr)
+{e2 2}	a	in_dst_ptr, in_dst_ptr, delay_dest_offset	{o4 1}	shufb	result1, lqword1, lqword2, boundary_shuf
+{e2 1}	il	delay_dest_offset, 0x40 			{o4 1}	shufb	result2, lqword2, lqword3, inner_shuf
+{e2 1}	or	boundary_shuf, inner_shuf, inner_shuf		{o4 1}	shufb	result3, lqword3, lqword4, inner_shuf
+{e2 1}	or	lqword1, lqword5, lqword5			{o4 1}	shufb	result4, lqword4, lqword5, inner_shuf
+{e2 1}	ori	fqword_mask_delay, shuf_mask, 0x0		BRANCH: brnz	data_offset, MAINLOOP
+	
+	
+	and	final_sel1, final_sel1, save_fqword_mask		{lnop}
+	selb	result1, preserve1, result1, final_sel1		{lnop}
+	selb	result2, preserve2, result2, final_sel2		{lnop}
+	selb	result3, preserve3, result3, final_sel3		stqd	result1, 0x00(in_dst_ptr)
+	selb	result4, preserve4, result4, final_sel4		stqd	result2, 0x10(in_dst_ptr)
+	{nop}								stqd	result3, 0x20(in_dst_ptr)
+	{nop}								stqd	result4, 0x30(in_dst_ptr)
+	
+	{nop}							RETURN: biz	temp1, $lr
+	{nop}								lqx	lqword6, src_offset2, data_offset
+	{nop}								shufb	result1, lqword5, lqword6, inner_shuf
+	selb	result1, result1, preserve1, special_shuf		lnop
+	{nop}								stqd	result1, 0x40(in_dst_ptr)
+	{nop}								bi	$lr
+	
+.if 0
+; Unrolled loop - untested, for documentation purposes only
+MAINLOOP:
+	{nop}							{o6 1}	lqx 	lqword2, src_offset2, data_offset
+	{nop}							{o6 1}	lqx 	lqword3, src_offset3, data_offset
+	{nop}							{o6 1}	lqx 	lqword4, src_offset4, data_offset
+	{nop}							{o6 1}	lqx 	lqword5, src_offset5, data_offset
+{e2 1}	ai	data_offset, data_offset, 0x40			{o6 2}	stqd	result1, 0x00(in_dst_ptr)
+	{nop}							{o6 2}	stqd	result2, 0x10(in_dst_ptr)
+	{nop}							{o6 2}	stqd	result3, 0x20(in_dst_ptr)
+{e2 2}	ori	save_fqword_mask, fqword_mask_delay, 0x0	{o6 2}	stqd	result4, 0x30(in_dst_ptr)
+{e2 2}	a	in_dst_ptr, in_dst_ptr, delay_dest_offset	{o4 1}	shufb	result1, lqword1, lqword2, boundary_shuf
+{e2 1}	il	delay_dest_offset, 0x40 			{o4 1}	shufb	result2, lqword2, lqword3, inner_shuf
+{e2 1}	or	boundary_shuf, inner_shuf, inner_shuf		{o4 1}	shufb	result3, lqword3, lqword4, inner_shuf
+{e2 1}	or	lqword1, lqword5, lqword5			{o4 1}	shufb	result4, lqword4, lqword5, inner_shuf
+{e2 1}	ori	fqword_mask_delay, shuf_mask, 0x0		BRANCH: brnz	data_offset, MAINLOOP
+
+.endif
+	
+.if TEST
+
+.data
+
+m_in_stream:	.dh 0x1234, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+		.dh 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+		.dh 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+		.dh 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+		.dh 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+		.dh 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57
+		.dh 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
+		.dh 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77
+		.dh 0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87
+		.dh 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97
+		.dh 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
+		.dh 0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7
+		.dh 0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+		.dh 0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7
+		.dh 0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7
+		.dh 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+		.dh 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+		.dh 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+		.dh 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+		.dh 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+		.dh 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57
+		.dh 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
+		.dh 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77
+		.dh 0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87
+		.dh 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97
+		.dh 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
+		.dh 0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7
+		.dh 0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+		.dh 0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7
+		.dh 0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7
+
+m_out_stream:	.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw 0x13371337, 0x13371337, 0x13371337, 0x13371337
+
+.text
+		
+.global _start
+_start:
+	ila	in_src_ptr, m_in_stream 			lnop
+	ai	in_src_ptr, in_src_ptr, 0xf 			lnop
+	ila	in_dst_ptr, m_out_stream			lnop
+	ai	in_dst_ptr, in_dst_ptr, 0xf 			lnop
+	il	in_size, 0x40					lnop
+	nop 					CALL_byte_copy: brsl	$lr, CopyBytes
+	nop 							stop
+.endif
+
+.end
+

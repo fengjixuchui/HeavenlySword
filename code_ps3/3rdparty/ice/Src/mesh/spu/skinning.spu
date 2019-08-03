@@ -1,0 +1,3096 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+;==============================================================================================================================
+; Skinning
+;
+; Transforms vertexes and their corresponding data using an arbitrary number of arbitrary matrices with
+; arbitrary weighting for the matrices.
+;
+; Implements the SkinPos*() family of functions in ice/mesh/icemeshskin.cpp:
+;
+;==============================================================================================================================
+
+
+
+;==============================================================================================================================
+; void SkinPos(F32 *pMatrices, F32 *pWeights, U16 *pSame, U16 *pDiff, U8 *pControl, F32 *pPos);
+;
+; Transforms just the position data of a vertex
+;
+;==============================================================================================================================
+.global SkinPos
+
+;==============================================================================================================================
+; void SkinPosNorm(F32 *pMatrices, F32 *pWeights, U16 *pSame, U16 *pDiff, U8 *pControl,
+;     F32 *pPos, F32 *pNormal);
+;
+; Transforms the position and normal data associated with a vertex
+;
+;==============================================================================================================================
+.global SkinPosNorm
+
+;==============================================================================================================================
+; void SkinPosNormTan(F32 *pMatrices, F32 *pWeights, U16 *pSame, U16 *pDiff, U8 *pControl,
+;     F32 *pPos, F32 *pNormal, F32 *pTangent);
+;
+; Transforms the position, normal, and tangent data associated with a vertex.
+;
+;==============================================================================================================================
+.global SkinPosNormTan
+
+;==============================================================================================================================
+; void SkinPosNormTanDisp(F32 *pMatrices, F32 *pWeights, U16 *pSame, U16 *pDiff, U8 *pControl,
+;     F32 *pPos, F32 *pNormal, F32 *pTangent, F32 *pDisp);
+;
+; Transforms the position, normal, tangent, and displacement normal data associated with a vertex.
+;
+;==============================================================================================================================
+.global SkinPosNormTanDisp
+
+;==============================================================================================================================
+; Restricions:
+; pMatrices and pWeights must be 16 byte aligned.
+; pSame must be 2 byte aligned.
+; pDiff must be 8 byte aligned.
+; pPos, pNormal, pTangent, and pDist must be 16 byte aligned.
+;==============================================================================================================================
+
+
+
+;==============================================================================================================================
+; Skinning Details:
+;
+; If R is the 3x3 rotation submatrix of a given blended matrix, P is the 3 element translation column
+; vector of a given blended matrix, and C is the cofactor matrix of R, then the following transformations
+; are done in these functions:
+;	p' = Rp + P
+;	n' = Cn / ||Cn||
+;	t' = Rt
+;	d' = Cd / ||Cd||
+;
+; Each of the four versions uses the same basic input formats.
+;
+; Vertex data for input and output are stored in uniform tables.  Vertex data is stored as single precision floating
+; point numbers.  Data for four vertexes would be stored in a uniform table as follows:
+;	x0 y0 z0 --
+;	x1 y1 z1 --
+;	x2 y2 z2 --
+;	x3 y3 z3 --
+; This data format is true for vertex positions, normals, tangents, and displacement normals.
+; Alternatively, a flip factor can be stored in the last field for vertex normals and tangents  as follows:
+;	x0 y0 z0 f0
+;	x1 y1 z1 f1
+;	x2 y2 z2 f2
+;	x3 y3 z3 f3
+; The flip factor will be preserved in the vertex normals and tangents across any of the calls to skinning.
+;
+; Matrix data is in a table, whose pointer is provided by the calling function.  Each matrix consists of
+; three rows of four elements.  Each element is a single precision floating point number.
+;	m_00 m_01 m_02 m_03
+;	m_10 m_11 m_12 m_13
+;	m_20 m_21 m_22 m_23
+; m_03, m_13, and m_23 make up the translation vector.
+;
+; The indexes to the matrices are input in two seperate streams.  One stream is for cases where each vertex
+; in a set of four vertexes use a different set of matrices.  The other stream is for cases where each
+; vertex in a set of four vertexes use the same set of matrices.  Each matrix index is stored as a 16 bit
+; offset into the matrix table.  Thus, the stored index is the matrix number * 48.  The maximum number of
+; addressable matrices is 1366.  The actual array is most likely much smaller.
+;
+; Also, bit 13 of the matrix index is used to store the continue blending flag (0x04).  For the same matrix stream,
+; the continue blending flag is set on each matrix index except for the final one in any particular blend.
+; For the different matrix stream, each matrix index in each set of indexes should be set, except for the
+; four in the last set used for a particular blend (in actuality, only the bit in m_2 is looked at).
+; Bits 12, 14, and 15 should be 0.
+;	0              11  12    13  14  15
+;	matrix offset * 3   0   CBF   0   0
+;	CBF = 1 for all matrix indexes, except the last one.
+; Example blend:
+;	0x0004 0x0064 0x00F0 0x00034 0x0064 0x00C0
+; This is a stream fragment that contains two blends of three influences each.  The first blend will blend
+; the matrices with indexes of 0, 2, and 5, while the second will blend matrices with indexes of 1, 2, and 4.
+;
+; For the different matrix stream, the indexes are stored in groups of four, with two groups per quadword.
+;	m0_1 m0_0 m0_3 m0_2   m1_1 m1_0 m1_3 m1_2
+;
+; For the same matrix stream, the indexes are stored individually with eight in a quadword.
+;	m0 m1 m2 m3 m4 m5 m6 m7
+;
+; Matrix weights are also stored in a stream.  Each matrix weight is a single precision floating point number.
+; Matrix weights come in groups of four, thus there is one group per quadword.
+;	w0 w1 w2 w3
+;
+; Flow through a routine is controlled via byte data in a stram.  One control byte describes what type of
+; blending needs to be performed on the current set of four vertexes.  There are currently five different
+; control types and one other condition.  The possible values of the control bytes follow with their
+; corresponding type or condition:
+;	0:	no change (next)
+;	2:	diff 1
+;	4:	same 1
+;	6:	same n
+;	8:	end
+;	10:	diff n
+;
+; Also, the control stream needs to have one more control byte in it than actual sets of four vertexes.
+; The last byte in the stream will always be an 8, end, which will end processing and return.
+;
+; Control bytes are stored with 16 in a quadword with the following format:
+;	q00 q01 q02 q03 q04 q05 q06 q07 q08 q09 q10 q11 q12 q13 q14 q15
+;
+; end:
+;	End processing and return.
+;
+; no change:
+;	The set of four vertexes uses the previously calculated blended matrices and, if needed, their cofactor matrices.
+;
+; diff 1:
+;	Each vertex in the set of four vertexes uses a single, but different matrix.
+;	v0 v1 v2 v3
+;	m0 m1 m2 m3
+;	Uses one set of matrix indexes (m1 m0 m3 m2) from the different matrix index stream.
+;
+; same 1:
+;	Each vertex in the set of four vertexes uses the same single matrix.
+;	v0 v1 v2 v3
+;	m0 m0 m0 m0
+;	Uses one matrix index (m0) from the same matrix index stream.
+;
+; diff n:
+;	Each vertex in the set of four vertexes uses the same number of matrices, but the matrices they use can
+;	be different, and the weights of those matrices can also be different.
+;	For n = 3, the blends would look like this:
+;		m0 = m0_0 * w0_0 + m1_0 * w1_0 + m2_0 * w2_0
+;		m1 = m0_1 * w0_1 + m1_1 * w1_1 + m2_1 * w2_1
+;		m2 = m0_2 * w0_2 + m1_2 * w1_2 + m2_2 * w2_2
+;		m3 = m0_3 * w0_3 + m1_3 * w1_3 + m2_3 * w2_3
+;	For each n, this type of quad uses one set of matrix indexes (m1 m0 m3 m2) from the different matrix index
+;	stream and one set of weights (w0 w1 w2 w3) from the weight stream.
+;
+; same n:
+;	Each vertex in the set of four vertexes uses the same number of matrices and also the same matrices.
+;	However, the weights of those matrices can be different.
+;	For n = 3, the blend would look like this:
+;		m0 = m0 * w0_0 + m1 * w1_0 + m2 * w2_0
+;		m1 = m0 * w0_1 + m1 * w1_1 + m2 * w2_1
+;		m2 = m0 * w0_2 + m1 * w1_2 + m2 * w2_2
+;		m3 = m0 * w0_3 + m1 * w1_3 + m2 * w2_3
+;	For each n, this type of quad uses one matrix index (m0) from the same matrix index stream and one set of
+;	weights (w0 w1 w2 w3) from the weight stream.
+;
+; Also, it should be noted here that it is possible and potentially desirable to recharacterize certain sets of four
+; vertexes from control type diff n to control type same n, where n increases.  For example if a diff n matrix blend
+; looked like this, where n is 4,
+;	v0 v1 v2 v3
+;	m0 m0 m0 m1
+;	m1 m1 m2 m2
+;	m2 m3 m3 m3
+;	m4 m4 m4 m4
+; it can be recharacterized as a same n matrix blend, where n is 5,
+;	v0 v1 v2 v3
+;	m0 m0 m0 --
+;	m1 m1 -- m1
+;	m2 -- m2 m2
+;	-- m3 m3 m3
+;	m4 m4 m4 m4
+; and the weights for the unused matrices are set to 0.0f.
+; In this example, by recharacterizing, 15 cycles and 6 bytes are saved.
+;
+; same n+1 is faster and smaller than diff n for n >= 3.
+; same n+2 is faster and smaller than diff n for n >= 6.
+; In general, same n+a is faster and smaller than diff n for n >= 3*a.
+; There are also cases where same n+a is faster then diff n, but not smaller.
+; In general the time to run same n is 14*n clock cycles and the time to run diff n is 22*n-3 clock cycles.
+; The storage requiremts for same n are 18*n bytes, while the storage requiremts for diff n are 24*n bytes.
+;
+; Another situation that can be optimized is the following:
+;	v0 v1 v2 v3   v4 v5 v6 v7
+;	m0 m0 m3 m3   m6 m6 m9 m9
+;	m1 m1 m4 m4   m7 m7 ma ma
+;	m2 m2 m5 m5   m8 m9 mb mb
+; The above is done using two diff ns, where n is 3.  However, it is better to do the following:
+;	v0 v2 v4 v6   v1 v3 v5 v7
+;	m0 m3 m6 m9   no change
+;	m1 m4 m7 ma
+;	m2 m5 m8 mb
+; Now the same calculations are done with only one diff n, where n is 3, and a no change.  However, the vertexes
+; must be able to be moved freely about.  In general, whenever four blends of the same number, are each used for
+; multiple vertexes, they can be grouped together for the first set of vertexes, and subsequent sets of vertcies
+; can be calculated without changing the matrices.
+;
+;==============================================================================================================================
+
+
+
+.data
+
+; Instruction Jump Tables.
+m_instTbl_p:		.dw skin_end_p, skin_diff_1_p, skin_same_n, skin_diff_n_p
+m_instTbl2_p:		.dw skin_next_p, skin_same_1_p, skin_end_p, skin_end_p
+
+m_instTbl_pn:		.dw skin_end_pn, skin_diff_1_pn, skin_same_n, skin_diff_n_pn
+m_instTbl2_pn:		.dw skin_next_pn, skin_same_1_pn, skin_end_pn, skin_end_pn
+
+m_instTbl_pnt:		.dw skin_end_pnt, skin_diff_1_pnt, skin_same_n, skin_diff_n_pnt
+m_instTbl2_pnt:		.dw skin_next_pnt, skin_same_1_pnt, skin_end_pnt, skin_end_pnt
+
+m_instTbl_pntd:		.dw skin_end_pntd, skin_diff_1_pntd, skin_same_n, skin_diff_n_pntd
+m_instTbl2_pntd:	.dw skin_next_pntd, skin_same_1_pntd, skin_end_pntd, skin_end_pntd
+
+m_sameJumpTbl_p:	.dw skin_shuffle_p, skin_same_n_loop, skin_shuffle_p, skin_same_n_loop
+m_sameJumpTbl_pn:	.dw skin_shuffle_pn, skin_same_n_loop, skin_shuffle_pn, skin_same_n_loop
+m_sameJumpTbl_pnt:	.dw skin_shuffle_pnt, skin_same_n_loop, skin_shuffle_pnt, skin_same_n_loop
+m_sameJumpTbl_pntd:	.dw skin_shuffle_pntd, skin_same_n_loop, skin_shuffle_pntd, skin_same_n_loop
+
+m_diffJumpTbl_p:	.dw skin_shuffle_p, 0, skin_diff_n_loop, 0
+m_diffJumpTbl_pn:	.dw skin_shuffle_pn, 0, skin_diff_n_loop, 0
+m_diffJumpTbl_pnt:	.dw skin_shuffle_pnt, 0, skin_diff_n_loop, 0
+m_diffJumpTbl_pntd:	.dw skin_shuffle_pntd, 0, skin_diff_n_loop, 0
+
+; Various shuffle masks for moving data around.
+.extern m_AAAA 
+.extern m_ACac 
+.extern m_BCAD 
+.extern m_BcDa 
+.extern m_AaBb 
+.extern m_CcCc 
+.extern m_cdAB 
+.extern m_DAad 
+.extern m_BCbc 
+.extern m_dAD0 
+.extern m_BCDD 
+.extern m_DCba 
+.extern m_CDdc 
+.extern m_BAab 
+.extern m_AcBa 
+.extern m_caAB 
+.extern m_BCcb 
+.extern m_CcAa 
+.extern m_BbCc 
+
+
+.text
+
+; Input Parameters
+.reg pMatrices00	3	; Must be 16 byte aligned.
+.reg pWeights		4	; Must be 16 byte aligned.
+.reg pSame		5	; Pointer to same matrix index stream -- must be 2 byte aligned.
+.reg pDiff		6	; Pointer to different matrix index stream -- must be 8 byte aligned.
+.reg pControl		7	; Pointer to control byte stream.
+.reg pPos00		8	; Must be 16 byte aligned.
+.reg pNormal00		9	; Must be 16 byte aligned.
+.reg pTangent00		10	; Must be 16 byte aligned.
+.reg pDNormal00		11	; Must be 16 byte aligned.
+
+; The four input matrices for diff_1 and diff_n functions.
+.reg mat0_0_2, mat0_1_2, mat0_2_2
+.reg mat1_0_2, mat1_1_2, mat1_2_2
+.reg mat2_0_2, mat2_1_2, mat2_2_2
+.reg mat3_0_2, mat3_1_2, mat3_2_2
+
+; The four blended matrices as output by diff_1, diff_n, and same_n.
+.reg mat0_0, mat0_1, mat0_2
+.reg mat1_0, mat1_1, mat1_2
+.reg mat2_0, mat2_1, mat2_2
+.reg mat3_0, mat3_1, mat3_2
+
+; Temporaries used in the shuffle routines to shuffle the four blended matrices together.
+.reg shuftemp1, shuftemp2, shuftemp3, shuftemp4, shuftemp5, shuftemp6
+.reg shuftemp7, shuftemp8, shuftemp9, shuftemp10, shuftemp11, shuftemp12
+
+; Four matrices stored by element.  Used to transform the vertex positions and tangents.
+.reg mat_00, mat_01, mat_02, mat_03
+.reg mat_10, mat_11, mat_12, mat_13
+.reg mat_20, mat_21, mat_22, mat_23
+
+; Temporaries used in the same_1 routines to calculate the cofactor matrix from a single matrix.
+.reg cofmtmp0_0, cofmtmp0_1, cofmtmp0_2
+.reg cofmtmp1_0, cofmtmp1_1, cofmtmp1_2
+.reg cofmtmp_0, cofmtmp_1
+
+; The four cofactor matrices corresponding the regular four matrices.  Used to transform vertex normals and displacement normals.
+.reg cofm_00, cofm_01, cofm_02
+.reg cofm_10, cofm_11, cofm_12
+.reg cofm_20, cofm_21, cofm_22
+
+; Weights
+.reg weights					; Four loaded weights.
+.reg weight_0, weight_1, weight_2, weight_3	; The shuffled out weights.
+
+; Positions
+.reg pPos10, pPos20, pPos30			; Pointers to the position data (offset 0x10, 0x20, and 0x30).
+.reg pos0, pos1, pos2, pos3			; Input vertex positions.
+.reg pi_temp1, pi_temp2, pi_temp3, pi_temp4	; Temporaries for shuffling the input positions into channel format.
+.reg pi_temp5, pi_temp6, pi_temp7, pi_temp8
+.reg px, py, pz					; Input positions in channel format.
+.reg px2, py2, pz2				; Temporary positions during transform.
+.reg px3, py3, pz3				; Transformed positions in channel format.
+.reg po_temp1, po_temp2, po_temp3, po_temp4	; Temporaries for shuffling the transformed positions from channel format.
+.reg po_temp5, po_temp6, po_temp7
+.reg opos0, opos1, opos2, opos3			; Output vertex positions.
+
+; Normals
+.reg pNormal10, pNormal20, pNormal30		; Pointers to the normal data (offset 0x10, 0x20, and 0x30).
+.reg norm0, norm1, norm2, norm3			; Input vertex normals.
+.reg norm0_, norm1_, norm2_, norm3_		; Copies of the input vertex normals.
+.reg ni_temp1, ni_temp2, ni_temp3, ni_temp4	; Temporaries for shuffling the input normals into channel format.
+.reg nx, ny, nz					; Input normals in channel format.
+.reg nx2, ny2, nz2				; Temporary normals during transform.
+.reg nx3, ny3, nz3				; Temporary normals during transform.
+.reg nx4, ny4, nz4				; Transformed normals.
+.reg nx5, ny5, nz5				; Normalized transformed normals.
+.reg nest, nrmag, nrmag2			; Values used to calculate the reciprocal magnitudes of the normals.
+.reg no_temp1, no_temp2				; Temporaries for shuffling the transformed normals from channel format.
+.reg onorm0, onorm1, onorm2, onorm3		; Output vertex normals.
+
+; Tangents
+.reg pTangent10, pTangent20, pTangent30		; Pointers to the tangent data (offset 0x10, 0x20, and 0x30).
+.reg tan0, tan1, tan2, tan3			; Input vertex tangents.
+.reg tan0_, tan1_, tan2_, tan3_			; Copies of the input vertex tangents.
+.reg ti_temp1, ti_temp2, ti_temp3, ti_temp4	; Temporaries for shuffling the input tangents into channel format.
+.reg tx, ty, tz					; Input tangents in channel format.
+.reg tx2, ty2, tz2				; Temporary tangents during transform.
+.reg tx3, ty3, tz3				; Temporary tangents during transform.
+.reg tx4, ty4, tz4				; Transformed tangents.
+.reg tx5, ty5, tz5				; Normalized transformed tangents.
+.reg test, trmag, trmag2			; Values used to calculate the reciprocal magnitudes of the tangents.
+.reg to_temp1, to_temp2				; Temporaries for shuffling the transformed tangents from channel format.
+.reg otan0, otan1, otan2, otan3			; Output vertex tangents.
+
+; Displacement normals
+.reg pDNormal10, pDNormal20, pDNormal30		; Pointers to the displacement normal data (offset 0x10, 0x20, and 0x30).
+.reg dnorm0, dnorm1, dnorm2, dnorm3		; Input vertex displacement normals.
+.reg di_temp1, di_temp2, di_temp3, di_temp4	; Temporaries for shuffling the input displacement normals into channel format.
+.reg dx, dy, dz					; Input displacement normals in channel format.
+.reg dx2, dy2, dz2				; Temporary displacement normals during transform.
+.reg dx3, dy3, dz3				; Temporary displacement normals during transform.
+.reg dx4, dy4, dz4				; Transformed displacement normals.
+.reg dx5, dy5, dz5				; Normalized transformed displacement normals.
+.reg dest, drmag, drmag2			; Values used to calculate the reciprocal magnitudes of the displacement normals.
+.reg do_temp1, do_temp2				; Temporaries for shuffling the transformed displacement normals
+						; from channel format.
+.reg odnorm0, odnorm1, odnorm2, odnorm3		; Output vertex displacement normals.
+
+; Flow control
+.reg pControl_					; Copy of the control stream pointer.
+.reg controlBytes				; A quadword of control bytes.
+.reg controlByte				; The correct control byte in the preferred byte.
+.reg instCode, instCode_			; Jump destinations based upon control bytes.
+.reg instTbl, instTbl2				; Jump tables used to look up jump destinations based upon control bytes.
+.reg sameJumpTbl				; Jump table used in the same_n routine.
+.reg diffJumpTbl				; Jump table used in diff_1, and diff_n routines.
+.reg addrrot					; Value to rotate the jump table in the diff_n routine.
+.reg jumpAddr, jumpAddr2			; Address to jump to in a branch instruction.
+
+; Others
+.reg diffs					; A quadword of different matrix indexes
+.reg diff0, diff1, diff2, diff3			; Indexes to the four different matrices
+.reg sames					; A quadword of same matrix indexes
+.reg same0					; Index to the one same matrix.
+.reg samemat_0, samemat_1, samemat_2		; Single matrix loaded in the same_1 and same_n routines.
+.reg pMatrices10, pMatrices20			; Pointer to the second and third rows of the matrices (offset 0x10 and 0x20)
+.reg inOff, inOff_				; Offset into the input buffers (and a copy of it).
+.reg outOff, outOff_				; Offset into the output buffers (and a copy of it).
+.reg outInc					; Amount to increment outOff (it is 0 the first couple of times through a loop).
+.reg two					; The constant value 2 -- used for loading from pSame.
+.reg three					; The constant value 3 -- used for loading from pControl.
+.reg four					; The constant value 4 -- used for loading from pControl in the p routines.
+.reg tmp					; Temporary.
+
+; Shuffle and bit select masks for all types of shuffles.
+.reg s_AAAA, s_BBBB, s_DDDD
+.reg s_ACac, s_BCAD, s_BDbd, s_BcDa, s_cACa, s_dBDb
+.reg s_AaBb, s_BbAa, s_CcCc, s_cdAB, sel_ABcd
+.reg s_DAad, s_BCbc, s_dAD0, sel_AbcD, sel_aBcD
+.reg sel_ABCd
+.reg s_BCDD
+.reg s_DCba, s_CDdc, s_BAab
+.reg s_AcBa, s_caAB, s_BCcb
+.reg s_CcAa, s_BbCc
+
+
+
+.align 7
+
+;==============================================================================================================================
+; SkinPos:
+;
+; Entry point for skinning vertex positions.  Loads the appropriate jump tables.
+;
+;==============================================================================================================================
+SkinPos:
+{e2}	il	four, 4						{o}	hbrr	skin_p_branch, skin_common_init
+	nop							{o6}	lqa	diffJumpTbl, m_diffJumpTbl_p
+	{nop}							{o6}	lqa	instTbl, m_instTbl_p
+	{nop}							{o6}	lqa	instTbl2, m_instTbl2_p
+	{nop}							{o6}	lqa	sameJumpTbl, m_sameJumpTbl_p
+	{nop}					skin_p_branch:	{o?}	br	skin_common_init
+
+
+
+;==============================================================================================================================
+; SkinPosNorm:
+;
+; Entry point for skinning vertex normals.  Loads the appropriate jump tables.
+;
+;==============================================================================================================================
+SkinPosNorm:
+.cset four
+	{nop}							{o}	hbrr	skin_pn_branch, skin_common_init
+	{nop}							{o6}	lqa	diffJumpTbl, m_diffJumpTbl_pn
+	{nop}							{o6}	lqa	instTbl, m_instTbl_pn
+	{nop}							{o6}	lqa	instTbl2, m_instTbl2_pn
+	{nop}							{o6}	lqa	sameJumpTbl, m_sameJumpTbl_pn
+	{nop}					skin_pn_branch:	{o?}	br	skin_common_init
+
+
+
+;==============================================================================================================================
+; SkinPosNormTan:
+;
+; Entry point for skinning vertex tangents.  Loads the appropriate jump tables.
+;
+;==============================================================================================================================
+SkinPosNormTan:
+.cset four
+	{nop}							{o}	hbrr	skin_pnt_branch, skin_common_init
+	{nop}							{o6}	lqa	diffJumpTbl, m_diffJumpTbl_pnt
+	{nop}							{o6}	lqa	instTbl, m_instTbl_pnt
+	{nop}							{o6}	lqa	instTbl2, m_instTbl2_pnt
+	{nop}							{o6}	lqa	sameJumpTbl, m_sameJumpTbl_pnt
+	{nop}				skin_pnt_branch:	{o?}	br	skin_common_init
+
+
+
+;==============================================================================================================================
+; SkinPosNormTanDisp:
+;
+; Entry point for skinning vertex displacment normals.  Loads the appropriate jump tables.
+;
+;==============================================================================================================================
+SkinPosNormTanDisp:
+.cset four
+	{nop}							{o}	hbrr	skin_pntd_branch, skin_common_init
+	{nop}							{o6}	lqa	diffJumpTbl, m_diffJumpTbl_pntd
+	{nop}							{o6}	lqa	instTbl, m_instTbl_pntd
+	{nop}							{o6}	lqa	instTbl2, m_instTbl2_pntd
+	{nop}							{o6}	lqa	sameJumpTbl, m_sameJumpTbl_pntd
+	{nop}				skin_pntd_branch:	{o?}	br	skin_common_init
+
+
+
+;==============================================================================================================================
+; skin_common_init:
+;
+; Common initialization code for the skinning functions.
+;
+; This saves registers to the stack, loads shuffle values and other constants.
+; Also, it sets up any more pointers required by the routines.
+; Lastly, it loads the first set of input positions and also the first control byte from which we calculate
+; the routine we jump to first.
+;
+;==============================================================================================================================
+skin_common_init:
+{e2}	il	tmp, -0x320					{o6 0}	lqd	diffs, 0(pDiff)
+{e2}	ai	$2, $sp, 0					{o6}	lqd	weights, 0(pWeights)
+{e2}	a	$sp, $sp, tmp					{o6}	lqa	s_AAAA, m_AAAA
+{e2}	ai	pControl, pControl, -3				{o6}	lqa	s_BcDa, m_BcDa
+{e2}	il	three, 3					{o6}	stqd	$2,   0x000($sp)
+{e2}	ai	pSame, pSame, -2				{o6}	stqd	$lr,  0x330($sp)
+{e2}	il	two, 2						{o6}	stqd	$80,  0x020($sp)
+{e2}	ai	pMatrices10, pMatrices00, 0x10			{o6}	stqd	$81,  0x030($sp)
+{e2}	il	inOff, 0					{o6}	stqd	$82,  0x040($sp)
+{e4}	roti	diff1, diffs, 16				{o6}	stqd	$83,  0x050($sp)
+{e2}	ai	pMatrices20, pMatrices00, 0x20			{o6}	stqd	$84,  0x060($sp)
+{e2}	ai	pPos20, pPos00, 0x20				{o6}	stqd	$85,  0x070($sp)
+{e2}	ai	pPos30, pPos00, 0x30				{o6}	stqd	$86,  0x080($sp)
+{e2}	ai	pPos10, pPos00, 0x10				{o6}	stqd	$87,  0x090($sp)
+{e2}	il	outInc, 0x40					{o6}	stqd	$88,  0x0A0($sp)
+{e2}	ai	pNormal10, pNormal00, 0x10			{o6}	stqd	$89,  0x0B0($sp)
+{e2}	il	outOff, 0					{o6}	stqd	$90,  0x0C0($sp)
+{e2}	orbi	s_BBBB, s_AAAA, 0x04				{o6}	stqd	$91,  0x0D0($sp)
+{e2}	ai	pDiff, pDiff, 8					{o6}	stqd	$92,  0x0E0($sp)
+{e2}	ai	pNormal20, pNormal00, 0x20			{o6}	stqd	$93,  0x0F0($sp)
+{e2}	ai	pDNormal10, pDNormal00, 0x10			{o6}	stqd	$94,  0x100($sp)
+{e2}	ai	pDNormal20, pDNormal00, 0x20			{o6}	stqd	$95,  0x110($sp)
+{e2}	ai	pTangent30, pTangent00, 0x30			{o6}	stqd	$96,  0x120($sp)
+{e2}	ai	pTangent20, pTangent00, 0x20			{o6}	stqd	$97,  0x130($sp)
+{e2}	ai	pTangent10, pTangent00, 0x10			{o6}	stqd	$98,  0x140($sp)
+{e2}	ai	pNormal30, pNormal00, 0x30			{o6}	stqd	$99,  0x150($sp)
+{e2}	ai	pDNormal30, pDNormal00, 0x30			{o6}	stqd	$100, 0x160($sp)
+{e2}	orbi	s_DDDD, s_AAAA, 0x0C				{o6}	stqd	$101, 0x170($sp)
+	{nop}							{o6}	stqd	$102, 0x180($sp)
+	{nop}							{o6}	stqd	$103, 0x190($sp)
+	{nop}							{o4}	rotqbyi	tmp, diffJumpTbl, 8
+	{nop}							{o4}	rotqbyi	instTbl, instTbl, 2
+	{nop}							{o6}	stqd	$104, 0x1A0($sp)
+	{nop}							{o6}	stqd	$105, 0x1B0($sp)
+	nop							{o6}	stqd	$106, 0x1C0($sp)
+{e4}	roti	tmp, tmp, 16					{o6}	stqd	$107, 0x1D0($sp)
+{e2}	or	instTbl, instTbl, instTbl2			{o6}	stqd	$108, 0x1E0($sp)
+	{nop}							{o6}	stqd	$109, 0x1F0($sp)
+	{nop}							{o6}	stqd	$110, 0x200($sp)
+{e2}	or	diffJumpTbl, diffJumpTbl, tmp			{o6}	stqd	$111, 0x210($sp)
+	{nop}							{o6}	stqd	$112, 0x220($sp)
+	{nop}							{o6}	stqd	$113, 0x230($sp)
+	{nop}							{o6}	stqd	$114, 0x240($sp)
+	{nop}							{o6}	stqd	$115, 0x250($sp)
+	{nop}							{o6}	stqd	$116, 0x260($sp)
+	{nop}							{o6}	stqd	$117, 0x270($sp)
+	{nop}							{o6}	stqd	$118, 0x280($sp)
+	{nop}							{o6}	stqd	$119, 0x290($sp)
+	{nop}							{o6}	stqd	$120, 0x2A0($sp)
+	{nop}							{o6}	stqd	$121, 0x2B0($sp)
+	{nop}							{o6}	stqd	$122, 0x2C0($sp)
+	{nop}							{o6}	stqd	$123, 0x2D0($sp)
+	{nop}							{o6}	stqd	$124, 0x2E0($sp)
+	{nop}							{o6}	stqd	$125, 0x2F0($sp)
+	{nop}							{o6}	stqd	$126, 0x300($sp)
+	{nop}							{o6}	stqd	$127, 0x310($sp)
+	{nop}							{o6}	lqx	controlBytes, pControl, three
+	{nop}							{o6 0}	lqx	sames, pSame, two
+	{nop}							{o4}	rotqbyi	diff2, diffs, 4
+	{nop}							{o6}	lqa	s_dAD0, m_dAD0
+	{nop}							{o6}	lqa	s_ACac, m_ACac
+	{nop}							{o6}	lqa	s_CcAa, m_CcAa
+{e4}	roti	diff3, diff2, 16				{o4}	rotqby	controlByte, controlBytes, pControl
+{e2}	ai	pControl, pControl, 1				{o4 0}	rotqby	same0, sames, pSame
+{e2 0}	ai	pSame, pSame, 2					{o6 0}	lqx	pos2, pPos20, inOff
+{e2}	ai	pWeights, pWeights, 0x10			{o6}	lqx	controlBytes, pControl, three
+{e2}	orbi	s_BDbd, s_ACac, 0x04				{o4}	rotqby	instCode, instTbl, controlByte
+	{nop}							{o6 0}	lqx	sames, pSame, two
+	{nop}							{o6}	lqa	s_AaBb, m_AaBb
+	{nop}							{o6}	lqa	s_AcBa, m_AcBa
+	{nop}							{o}	hbr	skin_common_init_branch, instCode
+
+.cuse pDNormal10, pDNormal20, pDNormal30
+
+	{nop}							{o4}	rotqby	controlByte, controlBytes, pControl
+	{nop}							{o6 0}	lqx	pos1, pPos10, inOff
+	{nop}							{o6}	lqa	s_DCba, m_DCba
+	{nop}							{o6}	lqx	mat1_0_2, pMatrices00, diff1
+	{nop}							{o6}	lqa	s_BCcb,	m_BCcb
+	{nop}							{o6}	lqa	s_BAab, m_BAab
+	{nop}							{o6}	lqx	samemat_1, pMatrices10, same0
+	{nop}							{o4}	rotqbyi	s_cACa, s_ACac, 12
+	{nop}							{o4}	rotqbyi	s_dBDb, s_BDbd, 12
+	{nop}							{o6}	lqa	s_CcCc, m_CcCc
+	{nop}							{o6}	lqx	samemat_0, pMatrices00, same0
+	{nop}							{o6}	lqa	s_BCbc, m_BCbc
+	{nop}							{o6}	lqx	mat1_2_2, pMatrices20, diff1
+	{nop}							{o6}	lqa	s_cdAB, m_cdAB
+	{nop}							{o6}	lqa	s_BCDD, m_BCDD
+	{nop}							{o6}	lqx	mat2_1_2, pMatrices10, diff2
+	{nop}							{o4}	rotqbyi s_BbAa, s_AaBb, 8
+	{nop}							{o6}	lqa	s_CDdc, m_CDdc
+	{nop}							{o6}	lqx	mat0_1_2, pMatrices10, diffs
+	{nop}							{o6}	lqa	s_DAad, m_DAad
+	{nop}							{o6}	lqa	s_BbCc, m_BbCc
+	{nop}							{o6}	lqa	s_caAB,	m_caAB
+	{nop}							{o6 0}	lqx	pos0, pPos00, inOff
+	{nop}							{o6}	lqa	s_BCAD, m_BCAD
+	{nop}							{o6}	lqx	mat2_0_2, pMatrices00, diff2
+	{nop}							{o6}	lqx	mat0_0_2, pMatrices00, diffs
+	{nop}							{o6 0}	lqx	pos3, pPos30, inOff
+	{nop}							{o6}	lqx	mat0_2_2, pMatrices20, diffs
+	{nop}							{o6}	lqx	norm0, pNormal00, outOff
+	{nop}							{o6}	lqx	norm1, pNormal10, outOff
+	{nop}							{o6}	lqx	norm2, pNormal20, outOff
+	{nop}							{o6}	lqx	norm3, pNormal30, outOff
+	{nop}							{o4}	fsmbi	sel_ABcd, 0x00FF
+	{nop}							{o6}	lqx	mat1_1_2, pMatrices10, diff1
+	{nop}							{o4}	shufb	weight_0, weights, weights, s_AAAA
+	{nop}							{o4}	shufb	weight_1, weights, weights, s_BBBB
+{e2}	and	outInc, outInc, sel_ABcd			{o4}	fsmbi	sel_AbcD, 0x0FF0
+	{nop}							{o4}	fsmbi	sel_aBcD, 0xF0F0
+	{nop}							{o4}	rotqby	instCode_, instTbl, controlByte
+	{nop}							{o4}	shufb	weight_3, weights, weights, s_DDDD
+	{nop}							{o4}	shufb	weight_2, weights, weights, s_CcCc
+	{nop}							{o4}	fsmbi	sel_ABCd, 0x000F
+	{nop}							; Branch is below
+.cuse pDNormal10, pDNormal20, pDNormal30
+.cset tan0, tan1, tan2, tan3
+.cset nrmag, trmag, drmag
+.cset px3, py3, pz3
+.cset nx4, ny4, nz4
+.cset tx4, ty4, tz4
+.cset dx4, dy4, dz4
+				skin_common_init_branch:	{o?}	bi	instCode	[skin_same_n skin_diff_n_p skin_diff_n_pn skin_diff_n_pnt skin_diff_n_pntd skin_diff_1_p skin_diff_1_pn skin_diff_1_pnt skin_diff_1_pntd skin_same_1_p skin_same_1_pn skin_same_1_pnt skin_same_1_pntd]
+; The following are places that a command could theoretically go, but are not logically possible
+;  control_end_p control_end_pn control_end_pnt control_end_pntd
+;  control_next_p control_next_pn control_next_pnt control_next_pntd
+
+
+
+;==============================================================================================================================
+; skin_common_end:
+;
+; Restore registers from the stack.
+;
+;==============================================================================================================================
+skin_common_end:
+	{nop}							{o6}	lqd	$lr,  0x330($sp)
+	{nop}							{o6}	lqd	$80,  0x020($sp)
+	{nop}							{o6}	lqd	$81,  0x030($sp)
+	{nop}							{o6}	lqd	$82,  0x040($sp)
+	{nop}							{o6}	lqd	$83,  0x050($sp)
+	{nop}							{o6}	lqd	$84,  0x060($sp)
+	{nop}							{o6}	lqd	$85,  0x070($sp)
+	{nop}							{o6}	lqd	$86,  0x080($sp)
+	{nop}							{o6}	lqd	$87,  0x090($sp)
+	{nop}							{o6}	lqd	$88,  0x0A0($sp)
+	{nop}							{o6}	lqd	$89,  0x0B0($sp)
+	{nop}							{o6}	lqd	$90,  0x0C0($sp)
+	{nop}							{o6}	lqd	$91,  0x0D0($sp)
+	{nop}							{o6}	lqd	$92,  0x0E0($sp)
+	{nop}							{o6}	lqd	$93,  0x0F0($sp)
+	{nop}							{o6}	lqd	$94,  0x100($sp)
+	{nop}							{o6}	lqd	$95,  0x110($sp)
+	{nop}							{o6}	lqd	$96,  0x120($sp)
+	{nop}							{o6}	lqd	$97,  0x130($sp)
+	{nop}							{o6}	lqd	$98,  0x140($sp)
+	{nop}							{o6}	lqd	$99,  0x150($sp)
+	{nop}							{o}	hbr	skin_common_end_branch, $lr
+	{nop}							{o6}	lqd	$100, 0x160($sp)
+	{nop}							{o6}	lqd	$101, 0x170($sp)
+	{nop}							{o6}	lqd	$102, 0x180($sp)
+	{nop}							{o6}	lqd	$103, 0x190($sp)
+	{nop}							{o6}	lqd	$104, 0x1A0($sp)
+	{nop}							{o6}	lqd	$105, 0x1B0($sp)
+	{nop}							{o6}	lqd	$106, 0x1C0($sp)
+	{nop}							{o6}	lqd	$107, 0x1D0($sp)
+	{nop}							{o6}	lqd	$108, 0x1E0($sp)
+	{nop}							{o6}	lqd	$109, 0x1F0($sp)
+	{nop}							{o6}	lqd	$110, 0x200($sp)
+	{nop}							{o6}	lqd	$111, 0x210($sp)
+	{nop}							{o6}	lqd	$112, 0x220($sp)
+	{nop}							{o6}	lqd	$113, 0x230($sp)
+	{nop}							{o6}	lqd	$114, 0x240($sp)
+	{nop}							{o6}	lqd	$115, 0x250($sp)
+	{nop}							{o6}	lqd	$116, 0x260($sp)
+	{nop}							{o6}	lqd	$117, 0x270($sp)
+	{nop}							{o6}	lqd	$118, 0x280($sp)
+	{nop}							{o6}	lqd	$119, 0x290($sp)
+	{nop}							{o6}	lqd	$120, 0x2A0($sp)
+	{nop}							{o6}	lqd	$121, 0x2B0($sp)
+	{nop}							{o6}	lqd	$122, 0x2C0($sp)
+	{nop}							{o6}	lqd	$123, 0x2D0($sp)
+	{nop}							{o6}	lqd	$124, 0x2E0($sp)
+	{nop}							{o6}	lqd	$125, 0x2F0($sp)
+	{nop}							{o6}	lqd	$126, 0x300($sp)
+	{nop}							{o6}	lqd	$127, 0x310($sp)
+	{nop}							{o6}	lqd	$sp,  0x000($sp)
+	{nop}				skin_common_end_branch:	{o?}	bi	$lr
+
+
+
+;==============================================================================================================================
+; skin_same_n:
+;
+; Creates a blended matrix for each of the four vertexes to be transformed.  The input matrices are the same for each
+; vertex, but the matrix weights can be different for each of the four vertexes.
+;
+; m_0 * w0_0 + m_1 * w0_1 + ... + m_n-1 * w0_n-1
+; m_0 * w1_0 + m_1 * w1_1 + ... + m_n-1 * w1_n-1
+; m_0 * w2_0 + m_1 * w2_1 + ... + m_n-1 * w2_n-1
+; m_0 * w3_0 + m_1 * w3_1 + ... + m_n-1 * w3_n-1
+;
+;==============================================================================================================================
+skin_same_n:
+{e6 2}	fm	mat0_0, samemat_0, weight_0			{o4 1}	shufb	weight_3, weights, weights, s_DDDD
+{e6 2}	fm	mat1_0, samemat_0, weight_1			{o6 3}	lqx	samemat_2, pMatrices20, same0
+{e6 2}	fm	mat2_0, samemat_0, weight_2			{o4 2}	rotqby	same0, sames, pSame
+{e2 2}	ai	pSame, pSame, 2					{o6 1}	lqd	weights, 0(pWeights)
+{e6 2}	fm	mat3_0, samemat_0, weight_3				{lnop}
+{e6 2}	fm	mat0_1, samemat_1, weight_0				{lnop}
+{e6 2}	fm	mat1_1, samemat_1, weight_1			{o4 1}	rotqby	jumpAddr2, sameJumpTbl, same0
+{e6 2}	fm	mat2_1, samemat_1, weight_2			{o6 2}	lqx	samemat_0, pMatrices00, same0
+{e6 2}	fm	mat3_1, samemat_1, weight_3			{o6 2}	lqx	samemat_1, pMatrices10, same0
+{e6 2}	fm	mat0_2, samemat_2, weight_0			{o6 1}	lqx	sames, pSame, two
+{e6 2}	fm	mat1_2, samemat_2, weight_1			{o4 1}	shufb	weight_0, weights, weights, s_AAAA
+{e6 2}	fm	mat2_2, samemat_2, weight_2			{o4 1}	shufb	weight_1, weights, weights, s_BBBB
+{e6 2}	fm	mat3_2, samemat_2, weight_3			{o4 1}	shufb	weight_2, weights, weights, s_CcCc
+{e2 1}	ai	pWeights, pWeights, 16				{o4 1}	shufb	weight_3, weights, weights, s_DDDD
+
+skin_same_n_loop:
+{e6 1}	fma	mat0_0, samemat_0, weight_0, mat0_0		{o  1}	hbr	skin_same_n_branch, jumpAddr2
+{e6 1}	fma	mat1_0, samemat_0, weight_1, mat1_0		{o6 1}	lqx	samemat_2, pMatrices20, same0
+{e6 1}	fma	mat2_0, samemat_0, weight_2, mat2_0		{o4 1}	rotqby	same0, sames, pSame
+{e2 1}	ai	pSame, pSame, 2					{o6 1}	lqd	weights, 0(pWeights)
+{e6 1}	fma	mat3_0, samemat_0, weight_3, mat3_0		{o4 1}	rotqbyi	jumpAddr, jumpAddr2, 0
+{e6 1}	fma	mat0_1, samemat_1, weight_0, mat0_1		{o6 1}	lqx	sames, pSame, two
+{e6 1}	fma	mat1_1, samemat_1, weight_1, mat1_1		{o4 1}	rotqby	jumpAddr2, sameJumpTbl, same0
+{e6 1}	fma	mat2_1, samemat_1, weight_2, mat2_1		{o6 1}	lqx	samemat_0, pMatrices00, same0
+{e6 1}	fma	mat3_1, samemat_1, weight_3, mat3_1		{o6 1}	lqx	samemat_1, pMatrices10, same0
+{e6 1}	fma	mat0_2, samemat_2, weight_0, mat0_2		{o4 1}	shufb	weight_0, weights, weights, s_AAAA
+{e6 1}	fma	mat1_2, samemat_2, weight_1, mat1_2		{o4 1}	shufb	weight_1, weights, weights, s_BBBB
+{e6 1}	fma	mat2_2, samemat_2, weight_2, mat2_2		{o4 1}	shufb	weight_2, weights, weights, s_CcCc
+{e6 1}	fma	mat3_2, samemat_2, weight_3, mat3_2		{o4 1}	shufb	weight_3, weights, weights, s_DDDD
+{e2 1}	ai	pWeights, pWeights, 16	skin_same_n_branch:	{o? 1}	bi	jumpAddr	[skin_same_n_loop skin_shuffle_p skin_shuffle_pn skin_shuffle_pnt skin_shuffle_pntd]
+
+
+
+;==============================================================================================================================
+; same_n unrolled loop
+;
+; Below is the unrolled loop for what happens during a full iteration of the same_n routine.
+;
+;==============================================================================================================================
+.if 0
+; In the same_n routine, the four vertexes to be transformed all have the same influences, but may have differing
+; weights associated with those influences.  The indexes for this matrices are stored in the same matrix index stream
+; which is pointed to by pSame.  Here, the quadword containing the the next same matrix index is loaded and then the
+; index we want is rotated into the preferred halfword.  Since the preferred halfword is actually bytes 2 and 3 of a
+; quadword, pSame actually points to two bytes before the index we want.  Thus, two is added to the pointer in order
+; to load the correct value and no extra instructions are needed to rotate the value we want into place.
+; Also, we increment pSame here.
+	nop							{o6 1}	lqx	sames, pSame, two
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 1}	rotqby	same0, sames, pSame
+{e2 2}	ai	pSame, pSame, 2						lnop
+	nop								lnop
+	nop								lnop
+
+; Now that we have the matrix index, we load the three rows of the matrix.
+	nop							{o6 2}	lqx	samemat_0, pMatrices00, same0
+	nop							{o6 2}	lqx	samemat_1, pMatrices10, same0
+	nop							{o6 3}	lqx	samemat_2, pMatrices20, same0
+
+; Also, we need the weights associated with the vertexes in order to properly weight the just loaded matrix.
+; Here we load the weights and increment the weights pointer.
+	nop							{o6 1}	lqd	weights, 0(pWeights)
+{e2 1}	ai	pWeights, pWeights, 16					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The weights are loaded as
+;	w0 w1 w2 w3
+; but we need them as
+;	w0 w0 w0 w0
+;	w1 w1 w1 w1
+;	w2 w2 w2 w2
+;	w3 w3 w3 w3
+; in order to properly weight the matrix.  We perform that shuffle here.
+	nop							{o4 1}	shufb	weight_0, weights, weights, s_AAAA
+	nop							{o4 1}	shufb	weight_1, weights, weights, s_BBBB
+	nop							{o4 1}	shufb	weight_2, weights, weights, s_CcCc
+	nop							{o4 1}	shufb	weight_3, weights, weights, s_DDDD
+
+; For the first influence we simply multiply the loaded matrix against each of the possible weights, thus generating
+; four blended matrices (of three rows each).
+{e6 2}	fm	mat0_0, samemat_0, weight_0				lnop
+{e6 2}	fm	mat1_0, samemat_0, weight_1				lnop
+{e6 2}	fm	mat2_0, samemat_0, weight_2				lnop
+{e6 2}	fm	mat3_0, samemat_0, weight_3				lnop
+{e6 2}	fm	mat0_1, samemat_1, weight_0				lnop
+{e6 2}	fm	mat1_1, samemat_1, weight_1				lnop
+{e6 2}	fm	mat2_1, samemat_1, weight_2				lnop
+{e6 2}	fm	mat3_1, samemat_1, weight_3				lnop
+{e6 2}	fm	mat0_2, samemat_2, weight_0				lnop
+{e6 2}	fm	mat1_2, samemat_2, weight_1				lnop
+{e6 2}	fm	mat2_2, samemat_2, weight_2				lnop
+{e6 2}	fm	mat3_2, samemat_2, weight_3				lnop
+
+; For each influence after the first, we need to not only multiply the loaded matrix against each of the possible
+; weights, but we also need to accumulate the result with the results of all of the previous influences.
+; This assumes that the above code to load a matrix index, the matrix it refers to, and the associated vertex
+; weights has occured again for this influence.
+{e6 1}	fma	mat0_0, samemat_0, weight_0, mat0_0			lnop
+{e6 1}	fma	mat1_0, samemat_0, weight_1, mat1_0			lnop
+{e6 1}	fma	mat2_0, samemat_0, weight_2, mat2_0			lnop
+{e6 1}	fma	mat3_0, samemat_0, weight_3, mat3_0			lnop
+{e6 1}	fma	mat0_1, samemat_1, weight_0, mat0_1			lnop
+{e6 1}	fma	mat1_1, samemat_1, weight_1, mat1_1			lnop
+{e6 1}	fma	mat2_1, samemat_1, weight_2, mat2_1			lnop
+{e6 1}	fma	mat3_1, samemat_1, weight_3, mat3_1			lnop
+{e6 1}	fma	mat0_2, samemat_2, weight_0, mat0_2			lnop
+{e6 1}	fma	mat1_2, samemat_2, weight_1, mat1_2			lnop
+{e6 1}	fma	mat2_2, samemat_2, weight_2, mat2_2			lnop
+{e6 1}	fma	mat3_2, samemat_2, weight_3, mat3_2			lnop
+
+; Lastly, we need to figure out if we have finished blending or if we need to blend in another influence.
+; This is done by using the four low order bits of the matrix index as a rotate into a jump table.  If the
+; four low order bits are 0x4, then know that we should continue to blend and we rotate in the address of
+; skin_same_n_loop as our jump target.  However, if the four low order bits are 0x00, then the jump target
+; is set to the appropriate skin_shuffle routine.  All other values of the four low order bits are invalid.
+	nop							{o4 1}	rotqby	jumpAddr, sameJumpTbl, same0
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Hint the jump target and branch to it.  The possible jump destinations are shown in the brackets.
+	nop							{o  1}	hbr	skin_same_n_branch, jumpAddr
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop				skin_same_n_branch:	{o? 1}	bi	jumpAddr	[skin_same_n_loop skin_shuffle_p skin_shuffle_pn skin_shuffle_pnt skin_shuffle_pntd]
+.endif
+
+
+
+;==============================================================================================================================
+; skin_diff_n:
+;
+; Creates a blended matrix for each of the four vertexes to be transformed.  The input matrices and the matrix weights can be
+; different for each of the four vertexes.
+;
+; m0_0 * w0_0 + m0_1 * w0_1 + ... + m0_n-1 * w0_n-1
+; m1_0 * w1_0 + m1_1 * w1_1 + ... + m1_n-1 * w1_n-1
+; m2_0 * w2_0 + m2_1 * w2_1 + ... + m2_n-1 * w2_n-1
+; m3_0 * w3_0 + m3_1 * w3_1 + ... + m3_n-1 * w3_n-1
+;
+; diff_n has multiple entry points as some of the odd instructions can be safely moved to the main routines when space for
+; them exists, thus decreasing cycle counts.
+;
+;==============================================================================================================================
+skin_diff_n_p:
+	nop							{o6 1}	lqd	diffs, 0(pDiff)
+
+skin_diff_n_pn:
+	{nop}							{o6 2}	lqx	mat2_1_2, pMatrices10, diff2
+	{nop}							{o4 2}	shufb	weight_3, weights, weights, s_DDDD
+
+skin_diff_n_pnt:
+skin_diff_n_pntd:
+{e6 2}	fm	mat0_0, mat0_0_2, weight_0			{o6 1}	lqd	weights, 0(pWeights)
+{e6 2}	fm	mat0_1, mat0_1_2, weight_0			{o6 2}	lqx	mat2_2_2, pMatrices20, diff2
+{e6 2}	fm	mat0_2, mat0_2_2, weight_0			{o6 2}	lqx	mat3_0_2, pMatrices00, diff3
+{e6 2}	fm	mat1_0, mat1_0_2, weight_1			{o4 1}	rotqby	diff0, diffs, pDiff
+{e2 1}	ai	pDiff, pDiff, 8					{o6 2}	lqx	mat3_1_2, pMatrices10, diff3
+{e6 2}	fm	mat1_1, mat1_1_2, weight_1			{o6 2}	lqx	mat3_2_2, pMatrices20, diff3
+{e6 2}	fm	mat1_2, mat1_2_2, weight_1			{o4 1}	shufb	weight_0, weights, weights, s_AAAA
+{e4 1}	roti	diff1, diff0, 16				{o4 1}	rotqbyi	diff2, diff0, 4
+{e6 2}	fm	mat2_0, mat2_0_2, weight_2			{o6 1}	lqx	mat0_0_2, pMatrices00, diff0
+{e6 2}	fm	mat2_1, mat2_1_2, weight_2			{o6 1}	lqx	mat0_1_2, pMatrices10, diff0
+{e6 2}	fm	mat2_2, mat2_2_2, weight_2			{o6 1}	lqx	mat0_2_2, pMatrices20, diff0
+{e4 1}	shlhi	addrrot, diff2, 2				{o6 1}	lqx	mat1_0_2, pMatrices00, diff1
+{e6 2}	fm	mat3_0, mat3_0_2, weight_3			{o6 1}	lqx	mat1_1_2, pMatrices10, diff1
+{e6 2}	fm	mat3_1, mat3_1_2, weight_3			{o6 1}	lqx	mat1_2_2, pMatrices20, diff1
+{e6 2}	fm	mat3_2, mat3_2_2, weight_3			{o6 1}	lqx	mat2_0_2, pMatrices00, diff2
+{e4 1}	roti	diff3, diff2, 16				{o4 2}	shufb	weight_1, weights, weights, s_BBBB
+{e2 1}	ai	pWeights, pWeights, 16				{o4 2}	shufb	weight_2, weights, weights, s_CcCc
+
+skin_diff_n_loop:
+{e6 2}	fma	mat0_0, mat0_0_2, weight_0, mat0_0		{o6 1}	lqd	diffs, 0(pDiff)
+{e4 2}	rot	jumpAddr, diffJumpTbl, addrrot			{o6 2}	lqx	mat2_1_2, pMatrices10, diff2
+	{nop}							{o6 2}	lqx	mat2_2_2, pMatrices20, diff2
+	{nop}							{o6 2}	lqx	mat3_0_2, pMatrices00, diff3
+	{nop}							{o6 2}	lqx	mat3_1_2, pMatrices10, diff3
+	{nop}							{o  2}	hbr	skin_diff_n_branch, jumpAddr
+{e6 2}	fma	mat0_1, mat0_1_2, weight_0, mat0_1		{o4 1}	rotqby	diff0, diffs, pDiff
+{e2 1}	ai	pDiff, pDiff, 8					{o6 2}	lqx	mat3_2_2, pMatrices20, diff3
+{e6 2}	fma	mat0_2, mat0_2_2, weight_0, mat0_2		{o4 2}	shufb	weight_3, weights, weights, s_DDDD
+{e6 2}	fma	mat1_0, mat1_0_2, weight_1, mat1_0		{o6 1}	lqd	weights, 0(pWeights)
+{e4 1}	roti	diff1, diff0, 16				{o6 1}	lqx	mat0_0_2, pMatrices00, diff0
+{e6 2}	fma	mat1_1, mat1_1_2, weight_1, mat1_1		{o6 1}	lqx	mat0_1_2, pMatrices10, diff0
+{e6 2}	fma	mat1_2, mat1_2_2, weight_1, mat1_2		{o6 1}	lqx	mat0_2_2, pMatrices20, diff0
+{e6 2}	fma	mat2_0, mat2_0_2, weight_2, mat2_0		{o4 1}	rotqbyi	diff2, diff0, 4
+{e6 2}	fma	mat2_1, mat2_1_2, weight_2, mat2_1		{o6 1}	lqx	mat1_0_2, pMatrices00, diff1
+{e6 2}	fma	mat2_2, mat2_2_2, weight_2, mat2_2		{o6 1}	lqx	mat1_1_2, pMatrices10, diff1
+{e6 2}	fma	mat3_0, mat3_0_2, weight_3, mat3_0		{o6 1}	lqx	mat1_2_2, pMatrices20, diff1
+{e4 1}	roti	diff3, diff2, 16				{o4 1}	shufb	weight_0, weights, weights, s_AAAA
+{e6 2}	fma	mat3_1, mat3_1_2, weight_3, mat3_1		{o6 1}	lqx	mat2_0_2, pMatrices00, diff2
+{e4 1}	shlhi	addrrot, diff2, 2				{o4 2}	shufb	weight_1, weights, weights, s_BBBB
+{e6 2}	fma	mat3_2, mat3_2_2, weight_3, mat3_2		{o4 2}	shufb	weight_2, weights, weights, s_CcCc
+{e2 1}	ai	pWeights, pWeights, 16	skin_diff_n_branch:	{o? 2}	bi	jumpAddr	[skin_diff_n_loop skin_shuffle_p skin_shuffle_pn skin_shuffle_pnt skin_shuffle_pntd]
+
+
+
+;==============================================================================================================================
+; diff_n unrolled loop
+;
+; Below is the unrolled loop for what happens during a full iteration of the diff_n routine.
+;
+;==============================================================================================================================
+.if 0
+; Load the four current different matrix indexes and rotate them so they are in the first four halfwords of the register.
+; Also increment the pointer to the different matrix indexes.
+	nop							{o6 1}	lqd	diffs, 0(pDiff)
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 1}	rotqby	diff0, diffs, pDiff
+{e2 1}	ai	pDiff, pDiff, 8						lnop
+	nop								lnop
+	nop								lnop
+
+; The four different matrix indexes are stored in a double word as follows,
+;	mi1 mi0 mi3 mi2
+; so that matrix index 0 is by default in the preferred halfword.
+; Now we need to get the other three matrix indexes into the preferred halfwords of other registers.
+{e4 1}	roti	diff1, diff0, 16				{o4 1}	rotqbyi	diff2, diff0, 4
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e4 1}	roti	diff3, diff2, 16					lnop
+
+; Now load all four matrices using the four matrix indexes (three rows each).
+	nop							{o6 1}	lqx	mat0_0_2, pMatrices00, diff0
+	nop							{o6 1}	lqx	mat0_1_2, pMatrices10, diff0
+	nop							{o6 1}	lqx	mat0_2_2, pMatrices20, diff0
+	nop							{o6 1}	lqx	mat1_0_2, pMatrices00, diff1
+	nop							{o6 1}	lqx	mat1_1_2, pMatrices10, diff1
+	nop							{o6 1}	lqx	mat1_2_2, pMatrices20, diff1
+	nop							{o6 1}	lqx	mat2_0_2, pMatrices00, diff2
+	nop							{o6 2}	lqx	mat2_1_2, pMatrices10, diff2
+	nop							{o6 2}	lqx	mat2_2_2, pMatrices20, diff2
+	nop							{o6 2}	lqx	mat3_0_2, pMatrices00, diff3
+	nop							{o6 2}	lqx	mat3_1_2, pMatrices10, diff3
+	nop							{o6 2}	lqx	mat3_2_2, pMatrices20, diff3
+
+
+; Also, we need the weights associated with the vertexes in order to properly weight the just loaded matrices.
+; Here we load the weights and increment the weights pointer.
+	nop							{o6 1}	lqd	weights, 0(pWeights)
+{e2 1}	ai	pWeights, pWeights, 16					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The weights are loaded as
+;	w0 w1 w2 w3
+; but we need them as
+;	w0 w0 w0 w0
+;	w1 w1 w1 w1
+;	w2 w2 w2 w2
+;	w3 w3 w3 w3
+; in order to properly weight the matrices.  We perform that shuffle here.
+	nop							{o4 1}	shufb	weight_0, weights, weights, s_AAAA
+	nop							{o4 2}	shufb	weight_1, weights, weights, s_BBBB
+	nop							{o4 2}	shufb	weight_2, weights, weights, s_CcCc
+	nop							{o4 2}	shufb	weight_3, weights, weights, s_DDDD
+
+; For the first influence we simply multiply the loaded matrices against the weights.
+{e6 2}	fm	mat0_0, mat0_0_2, weight_0				lnop
+{e6 2}	fm	mat0_1, mat0_1_2, weight_0				lnop
+{e6 2}	fm	mat0_2, mat0_2_2, weight_0				lnop
+{e6 2}	fm	mat1_0, mat1_0_2, weight_1				lnop
+{e6 2}	fm	mat1_1, mat1_1_2, weight_1				lnop
+{e6 2}	fm	mat1_2, mat1_2_2, weight_1				lnop
+{e6 2}	fm	mat2_0, mat2_0_2, weight_2				lnop
+{e6 2}	fm	mat2_1, mat2_1_2, weight_2				lnop
+{e6 2}	fm	mat2_2, mat2_2_2, weight_2				lnop
+{e6 2}	fm	mat3_0, mat3_0_2, weight_3				lnop
+{e6 2}	fm	mat3_1, mat3_1_2, weight_3				lnop
+{e6 2}	fm	mat3_2, mat3_2_2, weight_3				lnop
+
+; For each influence after the first, we need to not only multiply the loaded matrices against the
+; weights, but we also need to accumulate the result with the results of all of the previous influences.
+; This assumes that the above code to load the matrix indexes, the matrices they refer to, and the associated vertex
+; weights has occured again for this influence.
+{e6 2}	fma	mat0_0, mat0_0_2, weight_0, mat0_0			lnop
+{e6 2}	fma	mat0_1, mat0_1_2, weight_0, mat0_1			lnop
+{e6 2}	fma	mat0_2, mat0_2_2, weight_0, mat0_2			lnop
+{e6 2}	fma	mat1_0, mat1_0_2, weight_1, mat1_0			lnop
+{e6 2}	fma	mat1_1, mat1_1_2, weight_1, mat1_1			lnop
+{e6 2}	fma	mat1_2, mat1_2_2, weight_1, mat1_2			lnop
+{e6 2}	fma	mat2_0, mat2_0_2, weight_2, mat2_0			lnop
+{e6 2}	fma	mat2_1, mat2_1_2, weight_2, mat2_1			lnop
+{e6 2}	fma	mat2_2, mat2_2_2, weight_2, mat2_2			lnop
+{e6 2}	fma	mat3_0, mat3_0_2, weight_3, mat3_0			lnop
+{e6 2}	fma	mat3_1, mat3_1_2, weight_3, mat3_1			lnop
+{e6 2}	fma	mat3_2, mat3_2_2, weight_3, mat3_2			lnop
+
+; Lastly, we need to figure out if we have finished blending or if we need to blend in another influence.
+; This is done by using the four low order bits of the any of the matrix indexes (we chose index 2) as a
+; rotate into a jump table.  If the four low order bits are 0x4, then know that we should continue to blend
+; and we rotate in the address of skin_diff_n_loop as our jump target.  However, if the four low order bits
+; are 0x00, then the jump target is set to the appropriate skin_shuffle routine.  All other values of the
+; four low order bits are invalid.
+{e4 1}	shlhi	addrrot, diff2, 2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e4 2}	rot	jumpAddr, diffJumpTbl, addrrot				lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Hint the jump target and branch to it.  The possible jump destinations are shown in the brackets.
+	nop							{o  2}	hbr	skin_diff_n_branch, jumpAddr
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop				skin_diff_n_branch:	{o? 2}	bi	jumpAddr	[skin_diff_n_loop skin_shuffle_p skin_shuffle_pn skin_shuffle_pnt skin_shuffle_pntd]
+.endif
+
+
+
+;==============================================================================================================================
+; skin_diff_1:
+;
+; Loads a different matrix from the matrix table for each of the four vertexes to be transformed.
+; The indexes for the matrices are loaded from the matrix input stream.
+;
+; m0
+; m1
+; m2
+; m3
+;
+; This routine copies the 7 or 8 matrix rows that have already been loaded into the approriate registers for
+; the particular shuffle routine, loads the remaining 4 or 5 matrix rows (to make 12 rows total, or 4 matrices)
+; and then loads the first 7 matrix rows for the next set of vertexes.  It also loads and calculates the matrix
+; indexes for the first set of matrices for the next set of vertexes, and then increments the pointer to the
+; matrix indexes.  The routine then jumps to the appropriate shuffle routine.
+;
+; diff_1 has multiple entry points as some of the odd instructions can be safely moved to the main routines when space for
+; them exists, thus decreasing cycle counts.
+;
+;==============================================================================================================================
+skin_diff_1_p:
+	{nop}							{o6 1}	lqd	diffs, 0(pDiff)
+	{nop}								{lnop}
+	{nop}								{lnop}
+
+skin_diff_1_pn:
+	{nop}							{o6 2}	lqx	mat2_1_2, pMatrices10, diff2
+
+skin_diff_1_pnt:
+skin_diff_1_pntd:
+{e2 2}	ori	mat0_0, mat0_0_2, 0				{o  1}	hbr	skin_diff_1_branch, diffJumpTbl
+{e2 2}	ori	mat0_1, mat0_1_2, 0				{o6 2}	lqx	mat2_2, pMatrices20, diff2
+{e2 2}	ori	mat0_2, mat0_2_2, 0				{o4 1}	rotqby	diff0, diffs, pDiff
+{e2 2}	ori	mat1_0, mat1_0_2, 0				{o6 2}	lqx	mat3_0, pMatrices00, diff3
+{e2 2}	ori	mat1_1, mat1_1_2, 0				{o6 2}	lqx	mat3_1, pMatrices10, diff3
+{e2 2}	ori	mat1_2, mat1_2_2, 0				{o6 2}	lqx	mat3_2, pMatrices20, diff3
+{e4 1}	roti	diff1, diff0, 16				{o4 1}	rotqbyi	diff2, diff0, 4
+{e2 2}	ori	mat2_0, mat2_0_2, 0				{o6 1}	lqx	mat0_0_2, pMatrices00, diff0
+{e2 2}	ori	mat2_1, mat2_1_2, 0				{o6 1}	lqx	mat0_1_2, pMatrices10, diff0
+{e2 1}	ai	pDiff, pDiff, 8					{o6 1}	lqx	mat0_2_2, pMatrices20, diff0
+	{nop}							{o6 1}	lqx	mat1_0_2, pMatrices00, diff1
+	{nop}							{o6 1}	lqx	mat1_1_2, pMatrices10, diff1
+	{nop}							{o6 1}	lqx	mat1_2_2, pMatrices20, diff1
+	{nop}							{o6 1}	lqx	mat2_0_2, pMatrices00, diff2
+{e4 1}	roti	diff3, diff2, 16	skin_diff_1_branch:	{o? 1}	bi	diffJumpTbl	[skin_shuffle_p skin_shuffle_pn skin_shuffle_pnt skin_shuffle_pntd]
+
+
+
+;==============================================================================================================================
+; skin_pn routines
+;
+; Transforms the position and normal data associated with a vertex.
+; Preserves the flip factor in the normals.
+;
+; If R is the 3x3 rotation submatrix of a given blended matrix, P is the 3 element translation column
+; vector of a given blended matrix, and C is the cofactor matrix of R, then the following transformations
+; are done in these functions:
+;	p' = Rp + P
+;	n' = Cn / ||Cn||
+;
+;==============================================================================================================================
+skin_shuffle_pn: 	; 66 Cycles
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 1}	shufb	shuftemp3, mat0_2, mat1_2, s_ACac
+{e2 2}	a	outOff, outOff, outInc				{o4 1}	shufb	shuftemp2, mat2_0, mat3_0, s_ACac
+{e2 1}	selb	pi_temp5, pos1, pos3, sel_AbcD			{o4 1}	shufb	shuftemp8, mat2_1, mat3_1, s_BDbd
+{e2 1}	selb	pi_temp4, pos0, pos2, sel_AbcD			{o4 1}	shufb	shuftemp7, mat0_1, mat1_1, s_BDbd
+{e2 2}	ai	norm1_, norm1, 0				{o4 1}	shufb	shuftemp1, mat0_0, mat1_0, s_ACac
+{e2 2}	ai	norm0_, norm0, 0				{o4 1}	shufb	shuftemp4, mat2_2, mat3_2, s_ACac
+{e2 1}	ai	inOff_, inOff, 0x40				{o4 2}	frsqest	nest, nrmag
+{e2 2}	ai	norm3_, norm3, 0				{o4 1}	shufb	mat_11, shuftemp7, shuftemp8, s_ACac
+	{nop}							{o4 1}	shufb	mat_02, shuftemp1, shuftemp2, s_BDbd
+	{nop}							{o4 1}	shufb	mat_20, shuftemp3, shuftemp4, s_ACac
+{e7 2}	fi	nrmag2, nrmag, nest				{o4 1}	shufb	mat_00, shuftemp1, shuftemp2, s_ACac
+{e2 2}	ai	norm2_, norm2, 0				{o4 1}	shufb	mat_22, shuftemp3, shuftemp4, s_BDbd
+{e6 1}	fm	cofm_20, mat_02, mat_11				{o4 1}	shufb	shuftemp5, mat0_1, mat1_1, s_ACac
+{e6 1}	fm	cofm_02, mat_11, mat_20				{o4 1}	shufb	shuftemp6, mat2_1, mat3_1, s_ACac
+{e6 1}	fm	cofm_11, mat_02, mat_20				{o4 1}	shufb	shuftemp9, mat0_0, mat1_0, s_BDbd
+{e6 1}	fm	cofm_00, mat_11, mat_22				{o4 1}	shufb	shuftemp10, mat2_0, mat3_0, s_BDbd
+{e6 1}	fm	cofm_22, mat_00, mat_11				{o6 1}	lqx	norm0, pNormal00, inOff
+{e6 2}	fm	ny5, ny4, nrmag2				{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BDbd
+{e6 2}	fm	nx5, nx4, nrmag2				{o4 1}	shufb	shuftemp12, mat2_2, mat3_2, s_BDbd
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 1}	shufb	mat_01, shuftemp9, shuftemp10, s_ACac
+{e6 1}	fms	cofm_11, mat_00, mat_22, cofm_11		{o4 1}	shufb	mat_10, shuftemp5, shuftemp6, s_ACac
+{e6 1}	fm	cofm_21, mat_00, mat_12				{o6 1}	lqx	norm1, pNormal10, inOff
+{e6 1}	fm	cofm_01, mat_12, mat_20				{o4 1}	shufb	shuftemp11, mat0_2, mat1_2, s_BDbd
+{e6 1}	fms	cofm_20, mat_01, mat_12, cofm_20		{o6 1}	lqx	norm2, pNormal20, inOff
+{e6 1}	fm	cofm_12, mat_01, mat_20				{o6 1}	lqx	norm3, pNormal30, inOff
+{e6 1}	fnms	cofm_22, mat_01, mat_10, cofm_22		{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 1}	fm	cofm_10, mat_01, mat_22				{o4 1}	shufb	mat_21, shuftemp11, shuftemp12, s_ACac
+{e6 1}	fms	cofm_21, mat_02, mat_10, cofm_21		{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e6 1}	fnms	cofm_01, mat_10, mat_22, cofm_01		{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e6 1}	fms	cofm_02, mat_10, mat_21, cofm_02		{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00		{o4 1}	shufb	mat_23, shuftemp11, shuftemp12, s_BDbd
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10		{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12		{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o6 1}	lqx	controlBytes, pControl, three
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 1}	shufb	pi_temp3, pi_temp4, pi_temp5, s_AaBb
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 1}	shufb	pi_temp1, pos0, pos1, s_BbCc
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd		{o4 1}	shufb	pi_temp2, pos2, pos3, s_CcAa
+{e6 1}	fm	nx2, nx, cofm_00				{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o4 1}	shufb	mat_03, shuftemp9, shuftemp10, s_BDbd
+{e6 1}	fm	nz2, nx, cofm_20				{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e2 1}	selb	px, pi_temp3, pi_temp2, sel_ABcd		{o4 1}	shufb	pz, pi_temp2, pi_temp1, s_cdAB
+{e2 1}	selb	py, pi_temp1, pi_temp3, sel_ABcd		{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fm	ny2, nx, cofm_10				{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	nx2, nz, cofm_02, nx2				{o4 1}	rotqby	instCode, instTbl, controlByte
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 1}	shufb	mat_13, shuftemp7, shuftemp8, s_BDbd
+{e6 1}	fma	nz2, nz, cofm_22, nz2				{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e2 1}	ai	pControl, pControl, 1				{o  1}	hbr	skin_shuffle_pn_branch, instCode
+{e6 1}	fma	ny2, nz, cofm_12, ny2				{o6 0}	lqx	pos0, pPos00, inOff_
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o6 0}	lqx	pos1, pPos10, inOff_
+{e6 1}	fma	py2, px, mat_10, mat_13				{o6 2}	stqx	opos0, pPos00, outOff
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o4 0}	rotqbyi inOff, inOff_, 0
+{e6 1}	fma	px2, pz, mat_02, px2				{o6 0}	lqx	pos2, pPos20, inOff_
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o6 0}	lqd	diffs, 0(pDiff)
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 1}	fm	nrmag, nx4, nx4					{o6 0}	lqx	pos3, pPos30, inOff_
+{e6 1}	fma	py2, pz, mat_12, py2				{o6 2}	stqx	opos2, pPos20, outOff
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o6 2}	stqx	opos3, pPos30, outOff
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o6 2}	stqx	onorm0, pNormal00, outOff
+{e6 1}	fma	px3, py, mat_01, px2				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 2}	fma	nrmag, ny4, ny4, nrmag				{o6 2}	stqx	onorm3, pNormal30, outOff
+{e6 1}	fma	py3, py, mat_11, py2				; Branch is below
+.cset pTangent00, pTangent10, pTangent20, pTangent30
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset tan0, tan1, tan2, tan3, trmag, tx4, ty4, tz4
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+.cset four, s_AcBa, s_DCba, s_BCcb, s_BAab, s_cACa, s_dBDb, s_CDdc, s_caAB, instCode_
+					skin_shuffle_pn_branch:	{o? 1}	bi	instCode	[skin_diff_1_pn skin_diff_n_pn skin_same_n skin_same_1_pn skin_next_pn skin_end_pn]
+
+
+
+skin_next_pn:	; 44 Cycles
+{e2 2}	ai	norm2_, norm2, 0				{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+{e2 2}	ai	norm1_, norm1, 0				{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+{e2 2}	ai	norm3_, norm3, 0				{o6 1}	lqx	norm0, pNormal00, inOff
+{e2 2}	a	outOff, outOff, outInc				{o6 1}	lqx	norm1, pNormal10, inOff
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o6 1}	lqx	norm2, pNormal20, inOff
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd		{o6 1}	lqx	norm3, pNormal30, inOff
+{e2 1}	ai	inOff, inOff, 0x40				{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+	nop							{o4 2}	frsqest	nest, nrmag
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd		{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e6 1}	fma	py2, pz, mat_12, py2				{o6 1}	lqx	controlBytes, pControl, three
+{e7 2}	fi	nrmag2, nrmag, nest				{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd			lnop
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e6 1}	fm	nx2, nz, cofm_02				{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e6 1}	fm	ny2, nz, cofm_12				{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e6 2}	fm	nx5, nx4, nrmag2				{o6 0}	lqd	diffs, 0(pDiff)
+{e6 2}	fm	ny5, ny4, nrmag2				{o6 2}	lqx	norm0_, pNormal00, outOff
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o4 1}	rotqby	instCode, instTbl, controlByte
+{e6 1}	fm	nz2, nz, cofm_22				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o6 0}	lqx	pos3, pPos30, inOff
+{e6 1}	fma	px2, pz, mat_02, px2				{o6 0}	lqx	pos1, pPos10, inOff
+{e2 1}	ai	pControl, pControl, 1				{o  1}	hbr	skin_next_pn_branch, instCode
+{e6 1}	fma	py3, py, mat_11, py2				{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o6 0}	lqx	pos2, pPos20, inOff
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o6 0}	lqx	pos0, pPos00, inOff
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o6 2}	stqx	opos1, pPos10, outOff
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e6 1}	fm	nrmag, nx4, nx4					{o6 2}	stqx	opos3, pPos30, outOff
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o6 2}	stqx	opos0, pPos00, outOff
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o6 2}	stqx	opos2, pPos20, outOff
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 1}	fma	px3, py, mat_01, px2				{o6 2}	stqx	onorm0, pNormal00, outOff
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 2}	stqx	onorm3, pNormal30, outOff
+{e6 1}	fma	pz3, py, mat_21, pz2				; Branch is below
+.cset pTangent00, pTangent10, pTangent20, pTangent30
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset tan0, tan1, tan2, tan3, trmag, tx4, ty4, tz4
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+.cset four, s_AcBa, s_DCba, s_BCcb, s_BAab, s_cACa, s_dBDb, s_CDdc, s_caAB, instCode_
+					skin_next_pn_branch:	{o? 1}	bi	instCode	[skin_diff_1_pn skin_diff_n_pn skin_same_n skin_same_1_pn skin_next_pn skin_end_pn]
+
+
+
+skin_same_1_pn:	; 63 Cycles
+{e2 2}	ai	norm1_, norm1, 0				{o4 1}	shufb	cofmtmp_1, samemat_1, samemat_1, s_BCAD
+{e2 2}	ai	norm3_, norm3, 0				{o6 1}	lqx	samemat_2, pMatrices20, same0
+{e2 2}	ai	norm0_, norm0, 0				{o4 1}	shufb	mat_10, samemat_1, samemat_1, s_AAAA
+{e2 2}	ai	norm2_, norm2, 0				{o6 1}	lqx	norm1, pNormal10, inOff
+{e6 1}	fm	cofmtmp_1, samemat_0, cofmtmp_1			{o4 1}	shufb	cofmtmp_0, samemat_0, samemat_0, s_BCAD
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 1}	shufb	mat_11, samemat_1, samemat_1, s_BBBB
+{e2 1}	selb	pi_temp4, pos0, pos2, sel_AbcD			{o6 1}	lqx	norm2, pNormal20, inOff
+{e2 1}	selb	pi_temp5, pos1, pos3, sel_AbcD			{o4 1}	shufb	mat_22, samemat_2, samemat_2, s_CcCc
+{e2 2}	a	outOff, outOff, outInc				{o4 1}	shufb	mat_20, samemat_2, samemat_2, s_AAAA
+	nop							{o4 1}	shufb	mat_21, samemat_2, samemat_2, s_BBBB
+{e6 1}	fnms	cofmtmp_1, samemat_1, cofmtmp_0, cofmtmp_1	{o4 1}	shufb	pi_temp3, pi_temp4, pi_temp5, s_AaBb
+{e6 1}	fm	cofm_01, mat_10, mat_22				{o4 2}	frsqest	nest, nrmag
+{e6 1}	fm	cofm_00, mat_11, mat_22				{o4 1}	shufb	pi_temp1, pos0, pos1, s_BbCc
+{e6 1}	fm	cofm_02, mat_10, mat_21				{o4 1}	shufb	mat_12, samemat_1, samemat_1, s_CcCc
+	nop							{o4 1}	shufb	pi_temp2, pos2, pos3, s_CcAa
+{e7 2}	fi	nrmag2, nrmag, nest				{o4 1}	shufb	mat_01, samemat_0, samemat_0, s_BBBB
+{e2 1}	selb	py, pi_temp1, pi_temp3, sel_ABcd		{o4 1}	shufb	cofm_20, cofmtmp_1, cofmtmp_1, s_BBBB
+{e6 1}	fms	cofm_01, mat_12, mat_20, cofm_01		{o4 1}	shufb	mat_02, samemat_0, samemat_0, s_CcCc
+{e2 1}	selb	px, pi_temp3, pi_temp2, sel_ABcd		{o4 1}	shufb	mat_00, samemat_0, samemat_0, s_AAAA
+{e6 1}	fm	cofm_10, mat_01, mat_22				{o4 1}	shufb	pz, pi_temp2, pi_temp1, s_cdAB
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00		{o6 1}	lqx	norm0, pNormal00, inOff
+{e6 1}	fm	cofm_12, mat_01, mat_20				{o6 1}	lqx	norm3, pNormal30, inOff
+{e6 2}	fm	ny5, ny4, nrmag2				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 1}	shufb	mat_03, samemat_0, samemat_0, s_DDDD
+{e6 1}	fm	cofm_11, mat_00, mat_22				{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 2}	fm	nx5, nx4, nrmag2				{o4 1}	shufb	cofm_21, cofmtmp_1, cofmtmp_1, s_CcCc
+{e6 1}	fnms	cofm_02, mat_11, mat_20, cofm_02		{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12		{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e2 1}	ai	inOff, inOff, 0x40				{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10		{o4 1}	shufb	cofm_22, cofmtmp_1, cofmtmp_1, s_AAAA
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd		{o4 1}	shufb	mat_13, samemat_1, samemat_1, s_DDDD
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 0}	rotqby	same0, sames, pSame
+{e6 1}	fm	nx2, nz, cofm_02				{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e6 1}	fm	ny2, nz, cofm_12				{o6 1}	lqx	controlBytes, pControl, three
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 1}	shufb	mat_23, samemat_2, samemat_2, s_DDDD
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e6 1}	fm	nz2, nz, cofm_22				{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o6 0}	lqx	samemat_1, pMatrices10, same0
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o6 0}	lqd	diffs, 0(pDiff)
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 0}	ai	pSame, pSame, 2					{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o6 0}	lqx	pos0, pPos00, inOff
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 1}	rotqby	instCode, instTbl, controlByte
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e6 1}	fma	py2, pz, mat_12, py2				{o6 0}	lqx	samemat_0, pMatrices00, same0
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e6 1}	fnms	cofm_11, mat_02, mat_20, cofm_11		{o  1}	hbr	skin_same_1_pn_branch, instCode
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o6 2}	stqx	opos0, pPos00, outOff
+{e6 1}	fm	nrmag, nx4, nx4					{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fma	py3, py, mat_11, py2				{o6 0}	lqx	sames, pSame, two
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 0}	lqx	pos1, pPos10, inOff
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o6 0}	lqx	pos3, pPos30, inOff
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o6 0}	lqx	pos2, pPos20, inOff
+{e6 1}	fma	px2, pz, mat_02, px2				{o6 2}	stqx	onorm1, pNormal10, outOff
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o6 2}	stqx	opos3, pPos30, outOff
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o6 2}	stqx	opos1, pPos10, outOff
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o6 2}	stqx	onorm0, pNormal00, outOff
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 2}	stqx	onorm3, pNormal30, outOff
+{e2 1}	ai	pControl, pControl, 1				{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 1}	fma	px3, py, mat_01, px2				; Branch is below
+.cset pTangent00, pTangent10, pTangent20, pTangent30
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset tan0, tan1, tan2, tan3, trmag, tx4, ty4, tz4
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+.cset four, s_AcBa, s_DCba, s_BCcb, s_BAab, s_cACa, s_dBDb, s_CDdc, s_caAB, instCode_
+					skin_same_1_pn_branch:	{o? 1}	bi	instCode	[skin_diff_1_pn skin_diff_n_pn skin_same_n skin_same_1_pn skin_next_pn skin_end_pn]
+
+
+
+skin_end_pn:	; 37 Cycles
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+	{nop}							{o4 2}	frsqest	nest, nrmag
+	{nop}							{o6 2}	stqx	opos0, pPos00, outOff
+	{nop}							{o6 2}	stqx	opos2, pPos20, outOff
+	{nop}							{o6 2}	stqx	opos3, pPos30, outOff
+{e7 2}	fi	nrmag2, nrmag, nest				{o6 2}	stqx	opos1, pPos10, outOff
+	{nop}							{o}	hbrr	skin_end_pn_branch, skin_common_end
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e6 2}	fm	nz5, nz4, nrmag2					{lnop}
+{e6 2}	fm	ny5, ny4, nrmag2					{lnop}
+{e6 2}	fm	nx5, nx4, nrmag2					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+	{nop}							{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e2 2}	selb	onorm0, onorm0, norm0, sel_ABCd				{lnop}
+{e2 2}	selb	onorm1, onorm1, norm1, sel_ABCd				{lnop}
+{e2 2}	selb	onorm3, onorm3, norm3, sel_ABCd			{o6 2}	stqx	onorm0, pNormal00, outOff
+{e2 2}	selb	onorm2, onorm2, norm2, sel_ABCd			{o6 2}	stqx	onorm1, pNormal10, outOff
+	{nop}							{o6 2}	stqx	onorm3, pNormal30, outOff
+	{nop}							{o6 2}	stqx	onorm2, pNormal20, outOff
+	nop				skin_end_pn_branch:	{o?}	br	skin_common_end
+
+
+
+;==============================================================================================================================
+; skin_pnt routines
+;
+; Transforms the position, normal, and tangent data associated with a vertex.
+; Preserves the flip factor in the normals and tangents.
+;
+; If R is the 3x3 rotation submatrix of a given blended matrix, P is the 3 element translation column
+; vector of a given blended matrix, and C is the cofactor of R, then the following transformations
+; are done in these functions:
+;	p' = Rp + P
+;	n' = Cn / ||Cn||
+;	t' = Rt
+;
+;==============================================================================================================================
+skin_shuffle_pnt:	; 89 Cycles
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 1}	shufb	shuftemp7, mat0_1, mat1_1, s_BDbd
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o4 1}	shufb	shuftemp10, mat2_0, mat3_0, s_BDbd
+{e2 2}	ai	tan2_, tan2, 0					{o4 1}	shufb	shuftemp1, mat0_0, mat1_0, s_ACac
+{e2 2}	ai	norm3_, norm3, 0				{o4 1}	shufb	shuftemp2, mat2_0, mat3_0, s_ACac
+{e2 2}	ai	norm2_, norm2, 0				{o4 1}	shufb	shuftemp8, mat2_1, mat3_1, s_BDbd
+{e2 1}	ai	inOff_, inOff, 0x40				{o4 1}	shufb	shuftemp6, mat2_1, mat3_1, s_ACac
+{e2 1}	ai	pControl_, pControl, 1				{o4 2}	frsqest	nest, nrmag
+{e2 2}	ai	tan0_, tan0, 0					{o4 1}	shufb	mat_02, shuftemp1, shuftemp2, s_BDbd
+{e2 2}	ai	norm1_, norm1, 0				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e2 2}	ai	tan3_, tan3, 0					{o4 2}	frsqest	test, trmag
+{e7 2}	fi	nrmag2, nrmag, nest				{o4 1}	shufb	mat_00, shuftemp1, shuftemp2, s_ACac
+{e2 2}	a	outOff, outOff, outInc				{o4 1}	shufb	mat_11, shuftemp7, shuftemp8, s_ACac
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 1}	shufb	shuftemp3, mat0_2, mat1_2, s_ACac
+{e2 2}	ai	tan1_, tan1, 0					{o4 1}	shufb	shuftemp5, mat0_1, mat1_1, s_ACac
+{e7 2}	fi	trmag2, trmag, test				{o4 1}	shufb	shuftemp11, mat0_2, mat1_2, s_BDbd
+	nop							{o4 1}	shufb	shuftemp4, mat2_2, mat3_2, s_ACac
+{e6 1}	fm	cofm_20, mat_02, mat_11				{o4 1}	shufb	shuftemp9, mat0_0, mat1_0, s_BDbd
+{e6 2}	fm	ny5, ny4, nrmag2				{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BDbd
+{e6 1}	fm	cofm_22, mat_00, mat_11				{o6 2}	stqx	opos1, pPos10, outOff
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 1}	shufb	mat_20, shuftemp3, shuftemp4, s_ACac
+{e6 2}	fm	nx5, nx4, nrmag2				{o4 1}	shufb	mat_22, shuftemp3, shuftemp4, s_BDbd
+{e6 2}	fm	tz5, tz4, trmag2				{o4 1}	shufb	mat_01, shuftemp9, shuftemp10, s_ACac
+{e6 2}	fm	tx5, tx4, trmag2				{o4 1}	shufb	mat_10, shuftemp5, shuftemp6, s_ACac
+{e6 1}	fm	cofm_01, mat_12, mat_20				{o6 1}	lqx	norm3, pNormal30, inOff
+{e6 1}	fm	cofm_21, mat_00, mat_12				{o6 1}	lqx	norm2, pNormal20, inOff
+{e6 1}	fm	cofm_00, mat_11, mat_22				{o4 1}	shufb	mat_03, shuftemp9, shuftemp10, s_BDbd
+{e6 2}	fm	ty5, ty4, trmag2				{o6 1}	lqx	norm0, pNormal00, inOff
+{e6 1}	fm	cofm_11, mat_02, mat_20				{o4 1}	shufb	shuftemp12, mat2_2, mat3_2, s_BDbd
+{e6 1}	fm	cofm_02, mat_11, mat_20				{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e6 1}	fnms	cofm_01, mat_10, mat_22, cofm_01		{o4 1}	shufb	mat_13, shuftemp7, shuftemp8, s_BDbd
+{e6 1}	fms	cofm_21, mat_02, mat_10, cofm_21		{o6 1}	lqx	norm1, pNormal10, inOff
+{e6 1}	fms	cofm_20, mat_01, mat_12, cofm_20		{o4 1}	shufb	mat_21, shuftemp11, shuftemp12, s_ACac
+{e6 1}	fm	cofm_10, mat_01, mat_22				{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+{e6 1}	fnms	cofm_22, mat_01, mat_10, cofm_22		{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o6 1}	lqx	tan3, pTangent30, inOff
+{e6 1}	fm	cofm_12, mat_01, mat_20				{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e2 2}	selb	otan1, otan1, tan1_, sel_ABCd			{o6 1}	lqx	tan1, pTangent10, inOff
+{e2 2}	selb	otan0, otan0, tan0_, sel_ABCd			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e6 1}	fms	cofm_02, mat_10, mat_21, cofm_02		{o6 2}	stqx	otan1, pTangent10, outOff
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00		{o6 1}	lqx	tan0, pTangent00, inOff
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12		{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd		{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10		{o6 2}	stqx	otan0, pTangent00, outOff
+{e6 1}	fms	cofm_11, mat_00, mat_22, cofm_11		{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+{e6 1}	fm	nx2, nz, cofm_02				{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+{e6 1}	fm	nz2, nz, cofm_22				{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e6 1}	fm	ny2, nz, cofm_12				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 2}	selb	otan2, otan2, tan2_, sel_ABCd			{o6 1}	lqx	tan2, pTangent20, inOff
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 1}	rotqbyi	inOff, inOff_, 0
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd		{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o6 1}	lqx	controlBytes, pControl, three
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd		{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+{e2 2}	selb	otan3, otan3, tan3_, sel_ABCd			{o4 1}	shufb	mat_23, shuftemp11, shuftemp12, s_BDbd
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd		{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o6 0}	lqx	pos2, pPos20, inOff
+{e6 1}	fm	tx2, tz, mat_02					{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e6 1}	fma	py2, pz, mat_12, py2				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o6 0}	lqx	pos1, pPos10, inOff
+{e6 1}	fm	ty2, tz, mat_12					{o6 2}	lqx	norm0_, pNormal00, outOff
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd		{o6 2}	stqx	otan3, pTangent30, outOff
+{e6 1}	fma	px2, pz, mat_02, px2				{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fma	tx2, tx, mat_00, tx2				{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e6 1}	fm	tz2, tz, mat_22					{o6 2}	stqx	otan2, pTangent20, outOff
+{e6 1}	fma	ty2, tx, mat_10, ty2				{o4 1}	rotqby	instCode, instTbl, controlByte
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 1}	fma	tx4, ty, mat_01, tx2				{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 2}	fma	pz2, pz, mat_22, pz2				{o  1}	hbr	skin_shuffle_pnt_branch, instCode
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e6 1}	fma	tz2, tx, mat_20, tz2				{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e6 1}	fma	ty4, ty, mat_11, ty2				{o4 1}	rotqbyi pControl, pControl_, 0
+{e6 1}	fm	trmag, tx4, tx4					{o6 0}	lqx	pos0, pPos00, inOff
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o6 0}	lqd	diffs, 0(pDiff)
+{e6 1}	fm	nrmag, nx4, nx4					{o4 0}	shufb	weight_3, weights, weights, s_DDDD
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o6 2}	stqx	opos3, pPos30, outOff
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o6 0}	lqx	mat2_1_2, pMatrices10, diff2
+{e6 1}	fma	tz4, ty, mat_21, tz2				{o6 0}	lqx	pos3, pPos30, inOff
+{e6 1}	fma	trmag, ty4, ty4, trmag					lnop
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 2}	stqx	onorm0, pNormal00, outOff
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 2}	stqx	opos0, pPos00, outOff
+{e6 1}	fma	px3, py, mat_01, px2				{o6 2}	stqx	onorm3, pNormal30, outOff
+{e6 1}	fma	py3, py, mat_11, py2				; Branch is below
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+.cset four, s_AcBa, s_DCba, s_BCcb, s_BAab, s_cACa, s_dBDb, s_CDdc, s_caAB, instCode_
+.cset s_CcAa, s_BbCc
+				skin_shuffle_pnt_branch:	{o? 1}	bi	instCode	[skin_diff_1_pnt skin_diff_n_pnt skin_same_n skin_same_1_pnt skin_next_pnt skin_end_pnt]
+
+
+
+skin_next_pnt:	; 68 Cycles
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o6 1}	lqx	norm3, pNormal30, inOff
+{e2 2}	ai	tan0_, tan0, 0					{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+{e2 2}	ai	tan3_, tan3, 0					{o6 1}	lqx	tan0, pTangent00, inOff
+{e2 2}	ai	tan2_, tan2, 0					{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e2 2}	ai	tan1_, tan1, 0					{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd		{o4 2}	frsqest	test, trmag
+{e2 2}	a	outOff, outOff, outInc				{o6 1}	lqx	norm1, pNormal10, inOff
+{e6 1}	fma	py2, px, mat_10, mat_13				{o6 1}	lqx	norm0, pNormal00, inOff
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 2}	frsqest	nest, nrmag
+{e7 2}	fi	trmag2, trmag, test				{o6 1}	lqx	tan1, pTangent10, inOff
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o6 1}	lqx	norm2, pNormal20, inOff
+{e6 1}	fma	px2, px, mat_00, mat_03				{o6 1}	lqx	tan2, pTangent20, inOff
+{e7 2}	fi	nrmag2, nrmag, nest				{o6 1}	lqx	tan3, pTangent30, inOff
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 0}	shufb	weight_3, weights, weights, s_DDDD
+{e2 1}	ai	inOff, inOff, 0x40				{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+{e2 1}	ai	pControl_, pControl, 1				{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+{e6 2}	fm	tx5, tx4, trmag2				{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e6 2}	fm	tz5, tz4, trmag2				{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+{e6 2}	fm	ty5, ty4, trmag2				{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e6 2}	fm	nx5, nx4, nrmag2				{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd		{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd		{o6 1}	lqx	controlBytes, pControl, three
+{e6 2}	fm	ny5, ny4, nrmag2				{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd		{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+{e6 1}	fm	nx2, nz, cofm_02				{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e6 1}	fm	tx2, tz, mat_02					{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e6 1}	fm	ny2, nz, cofm_12				{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+{e2 2}	selb	otan0, otan0, tan0_, sel_ABCd			{o6 2}	stqx	opos0, pPos00, outOff
+{e2 2}	selb	otan2, otan2, tan2_, sel_ABCd			{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e2 2}	selb	otan3, otan3, tan3_, sel_ABCd			{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e2 2}	selb	otan1, otan1, tan1_, sel_ABCd			{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+{e6 1}	fm	ty2, tz, mat_12					{o6 2}	stqx	otan2, pTangent20, outOff
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e6 1}	fm	nz2, nz, cofm_22				{o6 2}	lqx	norm2_, pNormal20, outOff
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd		{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e6 1}	fm	tz2, tz, mat_22					{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o6 2}	stqx	otan3, pTangent30, outOff
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o6 2}	stqx	otan0, pTangent00, outOff
+{e6 1}	fma	tx2, tx, mat_00, tx2				{o6 2}	stqx	otan1, pTangent10, outOff
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o6 2}	lqx	norm1_, pNormal10, outOff
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o6 2}	lqx	norm3_, pNormal30, outOff
+{e6 1}	fma	tz2, tx, mat_20, tz2				{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o4 1}	rotqby	instCode, instTbl, controlByte
+{e6 1}	fma	tx4, ty, mat_01, tx2				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e6 1}	fma	ty2, tx, mat_10, ty2				{o6 2}	lqx	norm0_, pNormal00, outOff
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fma	tz4, ty, mat_21, tz2				{o  1}	hbr	skin_next_pnt_branch, instCode
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o6 2}	stqx	opos3, pPos30, outOff
+{e6 1}	fm	trmag, tx4, tx4					{o6 0}	lqx	pos0, pPos00, inOff
+{e6 1}	fma	ty4, ty, mat_11, ty2				{o6 0}	lqx	pos2, pPos20, inOff
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o6 0}	lqx	pos3, pPos30, inOff
+{e6 1}	fm	nrmag, nx4, nx4					{o6 2}	stqx	onorm3, pNormal30, outOff
+{e6 1}	fma	py2, pz, mat_12, py2				{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 1}	fma	px2, pz, mat_02, px2				{o6 0}	lqx	pos1, pPos10, inOff
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o4 1}	rotqbyi	pControl, pControl_, 0
+{e6 1}	fma	trmag, ty4, ty4, trmag					lnop
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 0}	lqx	mat2_1_2, pMatrices10, diff2
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 0}	lqd	diffs, 0(pDiff)
+{e6 1}	fma	py3, py, mat_11, py2				{o6 2}	stqx	onorm0, pNormal00, outOff
+{e6 1}	fma	px3, py, mat_01, px2				; Branch is below
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+.cset four, s_AcBa, s_DCba, s_BCcb, s_BAab, s_cACa, s_dBDb, s_CDdc, s_caAB, instCode_
+.cset s_CcAa, s_BbCc
+					skin_next_pnt_branch:	{o? 1}	bi	instCode	[skin_diff_1_pnt skin_diff_n_pnt skin_same_n skin_same_1_pnt skin_next_pnt skin_end_pnt]
+
+
+
+skin_same_1_pnt:	; 91 Cycles
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o6 1}	lqx	samemat_2, pMatrices20, same0
+{e2 2}	ai	norm2_, norm2, 0				{o6 0}	lqd	diffs, 0(pDiff)
+{e2 2}	ai	tan0_, tan0, 0					{o4 0}	rotqby	same0, sames, pSame
+{e2 2}	ai	tan3_, tan3, 0					{o4 1}	shufb 	pi_temp3, pos0, pos1, s_CcCc
+{e2 2}	ai	norm0_, norm0, 0				{o4 1}	shufb	cofmtmp0_1, samemat_1, samemat_1, s_BCAD
+{e2 0}	ai	pSame, pSame, 2					{o6 1}	lqx	norm0, pNormal00, inOff
+{e2 2}	ai	tan2_, tan2, 0					{o4 1}	shufb	cofmtmp0_2, samemat_2, samemat_2, s_BCAD
+{e2 2}	ai	tan1_, tan1, 0					{o4 2}	frsqest	test, trmag
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o6 1}	lqx	tan3, pTangent30, inOff
+{e2 2}	ai	norm3_, norm3, 0				{o6 0}	lqx	sames, pSame, two
+{e2 2}	ai	norm1_, norm1, 0				{o4 1}	shufb	cofmtmp0_0, samemat_0, samemat_0, s_BCAD
+{e7 2}	fi	trmag2, trmag, test				{o4 1}	shufb 	pi_temp2, pos2, pos3, s_BbAa
+	nop							{o4 1}	shufb 	pi_temp1, pos0, pos1, s_AaBb
+{e6 1}	fm	cofmtmp1_2, samemat_0, cofmtmp0_1		{o4 0}	shufb	weight_3, weights, weights, s_DDDD
+{e6 1}	fm	cofmtmp1_0, samemat_1, cofmtmp0_2		{o6 1}	lqx	tan2, pTangent20, inOff
+{e6 1}	fm	cofmtmp1_1, samemat_2, cofmtmp0_0		{o4 2}	frsqest	nest, nrmag
+{e2 1}	selb 	px, pi_temp1, pi_temp2, sel_ABcd		{o6 1}	lqx	tan0, pTangent00, inOff
+	nop							{o6 1}	lqx	norm2, pNormal20, inOff
+{e6 2}	fm	tx5, tx4, trmag2				{o6 1}	lqx	norm1, pNormal10, inOff
+{e6 2}	fm	tz5, tz4, trmag2				{o6 1}	lqx	tan1, pTangent10, inOff
+{e7 2}	fi	nrmag2, nrmag, nest				{o6 1}	lqx	norm3, pNormal30, inOff
+{e2 2}	a	outOff, outOff, outInc				{o6 1}	lqx	controlBytes, pControl, three
+{e6 1}	fnms	cofmtmp1_1, samemat_0, cofmtmp0_2, cofmtmp1_1	{o4 1}	shufb 	pi_temp4, pos2, pos3, s_CcCc
+{e6 2}	fm	ty5, ty4, trmag2				{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+{e6 1}	fnms	cofmtmp1_2, samemat_1, cofmtmp0_0, cofmtmp1_2	{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+	{nop}							{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+	{nop}							{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+{e6 2}	fm	nx5, nx4, nrmag2				{o4 1}	shufb 	py, pi_temp2, pi_temp1, s_cdAB
+{e6 2}	fm	ny5, ny4, nrmag2				{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e2 1}	selb 	pz, pi_temp3, pi_temp4, sel_ABcd		{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+{e6 1}	fnms	cofmtmp1_0, samemat_2, cofmtmp0_1, cofmtmp1_0	{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+	nop							{o4 1}	shufb	mat_11, samemat_1, samemat_1, s_BBBB
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd		{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e2 1}	ai	pControl, pControl, 1				{o4 1}	shufb	mat_12, samemat_1, samemat_1, s_CcCc
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd		{o4 1}	shufb	mat_10, samemat_1, samemat_1, s_AAAA
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd		{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e2 1}	ai	inOff, inOff, 0x40				{o4 1}	shufb	mat_13, samemat_1, samemat_1, s_DDDD
+{e6 1}	fm	ty2, tz, mat_12					{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 1}	shufb	mat_22, samemat_2, samemat_2, s_CcCc
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e6 1}	fm	tz2, tz, mat_22					{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o4 1}	shufb	mat_00, samemat_0, samemat_0, s_AAAA
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 1}	shufb	mat_03, samemat_0, samemat_0, s_DDDD
+{e6 1}	fma	py2, pz, mat_12, py2				{o4 1}	shufb	cofm_02, cofmtmp1_0, cofmtmp1_0, s_AAAA
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o4 1}	shufb	mat_20, samemat_2, samemat_2, s_AAAA
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 1}	shufb	mat_02, samemat_0, samemat_0, s_CcCc
+{e6 1}	fm	nx2, nz, cofm_02				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e6 1}	fma	tz2, tx, mat_20, tz2				{o4 1}	rotqby	instCode, instTbl, controlByte
+{e6 1}	fma	ty2, tx, mat_10, ty2				{o4 1}	shufb	cofm_12, cofmtmp1_1, cofmtmp1_1, s_AAAA
+{e6 1}	fm	tx2, tz, mat_02					{o4 1}	shufb	mat_01, samemat_0, samemat_0, s_BBBB
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e6 1}	fma	px2, pz, mat_02, px2				{o4 1}	shufb	cofm_22, cofmtmp1_2, cofmtmp1_2, s_AAAA
+{e6 1}	fm	ny2, nz, cofm_12				{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 1}	fma	py3, py, mat_11, py2				{o4 1}	shufb	mat_23, samemat_2, samemat_2, s_DDDD
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o6 2}	stqx	opos3, pPos30, outOff
+{e6 1}	fma	tx2, tx, mat_00, tx2				{o  1}	hbr	skin_same_1_pnt_branch, instCode
+{e6 1}	fm	nz2, nz, cofm_22				{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e6 1}	fma	px3, py, mat_01, px2				{o4 1}	shufb	cofm_00, cofmtmp1_0, cofmtmp1_0, s_BBBB
+{e6 1}	fma	ty4, ty, mat_11, ty2				{o4 1}	shufb	cofm_20, cofmtmp1_2, cofmtmp1_2, s_BBBB
+	nop							{o4 1}	shufb	cofm_10, cofmtmp1_1, cofmtmp1_1, s_BBBB
+{e6 1}	fma	tx4, ty, mat_01, tx2				{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o6 2}	stqx	onorm3, pNormal30, outOff
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o4 1}	shufb	cofm_01, cofmtmp1_0, cofmtmp1_0, s_CcCc
+	nop							{o6 2}	stqx	opos0, pPos00, outOff
+{e2 2}	selb	otan3, otan3, tan3_, sel_ABCd			{o4 1}	shufb	mat_21, samemat_2, samemat_2, s_BBBB
+{e6 1}	fm	trmag, tx4, tx4					{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o4 1}	shufb	cofm_21, cofmtmp1_2, cofmtmp1_2, s_CcCc
+{e2 2}	selb	otan0, otan0, tan0_, sel_ABCd			{o4 1}	shufb	cofm_11, cofmtmp1_1, cofmtmp1_1, s_CcCc
+{e6 1}	fma	tz4, ty, mat_21, tz2				{o6 0}	lqx	samemat_0, pMatrices00, same0
+{e2 2}	selb	otan2, otan2, tan2_, sel_ABCd			{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o6 0}	lqx	pos0, pPos00, inOff
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e6 1}	fm	nrmag, nx4, nx4					{o6 2}	stqx	otan3, pTangent30, outOff
+{e6 1}	fma	trmag, ty4, ty4, trmag				{o6 0}	lqx	samemat_1, pMatrices10, same0
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 0}	lqx	pos2, pPos20, inOff
+	nop							{o6 0}	lqx	pos1, pPos10, inOff
+{e2 2}	selb	otan1, otan1, tan1_, sel_ABCd			{o6 0}	lqx	pos3, pPos30, inOff
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o6 2}	stqx	otan0, pTangent00, outOff
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 2}	stqx	otan2, pTangent20, outOff
+	{nop}							{o6 0}	lqx	mat2_1_2, pMatrices10, diff2
+	{nop}							{o6 2}	stqx	onorm0, pNormal00, outOff
+	{nop}							{o6 2}	stqx	otan1, pTangent10, outOff
+	{nop}							; Branch is below
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+.cset four, s_AcBa, s_DCba, s_BCcb, s_BAab, s_cACa, s_dBDb, s_CDdc, s_caAB, instCode_
+.cset s_CcAa, s_BbCc
+					skin_same_1_pnt_branch:	{o? 1}	bi	instCode	[skin_diff_1_pnt skin_diff_n_pnt skin_same_n skin_same_1_pnt skin_next_pnt skin_end_pnt]
+
+
+
+skin_end_pnt:	; 43 Cycles
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e2 2}	a	outOff, outOff, outInc					{lnop}
+	nop								{lnop}
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+	{nop}							{o4 2}	frsqest	nest, nrmag
+	{nop}							{o4 2}	frsqest	test, trmag
+	{nop}							{o6 2}	stqx	opos0, pPos00, outOff
+	{nop}							{o6 2}	stqx	opos2, pPos20, outOff
+{e7 2}	fi	nrmag2, nrmag, nest				{o6 2}	stqx	opos3, pPos30, outOff
+{e7 2}	fi	trmag2, trmag, test				{o6 2}	stqx	opos1, pPos10, outOff
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								{lnop}
+{e6 2}	fm	nz5, nz4, nrmag2					{lnop}
+{e6 2}	fm	nx5, nx4, nrmag2					{lnop}
+{e6 2}	fm	ny5, ny4, nrmag2					{lnop}
+{e6 2}	fm	ty5, ty4, trmag2					{lnop}
+{e6 2}	fm	tz5, tz4, trmag2					{lnop}
+{e6 2}	fm	tx5, tx4, trmag2					{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+	{nop}							{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+	{nop}							{o}	hbrr	skin_end_pnt_branch, skin_common_end
+	nop							{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm1, onorm1, norm1, sel_ABCd			{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e2 2}	selb	onorm0, onorm0, norm0, sel_ABCd			{o6 2}	stqx	onorm1, pNormal10, outOff
+{e2 2}	selb	otan1, otan1, tan1, sel_ABCd				lnop
+{e2 2}	selb	otan3, otan3, tan3, sel_ABCd			{o6 2}	stqx	onorm0, pNormal00, outOff
+{e2 2}	selb	otan2, otan2, tan2, sel_ABCd			{o6 2}	stqx	otan1, pTangent10, outOff
+{e2 2}	selb	onorm2, onorm2, norm2, sel_ABCd			{o6 2}	stqx	otan3, pTangent30, outOff
+{e2 2}	selb	onorm3, onorm3, norm3, sel_ABCd			{o6 2}	stqx	otan2, pTangent20, outOff
+{e2 2}	selb	otan0, otan0, tan0, sel_ABCd			{o6 2}	stqx	onorm2, pNormal20, outOff
+	{nop}							{o6 2}	stqx	onorm3, pNormal30, outOff
+	{nop}							{o6 2}	stqx	otan0, pTangent00, outOff
+	nop				skin_end_pnt_branch:	{o?}	br	skin_common_end
+
+
+
+;==============================================================================================================================
+; skin_pntd routines
+;
+; Transforms the position, normal, tangent, and displacement normal data associated with a vertex.
+; Preserves the flip factor in the normals and tangents.
+;
+; If R is the 3x3 rotation submatrix of a given blended matrix, P is the 3 element translation column
+; vector of a given blended matrix, and C is the cofactor matrix of R, then the following transformations
+; are done in these functions:
+;	p' = Rp + P
+;	n' = Cn / ||Cn||
+;	t' = Rt
+;	d' = Cd / ||Cd||
+;
+;==============================================================================================================================
+skin_shuffle_pntd:	; 108 Cycles
+.if 0
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o4 1}	shufb	shuftemp2, mat2_0, mat3_0, s_ACac
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 1}	shufb	shuftemp5, mat0_1, mat1_1, s_ACac
+{e2 2}	a	outOff, outOff, outInc				{o4 1}	shufb	shuftemp6, mat2_1, mat3_1, s_ACac
+{e6 2}	fma	drmag, dz4, dz4, drmag				{o4 1}	shufb	shuftemp8, mat2_1, mat3_1, s_BDbd
+{e2 2}	ai	tan1_, tan1, 0					{o4 1}	shufb	shuftemp7, mat0_1, mat1_1, s_BDbd
+{e2 2}	ai	tan0_, tan0, 0					{o4 1}	shufb	shuftemp1, mat0_0, mat1_0, s_ACac
+{e2 2}	ai	tan3_, tan3, 0					{o4 2}	frsqest	test, trmag
+{e2 2}	ai	norm1_, norm1, 0				{o4 2}	frsqest	nest, nrmag
+{e2 1}	ai	inOff_, inOff, 0x40				{o4 1}	shufb	mat_11, shuftemp7, shuftemp8, s_ACac
+{e2 2}	ai	tan2_, tan2, 0					{o4 1}	shufb	mat_00, shuftemp1, shuftemp2, s_ACac
+{e7 2}	fi	trmag2, trmag, test				{o4 1}	shufb	mat_02, shuftemp1, shuftemp2, s_BDbd
+{e7 2}	fi	nrmag2, nrmag, nest				{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BDbd
+{e2 1}	ai	pControl_, pControl, 1				{o6 1}	lqx	dnorm0, pDNormal00, inOff
+{e6 1}	fm	cofm_22, mat_00, mat_11				{o4 1}	shufb	shuftemp3, mat0_2, mat1_2, s_ACac
+{e2 1}	ai	norm2_, norm2, 0				{o4 1}	shufb	shuftemp9, mat0_0, mat1_0, s_BDbd
+{e6 1}	fm	cofm_20, mat_02, mat_11				{o6 1}	lqx	dnorm2, pDNormal20, inOff
+{e6 1}	fm	cofm_21, mat_00, mat_12				{o4 1}	shufb	shuftemp4, mat2_2, mat3_2, s_ACac
+{e6 2}	fm	tz5, tz4, trmag2				{o6 1}	lqx	tan1, pTangent10, inOff
+{e6 2}	fm	ny5, ny4, nrmag2				{o4 1}	shufb	mat_10, shuftemp5, shuftemp6, s_ACac
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 1}	shufb	shuftemp10, mat2_0, mat3_0, s_BDbd
+{e6 2}	fm	ty5, ty4, trmag2				{o4 1}	shufb	mat_20, shuftemp3, shuftemp4, s_ACac
+{e6 2}	fm	tx5, tx4, trmag2				{o4 1}	shufb	mat_22, shuftemp3, shuftemp4, s_BDbd
+{e6 1}	fms	cofm_21, mat_02, mat_10, cofm_21		{o4 2}	frsqest	dest, drmag
+{e6 2}	fm	nx5, nx4, nrmag2				{o4 1}	shufb	mat_01, shuftemp9, shuftemp10, s_ACac
+{e6 1}	fm	cofm_11, mat_02, mat_20				{o6 1}	lqx	dnorm3, pDNormal30, inOff
+{e6 1}	fm	cofm_00, mat_11, mat_22				{o6 1}	lqx	dnorm1, pDNormal10, inOff
+{e6 1}	fm	cofm_01, mat_12, mat_20				{o4 1}	shufb	shuftemp11, mat0_2, mat1_2, s_BDbd
+{e6 1}	fnms	cofm_22, mat_01, mat_10, cofm_22		{o4 1}	shufb	shuftemp12, mat2_2, mat3_2, s_BDbd
+{e6 1}	fnms	cofm_20, mat_01, mat_12, cofm_20		{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+{e6 1}	fm	cofm_10, mat_01, mat_22				{o6 1}	lqx	tan0, pTangent00, inOff
+{e6 1}	fms	cofm_11, mat_00, mat_22, cofm_11		{o6 1}	lqx	tan3, pTangent30, inOff
+{e6 1}	fm	cofm_12, mat_01, mat_20				{o4 1}	shufb	mat_21, shuftemp11, shuftemp12, s_ACac
+{e6 1}	fm	cofm_02, mat_11, mat_20				{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+{e6 1}	fnms	cofm_01, mat_10, mat_22, cofm_01		{o6 1}	lqx	tan2, pTangent20, inOff
+{e7 2}	fi	drmag2, drmag, dest				{o4 1}	shufb	di_temp4, dnorm2, dnorm3, s_CcCc
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10		{o4 1}	shufb	di_temp3, dnorm0, dnorm1, s_CcCc
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd		{o4 1}	shufb	di_temp1, dnorm0, dnorm1, s_AaBb
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12		{o6 1}	lqx	norm1, pNormal10, inOff
+{e6 1}	fms	cofm_02, mat_10, mat_21, cofm_02		{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00		{o6 1}	lqx	norm0, pNormal00, inOff
+{e2 1}	selb	dz, di_temp3, di_temp4, sel_ABcd		{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+{e6 2}	fm	dx5, dx4, drmag2				{o4 1}	shufb	di_temp2, dnorm2, dnorm3, s_BbAa
+{e6 2}	fm	dz5, dz4, drmag2				{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+{e6 2}	fm	dy5, dy4, drmag2				{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd		{o4 1}	shufb	mat_03, shuftemp9, shuftemp10, s_BDbd
+{e6 1}	fm	dy2, dz, cofm_12				{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e6 1}	fm	tx2, tz, mat_02					{o6 1}	lqx	norm2, pNormal20, inOff
+{e6 1}	fm	tz2, tz, mat_22					{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+{e6 1}	fm	ty2, tz, mat_12					{o6 1}	lqx	norm3, pNormal30, inOff
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd		{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e6 1}	fm	dz2, dz, cofm_22				{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+{e6 1}	fm	dx2, dz, cofm_02				{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+{e2 1}	selb	dx, di_temp1, di_temp2, sel_ABcd		{o4 1}	shufb	mat_23, shuftemp11, shuftemp12, s_BDbd
+{e6 1}	fma	tx2, tx, mat_00, tx2				{o4 1}	shufb	mat_13, shuftemp7, shuftemp8, s_BDbd
+{e6 1}	fma	dy2, dx, cofm_10, dy2				{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd		{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e6 1}	fma	ty2, tx, mat_10, ty2				{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e6 1}	fma	dx2, dx, cofm_00, dx2				{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd		{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o6 1}	lqx	controlBytes, pControl, three
+{e6 1}	fm	nx2, nz, cofm_02				{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 1}	shufb	dy, di_temp2, di_temp1, s_cdAB
+{e6 1}	fm	ny2, nz, cofm_12				{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e6 1}	fm	nz2, nz, cofm_22				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	do_temp1, dy5, dz5, s_DAad
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e6 1}	fma	dx4, dy, cofm_01, dx2				{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 2}	shufb	odnorm3, do_temp1, nx5, s_dAD0
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o4 2}	shufb	do_temp2, dx5, dz5, s_BCbc
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e6 1}	fma	px2, px, mat_00, mat_03				{o6 2}	stqx	odnorm3, pDNormal30, outOff
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 2}	selb	odnorm0, dx5, do_temp1, sel_AbcD		{o4 2}	shufb	odnorm2, do_temp2, ny5, s_BcDa
+{e2 2}	selb	otan1, otan1, tan1_, sel_ABCd			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e6 1}	fma	py2, pz, mat_12, py2				{o4 1}	rotqby	instCode, instTbl, controlByte
+{e6 1}	fma	px2, pz, mat_02, px2				{o6 2}	lqx	norm0_, pNormal00, outOff
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o6 2}	stqx	odnorm0, pDNormal00, outOff
+{e6 1}	fma	dz2, dx, cofm_20, dz2				{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e2 2}	selb	otan2, otan2, tan2_, sel_ABCd			{o  1}	hbr	skin_shuffle_pntd_branch, instCode
+{e2 2}	selb	otan3, otan3, tan3_, sel_ABCd			{o6 2}	stqx	opos0, pPos00, outOff
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o6 2}	stqx	odnorm2, pDNormal20, outOff
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o6 2}	lqx	norm3_, pNormal30, outOff
+{e6 1}	fm	nrmag, nx4, nx4					{o6 2}	stqx	otan2, pTangent20, outOff
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o6 0}	lqx	pos2, pPos20, inOff_
+{e6 1}	fma	tx4, ty, mat_01, tx2				{o6 2}	stqx	otan1, pTangent10, outOff
+{e2 2}	selb	otan0, otan0, tan0_, sel_ABCd			{o6 2}	stqx	otan3, pTangent30, outOff
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o6 2}	stqx	onorm0, pNormal00, outOff
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o6 0}	lqx	pos1, pPos10, inOff_
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 0}	lqd	diffs, 0(pDiff)
+{e6 1}	fma	tz2, tx, mat_20, tz2				{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 1}	fm	drmag, dx4, dx4					{o6 2}	stqx	otan0, pTangent00, outOff
+{e6 1}	fma	py3, py, mat_11, py2				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 2}	selb	odnorm1, dy5, do_temp2, sel_aBcD		{o4 0}	shufb	weight_3, weights, weights, s_DDDD
+{e6 1}	fma	dy4, dy, cofm_11, dy2				{o6 2}	stqx	onorm3, pNormal30, outOff
+{e6 1}	fma	ty4, ty, mat_11, ty2				{o6 2}	stqx	odnorm1, pDNormal10, outOff
+{e6 1}	fm	trmag, tx4, tx4					{o6 0}	lqx	pos3, pPos30, inOff_
+{e6 1}	fma	tz4, ty, mat_21, tz2				{o4 0}	rotqbyi inOff, inOff_, 0
+{e6 1}	fma	dz4, dy, cofm_21, dz2				{o6 0}	lqx	pos0, pPos00, inOff_
+{e6 1}	fma	px3, py, mat_01, px2				{o4 1}	rotqbyi pControl, pControl_, 0
+{e6 1}	fma	drmag, dy4, dy4, drmag				{o6 2}	stqx	opos3, pPos30, outOff
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o6 0}	lqx	mat2_1_2, pMatrices10, diff2
+{e6 1}	fma	trmag, ty4, ty4, trmag				; Branch is below
+				skin_shuffle_pntd_branch:	{o? 1}	bi	instCode	[skin_diff_1_pntd skin_diff_n_pntd skin_same_n skin_same_1_pntd skin_next_pntd skin_end_pntd]
+.endif
+
+
+
+skin_next_pntd:	; 87 Cycles
+.if 0
+{e2 2}	ai	tan2_, tan2, 0					{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+{e2 1}	ai	inOff_, inOff, 0x40				{o6 1}	lqx	dnorm0, pDNormal00, inOff
+{e2 2}	ai	tan3_, tan3, 0					{o6 1}	lqx	dnorm2, pDNormal20, inOff
+{e6 2}	fma	drmag, dz4, dz4, drmag				{o6 1}	lqx	norm0, pNormal00, inOff
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd		{o6 1}	lqx	dnorm3, pDNormal30, inOff
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	frsqest	nest, nrmag
+{e2 2}	ai	tan1_, tan1, 0					{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o6 1}	lqx	dnorm1, pDNormal10, inOff
+{e2 1}	ai	pControl_, pControl, 1				{o4 2}	frsqest	dest, drmag
+{e7 2}	fi	nrmag2, nrmag, nest				{o4 2}	frsqest	test, trmag
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o6 1}	lqx	tan0, pTangent00, inOff
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 1}	shufb	di_temp4, dnorm2, dnorm3, s_CcCc
+{e7 2}	fi	drmag2, drmag, dest				{o4 1}	shufb	di_temp2, dnorm2, dnorm3, s_BbAa
+{e7 2}	fi	trmag2, trmag, test				{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o6 1}	lqx	controlBytes, pControl, three
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 1}	shufb	di_temp3, dnorm0, dnorm1, s_CcCc
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 1}	shufb	di_temp1, dnorm0, dnorm1, s_AaBb
+{e6 2}	fm	ny5, ny4, nrmag2				{o6 1}	lqx	norm3, pNormal30, inOff
+{e6 2}	fm	nx5, nx4, nrmag2				{o6 1}	lqx	norm1, pNormal10, inOff
+{e2 1}	selb	dz, di_temp3, di_temp4, sel_ABcd		{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+{e6 2}	fm	dx5, dx4, drmag2				{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e6 2}	fm	tx5, tx4, trmag2				{o4 1}	shufb	dy, di_temp2, di_temp1, s_cdAB
+{e6 2}	fm	ty5, ty4, trmag2				{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e6 2}	fm	tz5, tz4, trmag2				{o6 1}	lqx	tan1, pTangent10, inOff
+{e2 1}	selb	dx, di_temp1, di_temp2, sel_ABcd		{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd		{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e6 1}	fm	dx2, dz, cofm_02				{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e6 1}	fm	dy2, dz, cofm_12				{o6 1}	lqx	tan2, pTangent20, inOff
+{e6 2}	fm	dy5, dy4, drmag2				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e6 1}	fma	py2, pz, mat_12, py2				{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+{e6 2}	fm	dz5, dz4, drmag2				{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+{e6 1}	fma	dx2, dx, cofm_00, dx2				{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e6 1}	fma	dy2, dx, cofm_10, dy2				{o6 1}	lqx	norm2, pNormal20, inOff
+{e6 1}	fm	dz2, dz, cofm_22				{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e6 1}	fma	px2, pz, mat_02, px2				{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	do_temp1, dy5, dz5, s_DAad
+{e6 1}	fma	dx4, dy, cofm_01, dx2				{o4 2}	shufb	do_temp2, dx5, dz5, s_BCbc
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e2 2}	selb	otan2, otan2, tan2_, sel_ABCd			{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e6 1}	fma	dz2, dx, cofm_20, dz2				{o4 1}	rotqby	instCode, instTbl, controlByte
+{e2 2}	selb	odnorm1, dy5, do_temp2, sel_aBcD		{o6 2}	lqx	norm0_, pNormal00, outOff
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd		{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e6 1}	fm	nx2, nz, cofm_02				{o  1}	hbr	skin_next_pntd_branch, instCode
+{e6 1}	fm	ny2, nz, cofm_12				{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e6 1}	fm	nz2, nz, cofm_22				{o6 2}	lqx	norm2_, pNormal20, outOff
+{e6 1}	fm	drmag, dx4, dx4					{o6 1}	lqx	tan3, pTangent30, inOff
+{e2 2}	selb	otan1, otan1, tan1_, sel_ABCd			{o4 2}	shufb	odnorm3, do_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o6 2}	lqx	norm3_, pNormal30, outOff
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o6 2}	lqx	norm1_, pNormal10, outOff
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o6 2}	stqx	odnorm3, pDNormal30, outOff
+{e2 2}	selb	odnorm0, dx5, do_temp1, sel_AbcD		{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o6 0}	lqx	pos3, pPos30, inOff_
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o6 2}	stqx	otan1, pTangent10, outOff
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd		{o4 2}	shufb	odnorm2, do_temp2, ny5, s_BcDa
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd		{o6 2}	stqx	opos3, pPos30, outOff
+{e6 1}	fm	tx2, tz, mat_02					{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e6 1}	fm	ty2, tz, mat_12					{o6 0}	lqx	pos0, pPos00, inOff_
+{e6 1}	fm	tz2, tz, mat_22					{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fm	nrmag, nx4, nx4					{o6 2}	stqx	odnorm1, pDNormal10, outOff
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 2}	stqx	onorm3, pNormal30, outOff
+{e6 1}	fma	tx2, tx, mat_00, tx2				{o4 1}	rotqbyi	pControl, pControl_, 0
+{e6 1}	fma	ty2, tx, mat_10, ty2				{o6 0}	lqx	pos1, pPos10, inOff_
+{e2 2}	selb	otan3, otan3, tan3_, sel_ABCd			{o6 2}	lqx	tan0_, pTangent00, outOff
+{e6 1}	fma	tz2, tx, mat_20, tz2				{o6 0}	lqd	diffs, 0(pDiff)
+{e6 1}	fma	dy4, dy, cofm_11, dy2				{o4 0}	shufb	weight_3, weights, weights, s_DDDD
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fma	tx4, ty, mat_01, tx2				{o6 2}	stqx	otan2, pTangent20, outOff
+{e6 1}	fma	px3, py, mat_01, px2				{o6 2}	stqx	otan3, pTangent30, outOff
+{e2 2}	selb	otan0, otan0, tan0_, sel_ABCd			{o6 0}	lqx	pos2, pPos20, inOff_
+{e6 1}	fma	py3, py, mat_11, py2				{o6 2}	stqx	opos0, pPos00, outOff
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o6 2}	stqx	odnorm2, pDNormal20, outOff
+{e6 1}	fma	ty4, ty, mat_11, ty2				{o4 0}	rotqbyi	inOff, inOff_, 0
+{e6 1}	fm	trmag, tx4, tx4					{o6 2}	stqx	odnorm0, pDNormal00, outOff
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o6 2}	stqx	otan0, pTangent00, outOff
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 0}	lqx	mat2_1_2, pMatrices10, diff2
+{e6 1}	fma	dz4, dy, cofm_21, dz2				{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 1}	fma	drmag, dy4, dy4, drmag				{o6 2}	stqx	onorm0, pNormal00, outOff
+{e6 1}	fma	tz4, ty, mat_21, tz2				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e6 1}	fma	trmag, ty4, ty4, trmag	      			; Branch is below
+					skin_next_pntd_branch:	{o? 1}	bi	instCode	[skin_diff_1_pntd skin_diff_n_pntd skin_same_n skin_same_1_pntd skin_next_pntd skin_end_pntd]
+.endif
+
+
+
+skin_same_1_pntd:	; 107 Cycles
+.if 0
+{e2 1}	selb	pi_temp2, pos0, pos1, sel_AbcD			{o4 1}	shufb	pi_temp1, pos2, pos3, s_AcBa
+{e2 1}	selb	pi_temp3, pos1, pos0, sel_ABcd			{o6 1}	lqx	samemat_2, pMatrices20, same0
+{e2 1}	selb	pi_temp4, pos0, pos1, sel_ABcd			{o6 1}	lqx	dnorm0, pDNormal00, inOff
+{e2 1}	selb	pi_temp5, pos3, pos2, sel_ABcd			{o6 1}	lqx	dnorm2, pDNormal20, inOff
+{e2 1}	selb	pi_temp6, pi_temp2, pi_temp1, sel_ABcd		{o4 1}	shufb	pi_temp7, pi_temp1, pi_temp3, s_caAB
+{e2 2}	ai	norm3_, norm3, 0				{o4 1}	shufb	pi_temp8, pi_temp4, pi_temp5, s_BCcb
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o6 1}	lqx	norm3, pNormal30, inOff
+{e2 2}	ai	norm1_, norm1, 0				{o4 0}	rotqby	same0, sames, pSame
+{e2 1}	selb	px, pi_temp6, pi_temp7, sel_AbcD		{o6 0}	lqd	diffs, 0(pDiff)
+{e2 1}	selb	py, pi_temp8, pi_temp6, sel_AbcD		{o6 1}	lqx	norm1, pNormal10, inOff
+{e2 1}	selb	pz, pi_temp7, pi_temp8, sel_AbcD		{o6 1}	lqx	tan3, pTangent30, inOff
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o4 2}	frsqest	nest, nrmag
+{e6 2}	fma	drmag, dz4, dz4, drmag				{o4 1}	shufb	cofmtmp0_1, samemat_1, samemat_1, s_BCAD
+{e2 2}	ai	norm2_, norm2, 0				{o4 1}	shufb	cofmtmp0_0, samemat_0, samemat_0, s_BCAD
+{e2 2}	ai	tan0_, tan0, 0					{o4 1}	shufb	cofmtmp0_2, samemat_2, samemat_2, s_BCAD
+{e2 2}	ai	tan1_, tan1, 0					{o6 1}	lqx	norm2, pNormal20, inOff
+{e2 2}	ai	tan2_, tan2, 0					{o6 1}	lqx	tan2, pTangent20, inOff
+{e2 2}	ai	norm0_, norm0, 0				{o4 2}	frsqest	test, trmag
+{e2 0}	ai	pSame, pSame, 2					{o6 1}	lqx	dnorm1, pDNormal10, inOff
+{e7 2}	fi	nrmag2, nrmag, nest				{o6 1}	lqx	dnorm3, pDNormal30, inOff
+{e2 2}	ai	tan3_, tan3, 0					{o6 1}	lqx	tan0, pTangent00, inOff
+{e6 1}	fm	cofmtmp1_2, samemat_0, cofmtmp0_1		{o6 1}	lqx	tan1, pTangent10, inOff
+{e6 1}	fm	cofmtmp1_1, samemat_2, cofmtmp0_0		{o6 1}	lqx	norm0, pNormal00, inOff
+{e6 1}	fm	cofmtmp1_0, samemat_1, cofmtmp0_2		{o4 2}	frsqest	dest, drmag
+{e7 2}	fi	trmag2, trmag, test				{o4 1}	shufb	di_temp3, dnorm0, dnorm1, s_CcCc
+{e2 1}	ai	inOff, inOff, 0x40				{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e6 2}	fm	ny5, ny4, nrmag2				{o4 1}	shufb	di_temp4, dnorm2, dnorm3, s_CcCc
+{e6 1}	fnms	cofmtmp1_2, samemat_1, cofmtmp0_0, cofmtmp1_2	{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+{e6 2}	fm	nz5, nz4, nrmag2				{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e6 1}	fnms	cofmtmp1_0, samemat_2, cofmtmp0_1, cofmtmp1_0	{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+{e6 2}	fm	nx5, nx4, nrmag2				{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e6 1}	fnms	cofmtmp1_1, samemat_0, cofmtmp0_2, cofmtmp1_1	{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e7 2}	fi	drmag2, drmag, dest				{o4 1}	shufb	di_temp2, dnorm2, dnorm3, s_BbAa
+{e2 1}	selb	dz, di_temp3, di_temp4, sel_ABcd		{o4 1}	shufb	di_temp1, dnorm0, dnorm1, s_AaBb
+{e6 2}	fm	tx5, tx4, trmag2				{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+{e6 2}	fm	tz5, tz4, trmag2				{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd		{o4 1}	shufb	cofm_02, cofmtmp1_0, cofmtmp1_0, s_AAAA
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd		{o4 1}	shufb	cofm_12, cofmtmp1_1, cofmtmp1_1, s_AAAA
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 1}	shufb	mat_02, samemat_0, samemat_0, s_CcCc
+{e6 2}	fm	dz5, dz4, drmag2				{o4 1}	shufb	cofm_22, cofmtmp1_2, cofmtmp1_2, s_AAAA
+{e6 2}	fm	dx5, dx4, drmag2				{o4 1}	shufb	mat_00, samemat_0, samemat_0, s_AAAA
+{e6 2}	fm	dy5, dy4, drmag2				{o4 1}	shufb	cofm_00, cofmtmp1_0, cofmtmp1_0, s_BBBB
+{e2 1}	selb	dx, di_temp1, di_temp2, sel_ABcd		{o4 1}	shufb	mat_12, samemat_1, samemat_1, s_CcCc
+{e6 2}	fm	ty5, ty4, trmag2				{o4 1}	shufb	mat_10, samemat_1, samemat_1, s_AAAA
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd		{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 1}	fm	dx2, dz, cofm_02				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e6 1}	fm	nx2, nz, cofm_02				{o4 1}	shufb	mat_20, samemat_2, samemat_2, s_AAAA
+{e6 1}	fm	tx2, tz, mat_02					{o4 1}	shufb	cofm_01, cofmtmp1_0, cofmtmp1_0, s_CcCc
+{e6 1}	fm	ny2, nz, cofm_12				{o4 1}	shufb	dy, di_temp2, di_temp1, s_cdAB
+{e6 1}	fm	dy2, dz, cofm_12				{o4 1}	shufb	mat_22, samemat_2, samemat_2, s_CcCc
+{e6 1}	fm	dz2, dz, cofm_22				{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e6 1}	fm	nz2, nz, cofm_22				{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e6 1}	fm	ty2, tz, mat_12					{o4 1}	shufb	cofm_10, cofmtmp1_1, cofmtmp1_1, s_BBBB
+{e6 1}	fma	tx2, tx, mat_00, tx2				{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e6 1}	fma	dx2, dx, cofm_00, dx2				{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o6 1}	lqx	controlBytes, pControl, three
+{e6 1}	fma	ty2, tx, mat_10, ty2				{o4 1}	shufb	cofm_20, cofmtmp1_2, cofmtmp1_2, s_BBBB
+{e6 1}	fm	tz2, tz, mat_22					{o4 1}	shufb	cofm_11, cofmtmp1_1, cofmtmp1_1, s_CcCc
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{o4 1}	shufb	mat_13, samemat_1, samemat_1, s_DDDD
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o4 1}	shufb	mat_03, samemat_0, samemat_0, s_DDDD
+{e6 1}	fma	dx4, dy, cofm_01, dx2				{o4 1}	shufb	mat_01, samemat_0, samemat_0, s_BBBB
+{e6 1}	fma	dy2, dx, cofm_10, dy2				{o4 1}	shufb	mat_23, samemat_2, samemat_2, s_DDDD
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	do_temp1, dy5, dz5, s_DAad
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	do_temp2, dx5, dz5, s_BCbc
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 1}	shufb	mat_11, samemat_1, samemat_1, s_BBBB
+{e6 1}	fm	nrmag, nx4, nx4					{o4 1}	rotqby	instCode, instTbl, controlByte
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e6 1}	fma	tx4, ty, mat_01, tx2				{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e6 1}	fma	dy4, dy, cofm_11, dy2				{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e6 1}	fma	dz2, dx, cofm_20, dz2				{o4 1}	shufb	cofm_21, cofmtmp1_2, cofmtmp1_2, s_CcCc
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o4 1}	shufb	mat_21, samemat_2, samemat_2, s_BBBB
+{e6 1}	fma	px2, pz, mat_02, px2				{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e6 1}	fm	trmag, tx4, tx4					{o  1}	hbr	skin_same_1_pntd_branch, instCode
+{e6 1}	fma	ty4, ty, mat_11, ty2				{o4 2}	shufb	odnorm2, do_temp2, ny5, s_BcDa
+{e6 1}	fma	py2, pz, mat_12, py2				{o4 2}	shufb	odnorm3, do_temp1, nx5, s_dAD0
+{e6 1}	fm	drmag, dx4, dx4					{o6 0}	lqx	mat2_1_2, pMatrices10, diff2
+{e6 1}	fma	tz2, tx, mat_20, tz2				{o6 0}	lqx	pos3, pPos30, inOff
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o6 0}	lqx	samemat_0, pMatrices00, same0
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o6 0}	lqx	pos1, pPos10, inOff
+	nop							{o4 0}	shufb	weight_3, weights, weights, s_DDDD
+{e2 2}	selb	otan3, otan3, tan3_, sel_ABCd			{o6 2}	stqx	odnorm3, pDNormal30, outOff
+{e2 2}	selb	otan1, otan1, tan1_, sel_ABCd			{o6 2}	stqx	opos0, pPos00, outOff
+{e2 2}	selb	odnorm1, dy5, do_temp2, sel_aBcD		{o6 2}	stqx	opos2, pPos20, outOff
+{e2 2}	selb	onorm3, onorm3, norm3_, sel_ABCd		{o6 2}	stqx	otan1, pTangent10, outOff
+{e2 2}	selb	odnorm0, dx5, do_temp1, sel_AbcD		{o6 2}	stqx	opos3, pPos30, outOff
+{e2 2}	selb	otan2, otan2, tan2_, sel_ABCd			{o6 2}	stqx	onorm3, pNormal30, outOff
+{e2 2}	selb	onorm2, onorm2, norm2_, sel_ABCd		{o6 0}	lqx	pos2, pPos20, inOff
+{e2 2}	selb	onorm1, onorm1, norm1_, sel_ABCd		{o6 0}	lqx	samemat_1, pMatrices10, same0
+{e2 2}	selb	otan0, otan0, tan0_, sel_ABCd			{o6 2}	stqx	odnorm0, pDNormal00, outOff
+{e2 2}	selb	onorm0, onorm0, norm0_, sel_ABCd		{o6 0}	lqx	sames, pSame, two
+{e6 1}	fma	trmag, ty4, ty4, trmag				{o6 2}	stqx	otan0, pTangent00, outOff
+{e6 1}	fma	py3, py, mat_11, py2				{o6 2}	stqx	onorm0, pNormal00, outOff
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o6 0}	lqx	pos0, pPos00, inOff
+{e6 1}	fma	dz4, dy, cofm_21, dz2				{o6 2}	stqx	otan2, pTangent20, outOff
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 2}	stqx	odnorm1, pDNormal10, outOff
+{e6 1}	fma	px3, py, mat_01, px2				{o6 2}	stqx	odnorm2, pDNormal20, outOff
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 1}	fma	drmag, dy4, dy4, drmag				{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fma	tz4, ty, mat_21, tz2				{o6 2}	stqx	otan3, pTangent30, outOff
+{e2 1}	ai	pControl, pControl, 1				{o6 2}	stqx	onorm2, pNormal20, outOff
+	nop							; Branch is below
+				skin_same_1_pntd_branch:	{o? 1}	bi	instCode	[skin_diff_1_pntd skin_diff_n_pntd skin_same_n skin_same_1_pntd skin_next_pntd skin_end_pntd]
+.endif
+
+
+
+skin_end_pntd:	; 50 Cycles
+.if 0
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 2}	fma	drmag, dz4, dz4, drmag				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+	{nop}								{lnop}
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	frsqest	test, trmag
+	nop							{o4 2}	frsqest	nest, nrmag
+	{nop}							{o4 2}	frsqest	dest, drmag
+	{nop}							{o6 2}	stqx	opos0, pPos00, outOff
+{e7 2}	fi	trmag2, trmag, test				{o6 2}	stqx	opos1, pPos10, outOff
+{e7 2}	fi	nrmag2, nrmag, nest				{o6 2}	stqx	opos3, pPos30, outOff
+{e7 2}	fi	drmag2, drmag, dest				{o6 2}	stqx	opos2, pPos20, outOff
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e6 2}	fm	tx5, tx4, trmag2					{lnop}
+{e6 2}	fm	tz5, tz4, trmag2					{lnop}
+{e6 2}	fm	ty5, ty4, trmag2					{lnop}
+{e6 2}	fm	dz5, dz4, drmag2					{lnop}
+{e6 2}	fm	dy5, dy4, drmag2					{lnop}
+{e6 2}	fm	nx5, nx4, nrmag2					{lnop}
+{e6 2}	fm	nz5, nz4, nrmag2					lnop
+{e6 2}	fm	ny5, ny4, nrmag2				{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e6 2}	fm	dx5, dx4, drmag2				{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+	{nop}							{o}	hbrr	skin_end_pntd_branch, skin_common_end
+	{nop}							{o4 2}	shufb	do_temp1, dy5, dz5, s_DAad
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e2 2}	selb	otan1, otan1, tan1, sel_ABCd			{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e2 2}	selb	odnorm0, dx5, do_temp1, sel_AbcD		{o4 2}	shufb	odnorm3, do_temp1, nx5, s_dAD0
+{e2 2}	selb	otan2, otan2, tan2, sel_ABCd			{o4 2}	shufb	do_temp2, dx5, dz5, s_BCbc
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm1, onorm1, norm1, sel_ABCd			{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e2 2}	selb	otan0, otan0, tan0, sel_ABCd			{o4 2}	shufb	odnorm2, do_temp2, ny5, s_BcDa
+{e2 2}	selb	onorm2, onorm2, norm2, sel_ABCd			{o6 2}	stqx	otan1, pTangent10, outOff
+{e2 2}	selb	onorm3, onorm3, norm3, sel_ABCd			{o6 2}	stqx	otan0, pTangent00, outOff
+{e2 2}	selb	otan3, otan3, tan3, sel_ABCd			{o6 2}	stqx	otan2, pTangent20, outOff
+{e2 2}	selb	odnorm1, dy5, do_temp2, sel_aBcD		{o6 2}	stqx	odnorm2, pDNormal20, outOff
+{e2 2}	selb	onorm0, onorm0, norm0, sel_ABCd			{o6 2}	stqx	odnorm3, pDNormal30, outOff
+	{nop}							{o6 2}	stqx	onorm1, pNormal10, outOff
+	{nop}							{o6 2}	stqx	onorm0, pNormal00, outOff
+	{nop}							{o6 2}	stqx	odnorm0, pDNormal00, outOff
+	{nop}							{o6 2}	stqx	otan3, pTangent30, outOff
+	{nop}							{o6 2}	stqx	odnorm1, pDNormal10, outOff
+	{nop}							{o6 2}	stqx	onorm3, pNormal30, outOff
+	nop							{o6 2}	stqx	onorm2, pNormal20, outOff
+.endif
+
+	nop				skin_end_pntd_branch:	{o?}	br	skin_common_end
+
+
+
+;==============================================================================================================================
+; skin_p routines
+;
+; Transforms the position data associated with a vertex.
+;
+; If R is the 3x3 rotation submatrix of a given blended matrix, and P is the 3 element translation column
+; vector of a given blended matrix, then the following transformation is done in these functions:
+;	p' = Rp + P
+;
+;==============================================================================================================================
+skin_shuffle_p:	; 38 Cycles
+{e2 1}	selb	pi_temp2, pos0, pos1, sel_AbcD			{o4 1}	shufb	pi_temp1, pos2, pos3, s_AcBa
+{e2 1}	selb	pi_temp3, pos1, pos0, sel_ABcd			{o4 1}	shufb	shuftemp2, mat1_0, mat3_0, s_dBDb
+{e2 1}	selb	pi_temp4, pos0, pos1, sel_ABcd			{o4 1}	shufb	shuftemp4, mat1_1, mat3_1, s_dBDb
+{e2 1}	selb	pi_temp5, pos3, pos2, sel_ABcd			{o4 1}	shufb	shuftemp8, mat1_2, mat3_2, s_cACa
+{e2 1}	selb	pi_temp6, pi_temp2, pi_temp1, sel_ABcd		{o4 1}	shufb	pi_temp7, pi_temp1, pi_temp3, s_caAB
+{e2 2}	selb	po_temp2, px3, py3, sel_AbcD			{o4 1}	shufb	pi_temp8, pi_temp4, pi_temp5, s_BCcb
+{e2 2}	selb	po_temp1, py3, px3, sel_AbcD			{o4 1}	shufb	shuftemp12, mat1_0, mat3_0, s_cACa
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	shufb	po_temp5, po_temp2, pz3, s_DCba
+{e2 1}	selb	px, pi_temp6, pi_temp7, sel_AbcD		{o4 1}	shufb	shuftemp11, mat0_0, mat2_0, s_ACac
+{e2 1}	selb	py, pi_temp8, pi_temp6, sel_AbcD		{o4 1}	shufb	shuftemp1, mat0_0, mat2_0, s_BDbd
+{e2 1}	selb	pz, pi_temp7, pi_temp8, sel_AbcD		{o4 1}	shufb	shuftemp9, mat0_2, mat2_2, s_BDbd
+{e2 1}	ai	inOff, inOff, 0x40				{o4 1}	shufb	shuftemp3, mat0_1, mat2_1, s_BDbd
+{e2 2}	selb	po_temp4, po_temp5, pz3, sel_ABcd		{o4 1}	shufb	shuftemp10, mat1_2, mat3_2, s_dBDb
+{e2 2}	selb	po_temp3, po_temp2, po_temp5, sel_ABcd		{o4 1}	shufb	shuftemp7, mat0_2, mat2_2, s_ACac
+{e2 1}	ai	pControl, pControl, 1				{o4 1}	shufb	shuftemp5, mat0_1, mat2_1, s_ACac
+{e2 1}	selb	mat_11, shuftemp4, shuftemp3, sel_aBcD		{o4 1}	shufb	shuftemp6, mat1_1, mat3_1, s_cACa
+{e2 1}	selb	mat_21, shuftemp10, shuftemp9, sel_aBcD		{o4 1}	shufb	mat_03, shuftemp1, shuftemp2, s_BcDa
+{e2 1}	selb	mat_20, shuftemp8, shuftemp7, sel_aBcD		{o4 1}	shufb	mat_13, shuftemp3, shuftemp4, s_BcDa
+{e2 1}	selb	mat_00, shuftemp12, shuftemp11, sel_aBcD	{o4 1}	shufb	mat_23, shuftemp9, shuftemp10, s_BcDa
+{e2 1}	selb	mat_10, shuftemp6, shuftemp5, sel_aBcD		{o4 2}	shufb	po_temp7, po_temp1, pz3, s_BAab
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 2}	shufb	po_temp6, po_temp1, pz3, s_CDdc
+{e6 1}	fma	py2, px, mat_10, mat_13				{o  1}	hbr	skin_shuffle_p_branch, instCode_
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 1}	shufb	mat_02, shuftemp11, shuftemp12, s_BcDa
+{e2 2}	selb	opos0, po_temp3, po_temp7, sel_AbcD		{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BcDa
+{e2 2}	selb	opos3, po_temp4, po_temp6, sel_AbcD		{o4 1}	shufb	mat_22, shuftemp7, shuftemp8, s_BcDa
+{e2 2}	selb	opos2, po_temp6, po_temp4, sel_AbcD		{o6 1}	lqx	controlBytes, pControl, three
+{e6 1}	fma	px2, pz, mat_02, px2				{o6 0}	lqx	pos0, pPos00, inOff
+{e6 1}	fma	py2, pz, mat_12, py2				{o6 0}	lqx	pos2, pPos20, inOff
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o6 0}	lqx	pos1, pPos10, inOff
+{e2 2}	selb	opos1, po_temp7, po_temp3, sel_AbcD		{o6 0}	lqx	pos3, pPos30, inOff
+{e2 1}	selb	mat_01, shuftemp2, shuftemp1, sel_aBcD		{o6 2}	stqx	opos3, pPos30, outOff
+{e2 1}	ai	instCode, instCode_, 0				{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fma	px3, py, mat_01, px2				{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e6 1}	fma	py3, py, mat_11, py2				{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fma	pz3, py, mat_21, pz2				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+	{nop}							{o6 2}	stqx	opos0, pPos00, outOff
+	{nop}							{o4 1}	rotqby	instCode_, instTbl, controlByte
+	nop							; Branch is below
+.cset pNormal00, pNormal10, pNormal20, pNormal30
+.cset pTangent00, pTangent10, pTangent20, pTangent30
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset norm0, norm1, norm2, norm3, nrmag, nx4, ny4, nz4
+.cset tan0, tan1, tan2, tan3, trmag, tx4, ty4, tz4
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+					skin_shuffle_p_branch:	{o? 1}	bi	instCode	[skin_diff_1_p skin_diff_n_p skin_same_n skin_same_1_p skin_next_p skin_end_p]
+
+
+
+skin_next_p:	; 23 Cycles
+{e2 2}	a	outOff, outOff, outInc				{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+{e2 1}	ai	inOff, inOff, 0x40				{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+{e2 1}	ai	pControl, pControl, 1				{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+{e2 1}	ai	instCode, instCode_, 0				{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+{e2 2}	selb	po_temp2, px3, py3, sel_AbcD			{o  1}	hbr	skin_next_p_branch, instCode_
+{e2 2}	selb	po_temp1, py3, px3, sel_AbcD			{o6 1}	lqx	controlBytes, pControl, three
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd		{o4 2}	shufb	po_temp5, po_temp2, pz3, s_DCba
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd		{o4 2}	shufb	po_temp6, po_temp1, pz3, s_CDdc
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 2}	shufb	po_temp7, po_temp1, pz3, s_BAab
+{e6 1}	fma	py2, px, mat_10, mat_13				{o6 0}	lqx	pos1, pPos10, inOff
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o6 0}	lqx	pos3, pPos30, inOff
+{e2 2}	selb	po_temp3, po_temp2, po_temp5, sel_ABcd		{o6 0}	lqx	pos2, pPos20, inOff
+{e2 2}	selb	po_temp4, po_temp5, pz3, sel_ABcd		{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 2}	selb	opos0, po_temp3, po_temp7, sel_AbcD		{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e6 1}	fma	px2, pz, mat_02, px2				{o6 0}	lqx	pos0, pPos00, inOff
+{e6 1}	fma	py2, pz, mat_12, py2				{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e6 1}	fma	pz2, pz, mat_22, pz2					lnop
+{e2 2}	selb	opos3, po_temp4, po_temp6, sel_AbcD		{o4 1}	rotqby	instCode_, instTbl, controlByte
+{e2 2}	selb	opos2, po_temp6, po_temp4, sel_AbcD		{o6 2}	stqx	opos0, pPos00, outOff
+{e2 2}	selb	opos1, po_temp7, po_temp3, sel_AbcD		{o6 2}	stqx	opos3, pPos30, outOff
+{e6 1}	fma	px3, py, mat_01, px2				{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fma	py3, py, mat_11, py2				{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fma	pz3, py, mat_21, pz2				; Branch is below
+.cset pNormal00, pNormal10, pNormal20, pNormal30
+.cset pTangent00, pTangent10, pTangent20, pTangent30
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset norm0, norm1, norm2, norm3, nrmag, nx4, ny4, nz4
+.cset tan0, tan1, tan2, tan3, trmag, tx4, ty4, tz4
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+					skin_next_p_branch:	{o? 1}	bi	instCode	[skin_diff_1_p skin_diff_n_p skin_same_n skin_same_1_p skin_next_p skin_end_p]
+
+
+
+skin_same_1_p:	; 37 Cycles
+{e2 1}	selb	pi_temp2, pos0, pos1, sel_AbcD			{o4 1}	shufb	pi_temp1, pos2, pos3, s_AcBa
+{e2 1}	selb	pi_temp3, pos1, pos0, sel_ABcd			{o6 1}	lqx	controlBytes, pControl, four
+{e2 1}	selb	pi_temp4, pos0, pos1, sel_ABcd			{o6 1}	lqx	samemat_2, pMatrices20, same0
+{e2 1}	selb	pi_temp5, pos3, pos2, sel_ABcd			{o4 0}	rotqby	same0, sames, pSame
+{e2 1}	selb	pi_temp6, pi_temp2, pi_temp1, sel_ABcd		{o4 1}	shufb	pi_temp7, pi_temp1, pi_temp3, s_caAB
+{e2 2}	selb	po_temp2, px3, py3, sel_AbcD			{o4 1}	shufb	pi_temp8, pi_temp4, pi_temp5, s_BCcb
+{e2 2}	selb	po_temp1, py3, px3, sel_AbcD			{o  1}	hbr	skin_same_1_p_branch, instCode_
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	shufb	po_temp5, po_temp2, pz3, s_DCba
+{e2 1}	selb	px, pi_temp6, pi_temp7, sel_AbcD		{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 1}	selb	py, pi_temp8, pi_temp6, sel_AbcD		{o4 2}	shufb	po_temp6, po_temp1, pz3, s_CDdc
+{e2 1}	selb	pz, pi_temp7, pi_temp8, sel_AbcD		{o4 2}	shufb	po_temp7, po_temp1, pz3, s_BAab
+{e2 1}	ai	inOff, inOff, 0x40				{o4 1}	shufb	mat_00, samemat_0, samemat_0, s_AAAA
+{e2 0}	ai	pSame, pSame, 2					{o4 1}	shufb	mat_20, samemat_2, samemat_2, s_AAAA
+{e2 1}	ai	instCode, instCode_, 0				{o4 1}	shufb	mat_03, samemat_0, samemat_0, s_DDDD
+{e2 2}	selb	po_temp3, po_temp2, po_temp5, sel_ABcd		{o4 1}	shufb	mat_13, samemat_1, samemat_1, s_DDDD
+{e2 2}	selb	po_temp4, po_temp5, pz3, sel_ABcd		{o4 1}	shufb	mat_10, samemat_1, samemat_1, s_AAAA
+{e2 2}	selb	opos0, po_temp3, po_temp7, sel_AbcD		{o4 1}	shufb	mat_23, samemat_2, samemat_2, s_DDDD
+{e2 2}	selb	opos1, po_temp7, po_temp3, sel_AbcD		{o6 0}	lqx	pos3, pPos30, inOff
+{e2 2}	selb	opos2, po_temp6, po_temp4, sel_AbcD		{o6 0}	lqx	sames, pSame, two
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 1}	shufb	mat_02, samemat_0, samemat_0, s_CcCc
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 1}	shufb	mat_12, samemat_1, samemat_1, s_CcCc
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 1}	shufb	mat_22, samemat_2, samemat_2, s_CcCc
+{e2 1}	ai	pControl, pControl, 1				{o4 1}	shufb	mat_11, samemat_1, samemat_1, s_BBBB
+	{nop}							{o4 1}	shufb	mat_21, samemat_2, samemat_2, s_BBBB
+	{nop}							{o4 1}	shufb	mat_01, samemat_0, samemat_0, s_BBBB
+{e6 1}	fma	px2, pz, mat_02, px2				{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e6 1}	fma	py2, pz, mat_12, py2				{o6 0}	lqx	pos2, pPos20, inOff
+{e6 1}	fma	pz2, pz, mat_22, pz2				{o6 0}	lqx	pos0, pPos00, inOff
+	{nop}							{o6 0}	lqx	pos1, pPos10, inOff
+	{nop}							{o4 1}	rotqby	instCode_, instTbl, controlByte
+{e2 2}	selb	opos3, po_temp4, po_temp6, sel_AbcD		{o6 0}	lqx	samemat_1, pMatrices10, same0
+{e6 1}	fma	px3, py, mat_01, px2				{o6 0}	lqx	samemat_0, pMatrices00, same0
+{e6 1}	fma	py3, py, mat_11, py2				{o6 2}	stqx	opos1, pPos10, outOff
+{e6 1}	fma	pz3, py, mat_21, pz2				{o6 2}	stqx	opos2, pPos20, outOff
+	{nop}							{o6 2}	stqx	opos3, pPos30, outOff
+	{nop}							{o6 2}	stqx	opos0, pPos00, outOff
+	nop							; Branch is below
+.cset pNormal00, pNormal10, pNormal20, pNormal30
+.cset pTangent00, pTangent10, pTangent20, pTangent30
+.cset pDNormal00, pDNormal10, pDNormal20, pDNormal30
+.cset norm0, norm1, norm2, norm3, nrmag, nx4, ny4, nz4
+.cset tan0, tan1, tan2, tan3, trmag, tx4, ty4, tz4
+.cset dnorm0, dnorm1, dnorm2, dnorm3, drmag, dx4, dy4, dz4
+					skin_same_1_p_branch:	{o?  1}	bi	instCode	[skin_diff_1_p skin_diff_n_p skin_same_n skin_same_1_p skin_next_p skin_end_p]
+
+
+
+skin_end_p:	; 11 Cycles
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+	{nop}							{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+	{nop}							{o}	hbrr	skin_end_p_branch, skin_common_end
+	{nop}								{lnop}
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+	{nop}							{o6 2}	stqx	opos0, pPos00, outOff
+	{nop}							{o6 2}	stqx	opos1, pPos10, outOff
+	{nop}							{o6 2}	stqx	opos3, pPos30, outOff
+	{nop}							{o6 2}	stqx	opos2, pPos20, outOff
+	nop				skin_end_p_branch:	{o}	br	skin_common_end
+
+
+
+; self-test code
+.if TEST
+
+.data
+
+.align 12
+m_dummyData:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+; Control byte definitions
+; CONTROL_NEXT	0
+; CONTROL_DIFF1	2
+; CONTROL_SAME1	4
+; CONTROL_SAMEN	6
+; CONTROL_END	8
+; CONTROL_DIFFN	A
+
+m_controlTable: .dw 0x0A020800, 0x00000000, 0x00000000, 0x00000000
+
+m_sameTable:	.dh 0x0000, 0x0030, 0x0060, 0x0090, 0x0090, 0x0060, 0x0030, 0x0000
+		.dh 0x0004, 0x0034, 0x0064, 0x0090, 0x0094, 0x0064, 0x0034, 0x0000
+
+m_diffTable:	.dh 0x0000, 0x0000, 0x0000, 0x0000, 0x0030, 0x0030, 0x0030, 0x0030
+		.dh 0x0060, 0x0060, 0x0060, 0x0060, 0x0090, 0x0090, 0x0090, 0x0090
+		.dh 0x0094, 0x0094, 0x0094, 0x0094, 0x0060, 0x0060, 0x0060, 0x0060
+		.dh 0x0034, 0x0034, 0x0034, 0x0034, 0x0000, 0x0000, 0x0000, 0x0000
+
+m_weightTable:	.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+
+m_matrixTable:	.df 1,0,0,0
+		.df 0,1,0,0
+		.df 0,0,1,0
+
+		.df 1,0,0,0
+		.df 0,1,0,0
+		.df 0,0,1,0
+
+		.df 0,0,0,0
+		.df 0,1,0,0
+		.df 0,0,0,0
+
+		.df 0,0,0,0
+		.df 0,0,0,0
+		.df 0,0,1,0
+
+m_uniformPositions:	.df 0, 0, 0, 1
+			.df 1, 0, 0, 1
+			.df 0, 1, 0, 1
+			.df 1, 1, 0, 1
+			.df 1, 1, 0, 1
+			.df 0, 1, 0, 1
+			.df 1, 0, 0, 1
+			.df 0, 0, 0, 1
+
+m_outPositions:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+m_uniformNormals:	.df	0,	1,	0,	0
+			.df	0,	0,	1,	0
+			.df	1,	0,	0,	0
+			.df	0.58,	0.58,	0.58,	0
+			.df	0.7,	0,	0.7,	0
+			.df	0,	0.7,	0.7,	0
+			.df	0.7,	0.7,    0,	0
+			.df	0.58,	0.58,	0.58,	0
+
+m_outNormals:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+m_uniformTangents:	.df	0,	1,	0,	0
+			.df	0,	0,	1,	0
+			.df	1,	0,	0,	0
+			.df	0.58,	0.58,	0.58,	0
+			.df	0.7,	0,	0.7,	0
+			.df	0,	0.7,	0.7,	0
+			.df	0.7,	0.7,    0,	0
+			.df	0.58,	0.58,	0.58,	0
+
+m_outTangents:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+m_uniformDNormals:	.df	0,	1,	0,	0
+			.df	0,	0,	1,	0
+			.df	1,	0,	0,	0
+			.df	0.58,	0.58,	0.58,	0
+			.df	0.7,	0,	0.7,	0
+			.df	0,	0.7,	0.7,	0
+			.df	0.7,	0.7,    0,	0
+			.df	0.58,	0.58,	0.58,	0
+
+m_outDNormals:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+
+.text
+
+.global _start
+_start:
+
+.if 0
+; Test for output data from mesh processing.
+	{nop}							{o6}	lqa	pMatrices00, 0x10
+	{nop}							{o6}	lqa	pControl, 0x20
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4}	rotqbyi	pWeights, pMatrices00, 4
+	{nop}							{o4}	rotqbyi	pSame, pMatrices00, 8
+	{nop}							{o4}	rotqbyi	pDiff, pMatrices00, 12
+	{nop}							{o4}	rotqbyi	pPos00, pControl, 4
+	{nop}							{o4}	rotqbyi	pNormal00, pControl, 8
+	{nop}							{o?}	brsl	$lr, SkinPosNorm	[#func]
+	nop								stop
+.endif
+
+{e2}	ila	$sp, 0							{lnop}
+{e2}	ila	pPos00, m_uniformPositions				{lnop}
+{e2}	ila	pNormal00, m_uniformNormals				{lnop}
+{e2}	ila	pTangent00, m_uniformTangents				{lnop}
+{e2}	ila	pDNormal00, m_uniformDNormals				{lnop}
+{e2}	ila	pMatrices00, m_matrixTable				{lnop}
+{e2}	ila	pWeights, m_weightTable					{lnop}
+{e2}	ila	pSame, m_sameTable					{lnop}
+{e2}	ila	pDiff, m_diffTable					lnop
+{e2}	ila	pControl, m_controlTable			{o?}	brsl	$lr, SkinPosNormTan
+	nop								stop
+
+.endif ; TEST
+
+;==============================================================================================================================
+; unrolled skinning loop
+;
+; The loops that make up all of the skinning routines are:
+;	skin_shuffle_p
+;	skin_next_p
+;	skin_same_1_p
+;	skin_shuffle_pn
+;	skin_next_pn
+;	skin_same_1_pn
+;	skin_shuffle_pnt
+;	skin_next_pnt
+;	skin_same_1_pnt
+;	skin_shuffle_pntd
+;	skin_next_pntd
+;	skin_same_1_pntd
+; There is much commonality between these routines.  Each of these loops is composed of various parts which can be
+; seen below and are then tightly rolled up into the loop.  The parts seen below are in the order that flow would
+; occur going through a loop.  Not all parts are present in every loop, and each part is annotated to indicate
+; which loops conatin those parts.  No loop contains all parts, but skin_shuffle_pntd and skin_same_1_pntd both
+; come pretty close.
+;
+;==============================================================================================================================
+.if 0
+;==============================================================================================================================
+; Blended Matrix Shuffle
+;
+; Exists in skin_shuffle_p/pn/pnt/pntd.
+;
+;==============================================================================================================================
+; The blending functions output four blended matrices in twelve registers with each register containing a single row
+; of a single matrix, like this:
+;	m0_00 m0_01 m0_02 m0_03     m1_00 m1_01 m1_02 m1_03     m2_00 m2_01 m2_02 m2_03     m3_00 m3_01 m3_02 m3_03
+;	m0_10 m0_11 m0_12 m0_13     m1_10 m1_11 m1_12 m1_13     m2_10 m2_11 m2_12 m2_13     m3_10 m3_11 m3_12 m3_13
+;	m0_20 m0_21 m0_22 m0_23     m1_20 m1_21 m1_22 m1_23     m2_20 m2_21 m2_22 m2_23     m3_20 m3_21 m3_22 m3_23
+; However, for effeicent processing, we need to shuffle the matrices so that each of twelve registers contains the
+; same element from each of the four matrices, like this:
+;	m0_00 m1_00 m2_00 m3_00     m0_01 m1_01 m2_01 m3_01     m0_02 m1_02 m2_02 m3_02     m0_03 m1_03 m2_03 m3_03
+;	m0_10 m1_10 m2_10 m3_10     m0_11 m1_11 m2_11 m3_11     m0_12 m1_12 m2_12 m3_12     m0_13 m1_13 m2_13 m3_13
+;	m0_20 m1_20 m2_20 m3_20     m0_21 m1_21 m2_21 m3_21     m0_22 m1_22 m2_22 m3_22     m0_23 m1_23 m2_23 m3_23
+; We do this here.
+	nop							{o4 1}	shufb	shuftemp1, mat0_0, mat1_0, s_ACac
+	nop							{o4 1}	shufb	shuftemp2, mat2_0, mat3_0, s_ACac
+	nop							{o4 1}	shufb	shuftemp3, mat0_2, mat1_2, s_ACac
+	nop							{o4 1}	shufb	shuftemp4, mat2_2, mat3_2, s_ACac
+	nop							{o4 1}	shufb	shuftemp5, mat0_1, mat1_1, s_ACac
+	nop							{o4 1}	shufb	shuftemp6, mat2_1, mat3_1, s_ACac
+	nop							{o4 1}	shufb	shuftemp7, mat0_1, mat1_1, s_BDbd
+	nop							{o4 1}	shufb	shuftemp8, mat2_1, mat3_1, s_BDbd
+	nop							{o4 1}	shufb	shuftemp9, mat0_0, mat1_0, s_BDbd
+	nop							{o4 1}	shufb	shuftemp10, mat2_0, mat3_0, s_BDbd
+	nop							{o4 1}	shufb	shuftemp11, mat0_2, mat1_2, s_BDbd
+	nop							{o4 1}	shufb	shuftemp12, mat2_2, mat3_2, s_BDbd
+	nop							{o4 1}	shufb	mat_00, shuftemp1, shuftemp2, s_ACac
+	nop							{o4 1}	shufb	mat_01, shuftemp9, shuftemp10, s_ACac
+	nop							{o4 1}	shufb	mat_02, shuftemp1, shuftemp2, s_BDbd
+	nop							{o4 1}	shufb	mat_03, shuftemp9, shuftemp10, s_BDbd
+	nop							{o4 1}	shufb	mat_10, shuftemp5, shuftemp6, s_ACac
+	nop							{o4 1}	shufb	mat_11, shuftemp7, shuftemp8, s_ACac
+	nop							{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BDbd
+	nop							{o4 1}	shufb	mat_13, shuftemp7, shuftemp8, s_BDbd
+	nop							{o4 1}	shufb	mat_20, shuftemp3, shuftemp4, s_ACac
+	nop							{o4 1}	shufb	mat_21, shuftemp11, shuftemp12, s_ACac
+	nop							{o4 1}	shufb	mat_22, shuftemp3, shuftemp4, s_BDbd
+	nop							{o4 1}	shufb	mat_23, shuftemp11, shuftemp12, s_BDbd
+	nop								lnop
+	nop								lnop
+
+;==============================================================================================================================
+; Blended Cofactor Matrix Calculation
+;
+; Exists in skin_shuffle_pn/pnt/pntd.
+;
+;==============================================================================================================================
+; Since these matrices are not necessarily orthonormal, we can not directly use them to transform the normals and
+; the displacement normals.  Instead we need to use the cofactor matrices of each of the four matrices.
+; Here, we calculate the four cofactor matrices, which is essentially three cross products.
+{e6 1}	fm	cofm_00, mat_11, mat_22					lnop
+{e6 1}	fm	cofm_01, mat_12, mat_20					lnop
+{e6 1}	fm	cofm_02, mat_11, mat_20					lnop
+{e6 1}	fm	cofm_10, mat_01, mat_22					lnop
+{e6 1}	fm	cofm_11, mat_02, mat_20					lnop
+{e6 1}	fm	cofm_12, mat_01, mat_20					lnop
+{e6 1}	fm	cofm_20, mat_02, mat_11					lnop
+{e6 1}	fm	cofm_21, mat_00, mat_12					lnop
+{e6 1}	fm	cofm_22, mat_00, mat_11					lnop
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00			lnop
+{e6 1}	fnms	cofm_01, mat_10, mat_22, cofm_01			lnop
+{e6 1}	fms	cofm_02, mat_10, mat_21, cofm_02			lnop
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10			lnop
+{e6 1}	fms	cofm_11, mat_00, mat_22, cofm_11			lnop
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12			lnop
+{e6 1}	fnms	cofm_20, mat_01, mat_12, cofm_20			lnop
+{e6 1}	fms	cofm_21, mat_02, mat_10, cofm_21			lnop
+{e6 1}	fnms	cofm_22, mat_01, mat_10, cofm_22			lnop
+
+;==============================================================================================================================
+; Same 1 Matrix Loading and Shuffling
+;
+; Exists in skin_same_1_p/pn/pnt/pntd.
+;
+;==============================================================================================================================
+; In the same_1 routines, the four vertexes to be transformed all use the same matrix.  The index for this matrix
+; is stored in the same matrix index stream which is pointed to by pSame.
+; Here, the quadword containing the same matrix index is loaded and then the index we want is rotated into the
+; preferred halfword.  Since the preferred halfword is actually bytes 2 and 3 of a quadword, pSame actually points
+; to two bytes before the index we want.  Thus, two is added to the pointer in order to load the correct value and
+; no extra instructions are needed to rotate the value we want into place.
+; Also, we increment pSame here.
+	nop							{o6 0}	lqx	sames, pSame, two
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 0}	rotqby	same0, sames, pSame
+{e2 0}	ai	pSame, pSame, 2						lnop
+	nop								lnop
+	nop								lnop
+
+; Now that we have the matrix index, we load the three rows of the matrix.
+	nop							{o6 0}	lqx	samemat_0, pMatrices00, same0
+	nop							{o6 0}	lqx	samemat_1, pMatrices10, same0
+	nop							{o6 1}	lqx	samemat_2, pMatrices20, same0
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Since we are using just this one matrix for all of the vertexes, we need to shuffle each matrix element into
+; its own register.
+	nop							{o4 1}	shufb	mat_00, samemat_0, samemat_0, s_AAAA
+	nop							{o4 1}	shufb	mat_01, samemat_0, samemat_0, s_BBBB
+	nop							{o4 1}	shufb	mat_02, samemat_0, samemat_0, s_CcCc
+	nop							{o4 1}	shufb	mat_03, samemat_0, samemat_0, s_DDDD
+	nop							{o4 1}	shufb	mat_10, samemat_1, samemat_1, s_AAAA
+	nop							{o4 1}	shufb	mat_11, samemat_1, samemat_1, s_BBBB
+	nop							{o4 1}	shufb	mat_12, samemat_1, samemat_1, s_CcCc
+	nop							{o4 1}	shufb	mat_13, samemat_1, samemat_1, s_DDDD
+	nop							{o4 1}	shufb	mat_20, samemat_2, samemat_2, s_AAAA
+	nop							{o4 1}	shufb	mat_21, samemat_2, samemat_2, s_BBBB
+	nop							{o4 1}	shufb	mat_22, samemat_2, samemat_2, s_CcCc
+	nop							{o4 1}	shufb	mat_23, samemat_2, samemat_2, s_DDDD
+
+;==============================================================================================================================
+; Same 1 Cofactor Matrix Calculation
+;
+; Exists in skin_same_1_pn/pnt/pntd.
+;
+;==============================================================================================================================
+; By having only one matrix rather than four, the cofactor matrix can be computed differently.  In this method, the
+; elements of the matrix are shuffled out to look like this:
+;	m_01 m_02 m_00 ----
+;	m_11 m_12 m_10 ----
+;	m_21 m_22 m_20 ----
+	nop							{o4 1}	shufb	cofmtmp0_2, samemat_2, samemat_2, s_BCAD
+	nop							{o4 1}	shufb	cofmtmp0_0, samemat_0, samemat_0, s_BCAD
+	nop							{o4 1}	shufb	cofmtmp0_1, samemat_1, samemat_1, s_BCAD
+	nop								lnop
+
+; We then compute the cross products samemat_1 x cofmtmp0_2, samemat_2 x cofmtmp0_0, and samemat_0 x cofmtmp0_1
+{e6 1}	fm	cofmtmp1_0, samemat_1, cofmtmp0_2			lnop
+{e6 1}	fm	cofmtmp1_1, samemat_2, cofmtmp0_0			lnop
+{e6 1}	fm	cofmtmp1_2, samemat_0, cofmtmp0_1			lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fnms	cofmtmp1_0, samemat_2, cofmtmp0_1, cofmtmp1_0		lnop
+{e6 1}	fnms	cofmtmp1_1, samemat_0, cofmtmp0_2, cofmtmp1_1		lnop
+{e6 1}	fnms	cofmtmp1_2, samemat_1, cofmtmp0_0, cofmtmp1_2		lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Finally, we shuffle out the results into nine registers, each one containg a single element of the cofactor matrix
+; in repeated in each of its fields.
+	nop							{o4 1}	shufb	cofm_00, cofmtmp1_0, cofmtmp1_0, s_BBBB
+	nop							{o4 1}	shufb	cofm_01, cofmtmp1_0, cofmtmp1_0, s_CcCc
+	nop							{o4 1}	shufb	cofm_02, cofmtmp1_0, cofmtmp1_0, s_AAAA
+	nop							{o4 1}	shufb	cofm_10, cofmtmp1_1, cofmtmp1_1, s_BBBB
+	nop							{o4 1}	shufb	cofm_11, cofmtmp1_1, cofmtmp1_1, s_CcCc
+	nop							{o4 1}	shufb	cofm_12, cofmtmp1_1, cofmtmp1_1, s_AAAA
+	nop							{o4 1}	shufb	cofm_20, cofmtmp1_2, cofmtmp1_2, s_BBBB
+	nop							{o4 1}	shufb	cofm_21, cofmtmp1_2, cofmtmp1_2, s_CcCc
+	nop							{o4 1}	shufb	cofm_22, cofmtmp1_2, cofmtmp1_2, s_AAAA
+
+;==============================================================================================================================
+; Vertex Position Transformation
+;
+; Exists in skin_shuffle_p/pn/pnt/pntd, skin_next_p/pn/pnt/pntd, and skin_same_1_p/pn/pnt/pntd.
+;
+;==============================================================================================================================
+; Load four vertex positions.
+	nop							{o6 0}	lqx	pos0, pPos00, inOff
+	nop							{o6 0}	lqx	pos1, pPos10, inOff
+	nop							{o6 0}	lqx	pos2, pPos20, inOff
+	nop							{o6 0}	lqx	pos3, pPos30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex positions start as:
+;	x0  y0  z0  --
+;	x1  y1  z1  --
+;	x2  y2  z2  --
+;	x3  y3  z3  --
+; But we need them as:
+;	x0  x1  x2  x3
+;	y0  y1  y2  y3
+;	z0  z1  z2  z3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+	nop							{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+	nop							{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+	nop							{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd		{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd			lnop
+
+; The four transformed vertex positions are in the following format:
+;	x0  x1  x2  x3
+;	y0  y1  y2  y3
+;	z0  z1  z2  z3
+; But we need them back as:
+;	x0  y0  z0  --
+;	x1  y1  z1  --
+;	x2  y2  z2  --
+;	x3  y3  z3  --
+; So we shuffle them here.
+	nop							{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+	nop							{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+
+; Store the four transformed vertex positions.
+	nop							{o6 2}	stqx	opos0, pPos00, outOff
+	nop							{o6 2}	stqx	opos1, pPos10, outOff
+	nop							{o6 2}	stqx	opos3, pPos30, outOff
+	nop							{o6 2}	stqx	opos2, pPos20, outOff
+
+; Transform the four vertex positions using the transformation matrices with translations.
+{e6 1}	fma	px2, px, mat_00, mat_03					lnop
+{e6 1}	fma	py2, px, mat_10, mat_13					lnop
+{e6 1}	fma	pz2, px, mat_20, mat_23					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	px2, pz, mat_02, px2					lnop
+{e6 1}	fma	py2, pz, mat_12, py2					lnop
+{e6 1}	fma	pz2, pz, mat_22, pz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	px3, py, mat_01, px2					lnop
+{e6 1}	fma	py3, py, mat_11, py2					lnop
+{e6 1}	fma	pz3, py, mat_21, pz2					lnop
+
+;==============================================================================================================================
+; Vertex Normal Transformation
+;
+; Exists in skin_shuffle_pn/pnt/pntd, skin_next_pn/pnt/pntd, and skin_same_1_pn/pnt/pntd.
+;
+;==============================================================================================================================
+; Load four vertex normals.
+	nop							{o6 1}	lqx	norm0, pNormal00, inOff
+	nop							{o6 1}	lqx	norm1, pNormal10, inOff
+	nop							{o6 1}	lqx	norm2, pNormal20, inOff
+	nop							{o6 1}	lqx	norm3, pNormal30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex normals start as:
+;	nx0 ny0 nz0 ---
+;	nx1 ny1 nz1 ---
+;	nx2 ny2 nz2 ---
+;	nx3 ny3 nz3 ---
+; But we need them as:
+;	nx0 nx1 nx2 nx3
+;	ny0 ny1 ny2 ny3
+;	nz0 nz1 nz2 nz3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+	nop							{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+	nop							{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+	nop							{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd		{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd			lnop
+	nop								lnop
+
+; Transform the four vertex normals using the cofactor matrices.
+{e6 1}	fm	nx2, nz, cofm_02					lnop
+{e6 1}	fm	ny2, nz, cofm_12					lnop
+{e6 1}	fm	nz2, nz, cofm_22					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nx2, nx, cofm_00, nx2					lnop
+{e6 1}	fma	ny2, nx, cofm_10, ny2					lnop
+{e6 1}	fma	nz2, nx, cofm_20, nz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nx4, ny, cofm_01, nx2					lnop
+{e6 1}	fma	ny4, ny, cofm_11, ny2					lnop
+{e6 1}	fma	nz4, ny, cofm_21, nz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Since the cofactor matrices may not be orthonormal, we need to renormalize the vertex normals.
+; Although, the vertex shader program will probably normalize the normals there, the normals may
+; need to be compressed into a normalized format to be passed along to the GPU, so we need to
+; renormalize them here anyway so that they are in range.
+; N = N / sqrt(nx * nx + ny * ny + nz * nz)
+{e6 1}	fm	nrmag, nx4, nx4						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nrmag, ny4, ny4, nrmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fma	nrmag, nz4, nz4, nrmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 2}	frsqest	nest, nrmag
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e7 2}	fi	nrmag2, nrmag, nest					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fm	nx5, nx4, nrmag2					lnop
+{e6 2}	fm	ny5, ny4, nrmag2					lnop
+{e6 2}	fm	nz5, nz4, nrmag2					lnop
+
+; The four transformed vertex normals are in the following format:
+;	nx0 nx1 nx2 nx3
+;	ny0 ny1 ny2 ny3
+;	nz0 nz1 nz2 nz3
+; But we need them back as:
+;	nx0 ny0 nz0 ---
+;	nx1 ny1 nz1 ---
+;	nx2 ny2 nz2 ---
+;	nx3 ny3 nz3 ---
+; So we shuffle them here.
+	nop							{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+	nop							{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+
+; In case the original vertex normals have a flip factor stored with them in the fourth field, we need
+; to restore that here.
+{e2 2}	selb	onorm0, onorm0, norm0, sel_ABCd				lnop
+{e2 2}	selb	onorm1, onorm1, norm1, sel_ABCd				lnop
+{e2 2}	selb	onorm3, onorm3, norm3, sel_ABCd				lnop
+{e2 2}	selb	onorm2, onorm2, norm2, sel_ABCd				lnop
+
+; Store the four transformed vertex normals.
+	nop							{o6 2}	stqx	onorm0, pNormal00, outOff
+	nop							{o6 2}	stqx	onorm1, pNormal10, outOff
+	nop							{o6 2}	stqx	onorm2, pNormal20, outOff
+	nop							{o6 2}	stqx	onorm3, pNormal30, outOff
+
+;==============================================================================================================================
+; Vertex Tangent Transformation
+;
+; Exists in skin_shuffle_pnt/pntd, skin_next_pnt/pntd, and skin_same_1_pnt/pntd.
+;
+;==============================================================================================================================
+; Load four vertex tangents.
+	nop							{o6 1}	lqx	tan0, pTangent00, inOff
+	nop							{o6 1}	lqx	tan1, pTangent10, inOff
+	nop							{o6 1}	lqx	tan2, pTangent20, inOff
+	nop							{o6 1}	lqx	tan3, pTangent30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex tangents start as:
+;	tx0 ty0 tz0 ---
+;	tx1 ty1 tz1 ---
+;	tx2 ty2 tz2 ---
+;	tx3 ty3 tz3 ---
+; But we need them as:
+;	tx0 tx1 tx2 tx3
+;	ty0 ty1 ty2 ty3
+;	tz0 tz1 tz2 tz3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+	nop							{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+	nop							{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+	nop							{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd		{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd			lnop
+	nop								lnop
+
+; Transform the four vertex tangents using the matrices.
+{e6 1}	fm	tx2, tz, mat_02						lnop
+{e6 1}	fm	ty2, tz, mat_12						lnop
+{e6 1}	fm	tz2, tz, mat_22						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	tx2, tx, mat_00, tx2					lnop
+{e6 1}	fma	ty2, tx, mat_10, ty2					lnop
+{e6 1}	fma	tz2, tx, mat_20, tz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	tx4, ty, mat_01, tx2					lnop
+{e6 1}	fma	ty4, ty, mat_11, ty2					lnop
+{e6 1}	fma	tz4, ty, mat_21, tz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Since the matrices may not be orthonormal, we need to renormalize the vertex tangents.
+; Although, the vertex shader program will probably normalize the tangents there, the tangents may
+; need to be compressed into a normalized format to be passed along to the GPU, so we need to
+; renormalize them here anyway so that they are in range.
+; T = T / sqrt(tx * tx + ty * ty + tz * tz)
+{e6 1}	fm	trmag, tx4, tx4						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	trmag, ty4, ty4, trmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fma	trmag, tz4, tz4, trmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 2}	frsqest	test, trmag
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e7 2}	fi	trmag2, trmag, test					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fm	tx5, tx4, trmag2					lnop
+{e6 2}	fm	ty5, ty4, trmag2					lnop
+{e6 2}	fm	tz5, tz4, trmag2					lnop
+
+; The four transformed vertex tangents are in the following format:
+;	tx0 tx1 tx2 tx3
+;	ty0 ty1 ty2 ty3
+;	tz0 tz1 tz2 tz3
+; But we need them back as:
+;	tx0 ty0 tz0 ---
+;	tx1 ty1 tz1 ---
+;	tx2 ty2 tz2 ---
+;	tx3 ty3 tz3 ---
+; So we shuffle them here.
+	nop							{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+	nop							{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+
+; In case the original vertex tangents have a flip factor stored with them in the fourth field, we need
+; to restore that here.
+{e2 2}	selb	otan0, otan0, tan0, sel_ABCd				lnop
+{e2 2}	selb	otan1, otan1, tan1, sel_ABCd				lnop
+{e2 2}	selb	otan3, otan3, tan3, sel_ABCd				lnop
+{e2 2}	selb	otan2, otan2, tan2, sel_ABCd				lnop
+
+; Store the four transformed vertex tangents.
+	nop							{o6 2}	stqx	otan0, pTangent00, outOff
+	nop							{o6 2}	stqx	otan1, pTangent10, outOff
+	nop							{o6 2}	stqx	otan2, pTangent20, outOff
+	nop							{o6 2}	stqx	otan3, pTangent30, outOff
+
+;==============================================================================================================================
+; Vertex Displacement Normal Transformation
+;
+; Exists in skin_shuffle_pntd, skin_next_pntd, and skin_same_1_pntd.
+;
+;==============================================================================================================================
+; Load four vertex displacement normals.
+	nop							{o6 1}	lqx	dnorm0, pDNormal00, inOff
+	nop							{o6 1}	lqx	dnorm1, pDNormal10, inOff
+	nop							{o6 1}	lqx	dnorm2, pDNormal20, inOff
+	nop							{o6 1}	lqx	dnorm3, pDNormal30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex displacement normals start as:
+;	dx0 dy0 dz0 ---
+;	dx1 dy1 dz1 ---
+;	dx2 dy2 dz2 ---
+;	dx3 dy3 dz3 ---
+; But we need them as:
+;	dx0 dx1 dx2 dx3
+;	dy0 dy1 dy2 dy3
+;	dz0 dz1 dz2 dz3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	di_temp1, dnorm0, dnorm1, s_AaBb
+	nop							{o4 1}	shufb	di_temp2, dnorm2, dnorm3, s_BbAa
+	nop							{o4 1}	shufb	di_temp3, dnorm0, dnorm1, s_CcCc
+	nop							{o4 1}	shufb	di_temp4, dnorm2, dnorm3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	dx, di_temp1, di_temp2, sel_ABcd		{o4 1}	shufb	dy, di_temp2, di_temp1, s_cdAB
+{e2 1}	selb	dz, di_temp3, di_temp4, sel_ABcd			lnop
+	nop								lnop
+
+; Transform the four vertex displacement normals using the cofactor matrices.
+{e6 1}	fm	dx2, dz, cofm_02					lnop
+{e6 1}	fm	dy2, dz, cofm_12					lnop
+{e6 1}	fm	dz2, dz, cofm_22					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	dx2, dx, cofm_00, dx2					lnop
+{e6 1}	fma	dy2, dx, cofm_10, dy2					lnop
+{e6 1}	fma	dz2, dx, cofm_20, dz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	dx4, dy, cofm_01, dx2					lnop
+{e6 1}	fma	dy4, dy, cofm_11, dy2					lnop
+{e6 1}	fma	dz4, dy, cofm_21, dz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Since the cofactor matrices may not be orthonormal, we need to renormalize the displacment normals.
+; D = D / sqrt(dx * dx + dy * dy + dz * dz)
+{e6 1}	fm	drmag, dx4, dx4						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	drmag, dy4, dy4, drmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fma	drmag, dz4, dz4, drmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 2}	frsqest	dest, drmag
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e7 2}	fi	drmag2, drmag, dest					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fm	dx5, dx4, drmag2					lnop
+{e6 2}	fm	dy5, dy4, drmag2					lnop
+{e6 2}	fm	dz5, dz4, drmag2					lnop
+
+; The four transformed vertex diplacement normals are in the following format:
+;	dx0 dx1 dx2 dx3
+;	dy0 dy1 dy2 dy3
+;	dz0 dz1 dz2 dz3
+; But we need them back as:
+;	dx0 dy0 dz0 ---
+;	dx1 dy1 dz1 ---
+;	dx2 dy2 dz2 ---
+;	dx3 dy3 dz3 ---
+; So we shuffle them here.
+	nop							{o4 2}	shufb	do_temp1, dy5, dz5, s_DAad
+	nop							{o4 2}	shufb	do_temp2, dx5, dz5, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	odnorm0, dx5, do_temp1, sel_AbcD		{o4 2}	shufb	odnorm3, do_temp1, nx5, s_dAD0
+{e2 2}	selb	odnorm1, dy5, do_temp2, sel_aBcD		{o4 2}	shufb	odnorm2, do_temp2, ny5, s_BcDa
+
+; Store the four transformed vertex displacement normals.
+	nop							{o6 2}	stqx	odnorm0, pDNormal00, outOff
+	nop							{o6 2}	stqx	odnorm1, pDNormal10, outOff
+	nop							{o6 2}	stqx	odnorm3, pDNormal30, outOff
+	nop							{o6 2}	stqx	odnorm2, pDNormal20, outOff
+
+;==============================================================================================================================
+; Pointer Increments and Control Byte Flow Control
+;
+; Exists in skin_shuffle_p/pn/pnt/pntd, skin_next_p/pn/pnt/pntd, and skin_same_1_p/pn/pnt/pntd.
+;
+;==============================================================================================================================
+; Now that all of the stores have occured, we need increment the output pointer.  Since the loops will
+; eventually be rolled up, we will need a delay for incrementing the output pointer.  This is done by
+; shuffling the output increment value down a register over the course of several iterations.  The value
+; in the preferred word starts at 0, but after several interations becomes 0x40, the correct increment value.
+	nop							{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e2 2}	a	outOff, outOff, outInc					lnop
+
+; Also, we need to increment the input pointer.
+{e2 1}	ai	inOff, inOff, 0x40					lnop
+
+; Every four vertexes has an associated control byte.  This control byte signifies what type of blending is to be
+; performed on those four vertexes and thus controls the flow through the code.
+; First, we read a quadword which contains the current control byte and then rotate the current control byte into the
+; preferred byte.  The load instruction adds a three to pControl, because pControl is actually the address minus three.
+; This is done so we can use pControl to rotate the control byte into the preferred byte of the quadword (which is byte 3)
+; without an extra instruction.  Also, we increment pControl.
+	nop							{o6 1}	lqx	controlBytes, pControl, three
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 1}	rotqby	controlByte, controlBytes, pControl
+{e2 1}	ai	pControl, pControl, 1					lnop
+	nop								lnop
+	nop								lnop
+
+; Next, we use the control byte to rotate the correct jump target from a jump table into the preferred halfword.
+	nop							{o4 1}	rotqby	instCode, instTbl, controlByte
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Lastly, we hint the jump target (using skin_shuffle_pntd_branch as an example branch label) and then finally jump there.
+; The possible branch targets can be seen in brackets after the jump instruction.
+	nop							{o  1}	hbr	skin_shuffle_pntd_branch, instCode
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+				skin_shuffle_pntd_branch:	{o? 1}	bi	instCode	[skin_diff_1_pntd skin_diff_n_pntd skin_same_n skin_same_1_pntd skin_next_pntd skin_end_pntd]
+.endif
+
+.end
+

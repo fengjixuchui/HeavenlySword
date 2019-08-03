@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="army2_spu_ps3"
+	ProjectGUID="{B636FC81-E6A2-42D2-BF34-85FAEA09D379}"
+	SccProjectName="Perforce Project"
+	SccAuxPath=""
+	SccLocalPath="."
+	SccProvider="MSSCCI:Perforce SCM">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="dbg_ps3|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			DeleteExtensionsOnClean="*.obj;*.d;*.map;*.lst;*.pch;$(TargetPath)">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="-g -Wall -fno-exceptions -fno-strict-aliasing -fpic"
+				AdditionalIncludeDirectories="code_ps3;code;&quot;$(SN_PS3_PATH)\spu\include\sn&quot;;code_ps3\ntlib_spu;code_ps3\3rdparty\atg\Include\SPU;code_ps3/3rdparty/wws/projects/system/include/spu;code_ps3/3rdparty/wws/projects/job/include/spu;code_ps3/3rdparty/wws/projects/job/include/common"
+				PreprocessorDefinitions="SN_TARGET_PS3_SPU;_DEBUG;__GCC__;SPU;PLATFORM_PS3;ATG_PS3_PLATFORM;PRINTF_ENABLED"
+				ProgramDataBaseFileName=""
+				CompileAs="0"
+				ForcedIncludeFiles=""
+				ForcedUsingFiles=""/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="-Wl,-Map=&quot;$(InputDir)spu/dbg/$(ProjectName).map&quot; -T code_ps3/3rdparty/wws/projects/job/src/spu/job_module.ld -nostartfiles -Wl,-q -fpic -Wl,--defsym,kJobMemoryBaseAddr=0 -Wl,--defsym,kSnUniqueId1=0x11eddf73 -Wl,--defsym,kSnUniqueId2=0x117c135d"
+				AdditionalDependencies="$(OutDir)\ntlib_spu_ps3.lib code_ps3\3rdparty\wws\lib\debug\spu\libjobapi.spu.a code_ps3\3rdparty\wws\lib\debug\spu\jobcrt0.spu.o C:\usr\local\cell\target\spu\lib\libatomic.a C:\usr\local\cell\target\spu\lib\libspurs.a"
+				OutputFile="$(InputDir)spu/dbg/$(ProjectName).elf"
+				AdditionalLibraryDirectories=""
+				ProgramDatabaseFile=""
+				GenerateMapFile="TRUE"
+				MapFileName="$(InputDir)spu/dbg/$(ProjectName).map"
+				ImportLibrary=""/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="spu-lv2-objcopy -O binary -S &quot;$(InputDir)/spu/dbg/$(ProjectName).elf&quot; &quot;$(InputDir)/spu/dbg/$(ProjectName).mod&quot;"/>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine="tools/unprotectexe.cmd spu/dbg/$(ProjectName).elf spu/dbg/$(ProjectName).mod"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="dbgf_ps3|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			DeleteExtensionsOnClean="*.obj;*.d;*.map;*.lst;*.pch;$(TargetPath)">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="-g -Wall -fno-exceptions -fno-strict-aliasing -fpic"
+				AdditionalIncludeDirectories="code_ps3;code;&quot;$(SN_PS3_PATH)\spu\include\sn&quot;;code_ps3\ntlib_spu;code_ps3\3rdparty\atg\Include\SPU;code_ps3/3rdparty/wws/projects/system/include/spu;code_ps3/3rdparty/wws/projects/job/include/spu;code_ps3/3rdparty/wws/projects/job/include/common"
+				PreprocessorDefinitions="SN_TARGET_PS3_SPU;_DEBUG;_DEBUG_FAST;__GCC__;SPU;PLATFORM_PS3;ATG_PS3_PLATFORM;PRINTF_ENABLED"
+				ProgramDataBaseFileName=""
+				CompileAs="0"
+				ForcedIncludeFiles=""
+				ForcedUsingFiles=""/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="-Wl,-Map=&quot;$(InputDir)spu/dbf/$(ProjectName).map&quot; -T code_ps3/3rdparty/wws/projects/job/src/spu/job_module.ld -nostartfiles -Wl,-q -fpic -Wl,--defsym,kJobMemoryBaseAddr=0 -Wl,--defsym,kSnUniqueId1=0x1147a405 -Wl,--defsym,kSnUniqueId2=0x11511a4a"
+				AdditionalDependencies="$(OutDir)\ntlib_spu_ps3.lib code_ps3\3rdparty\wws\lib\debug\spu\libjobapi.spu.a code_ps3\3rdparty\wws\lib\debug\spu\jobcrt0.spu.o C:\usr\local\cell\target\spu\lib\libatomic.a C:\usr\local\cell\target\spu\lib\libspurs.a"
+				OutputFile="$(InputDir)spu/dbf/$(ProjectName).elf"
+				AdditionalLibraryDirectories=""
+				ProgramDatabaseFile=""
+				GenerateMapFile="TRUE"
+				MapFileName="$(InputDir)spu/dbf/$(ProjectName).map"
+				ImportLibrary=""/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="spu-lv2-objcopy -O binary -S &quot;$(InputDir)/spu/dbf/$(ProjectName).elf&quot; &quot;$(InputDir)/spu/dbf/$(ProjectName).mod&quot;"/>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine="tools/unprotectexe.cmd spu/dbf/$(ProjectName).elf spu/dbf/$(ProjectName).mod"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="dev_ps3|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			DeleteExtensionsOnClean="*.obj;*.d;*.map;*.lst;*.pch;$(TargetPath)">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="-g -Wall -fno-exceptions -O3 -fno-strict-aliasing -fpic"
+				AdditionalIncludeDirectories="code_ps3;code;&quot;$(SN_PS3_PATH)\spu\include\sn&quot;;code_ps3\ntlib_spu;code_ps3\3rdparty\atg\Include\SPU;code_ps3/3rdparty/wws/projects/system/include/spu;code_ps3/3rdparty/wws/projects/job/include/spu;code_ps3/3rdparty/wws/projects/job/include/common"
+				PreprocessorDefinitions="SN_TARGET_PS3_SPU;NDEBUG;__GCC__;SPU;_DEVELOPMENT;PLATFORM_PS3;ATG_PS3_PLATFORM;PRINTF_ENABLED"
+				ProgramDataBaseFileName=""
+				CompileAs="0"
+				ForcedIncludeFiles=""
+				ForcedUsingFiles=""/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="-Wl,-Map=&quot;$(InputDir)spu/dev/$(ProjectName).map&quot; -T code_ps3/3rdparty/wws/projects/job/src/spu/job_module.ld -nostartfiles -Wl,-q -fpic -Wl,--defsym,kJobMemoryBaseAddr=0 -Wl,--defsym,kSnUniqueId1=0x114d1456 -Wl,--defsym,kSnUniqueId2=0x11257d09"
+				AdditionalDependencies="$(OutDir)\ntlib_spu_ps3.lib code_ps3\3rdparty\wws\lib\release\spu\libjobapi.spu.a code_ps3\3rdparty\wws\lib\release\spu\jobcrt0.spu.o C:\usr\local\cell\target\spu\lib\libatomic.a C:\usr\local\cell\target\spu\lib\libspurs.a"
+				OutputFile="$(InputDir)spu/dev/$(ProjectName).elf"
+				AdditionalLibraryDirectories=""
+				ProgramDatabaseFile=""
+				GenerateMapFile="TRUE"
+				MapFileName="$(InputDir)spu/dev/$(ProjectName).map"
+				ImportLibrary=""/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="spu-lv2-objcopy -O binary -S &quot;$(InputDir)/spu/dev/$(ProjectName).elf&quot; &quot;$(InputDir)/spu/dev/$(ProjectName).mod&quot;"/>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine="tools/unprotectexe.cmd spu/dev/$(ProjectName).elf spu/dev/$(ProjectName).mod"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="rel_ps3|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			DeleteExtensionsOnClean="*.obj;*.d;*.map;*.lst;*.pch;$(TargetPath)">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="-Wall -fno-exceptions -O3 -fno-strict-aliasing -fpic"
+				AdditionalIncludeDirectories="code_ps3;code;&quot;$(SN_PS3_PATH)\spu\include\sn&quot;;code_ps3\ntlib_spu;code_ps3\3rdparty\atg\Include\SPU;code_ps3/3rdparty/wws/projects/system/include/spu;code_ps3/3rdparty/wws/projects/job/include/spu;code_ps3/3rdparty/wws/projects/job/include/common"
+				PreprocessorDefinitions="SN_TARGET_PS3_SPU;NDEBUG;__GCC__;SPU;_RELEASE;PLATFORM_PS3;ATG_PS3_PLATFORM;PRINTF_ENABLED"
+				ProgramDataBaseFileName=""
+				CompileAs="0"
+				ForcedIncludeFiles=""
+				ForcedUsingFiles=""
+				ShowIncludes="FALSE"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="-Wl,-Map=&quot;$(InputDir)spu/rel/$(ProjectName).map&quot; -T code_ps3/3rdparty/wws/projects/job/src/spu/job_module.ld -nostartfiles -Wl,-q -fpic -Wl,--defsym,kJobMemoryBaseAddr=0 -Wl,--defsym,kSnUniqueId1=0x11dad470 -Wl,--defsym,kSnUniqueId2=0x115570e56"
+				AdditionalDependencies="$(OutDir)\ntlib_spu_ps3.lib code_ps3\3rdparty\wws\lib\release\spu\libjobapi.spu.a code_ps3\3rdparty\wws\lib\release\spu\jobcrt0.spu.o C:\usr\local\cell\target\spu\lib\libatomic.a C:\usr\local\cell\target\spu\lib\libspurs.a"
+				OutputFile="$(InputDir)spu/rel/$(ProjectName).elf"
+				AdditionalLibraryDirectories=""
+				ProgramDatabaseFile=""
+				GenerateMapFile="TRUE"
+				MapFileName="$(InputDir)spu/rel/$(ProjectName).map"
+				ImportLibrary=""/>
+			<Tool
+				Name="VCMIDLTool"/>
+			<Tool
+				Name="VCPostBuildEventTool"
+				CommandLine="spu-lv2-objcopy -O binary -S &quot;$(InputDir)/spu/rel/$(ProjectName).elf&quot; &quot;$(InputDir)/spu/rel/$(ProjectName).mod&quot;"/>
+			<Tool
+				Name="VCPreBuildEventTool"
+				CommandLine="tools/unprotectexe.cmd spu/rel/$(ProjectName).elf spu/rel/$(ProjectName).mod"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<File
+			RelativePath=".\code_ps3\spu\army\army2_spu_main.cpp">
+		</File>
+		<File
+			RelativePath=".\code_ps3\army\army_grunt_execute_spu.cpp">
+		</File>
+		<File
+			RelativePath=".\code_ps3\army\army_math_spu.h">
+		</File>
+		<File
+			RelativePath=".\code\army\army_ppu_spu.h">
+		</File>
+		<File
+			RelativePath=".\code_ps3\army\army_unit_render.cpp">
+		</File>
+		<File
+			RelativePath=".\code\army\battalion.h">
+		</File>
+		<File
+			RelativePath=".\code\army\battlefield.h">
+		</File>
+		<File
+			RelativePath=".\code\army\battlefield.inl">
+		</File>
+		<File
+			RelativePath=".\code\army\battlefield_chunk.h">
+		</File>
+		<File
+			RelativePath=".\code\army\battlefield_chunk.inl">
+		</File>
+		<File
+			RelativePath=".\code\army\grunt.h">
+		</File>
+		<File
+			RelativePath=".\code\army\unit.h">
+		</File>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

@@ -1,0 +1,1632 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="hkbase"
+	ProjectGUID="{ED78FE89-27D3-4F6B-9E9E-37F439AC7492}"
+	>
+	<Platforms>
+		<Platform
+			Name="Win32"
+		/>
+	</Platforms>
+
+	<Configurations>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="4"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release_multithreaded\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release_multithreaded_dll\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="2"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="5"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug_multithreaded\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug_multithreaded_dll\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="5"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug_multithreaded\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug_multithreaded_dll\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Hybrid Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\hybrid_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\hybrid_multithreaded_dll\hkbase"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..,..\..\..\sdks\win32\dbghelp,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkbase/hkBase.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkbase.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkbase.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkbase.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+			<Filter
+Name="baseobject"
+>
+	<File
+RelativePath=".\baseobject\hkBaseObject.h"
+>
+</File>
+	<File
+RelativePath=".\baseobject\hkBaseObjectClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\baseobject\hkReferencedObject.cpp"
+>
+</File>
+	<File
+RelativePath=".\baseobject\hkReferencedObject.h"
+>
+</File>
+	<File
+RelativePath=".\baseobject\hkReferencedObject.inl"
+>
+</File>
+	<File
+RelativePath=".\baseobject\hkReferencedObjectClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="basesystem"
+>
+	<File
+RelativePath=".\basesystem\hkBaseSystem.cpp"
+>
+</File>
+	<File
+RelativePath=".\basesystem\hkBaseSystem.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="class"
+>
+	<File
+RelativePath=".\class\hkClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\class\hkClass.h"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassEnum.cpp"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassEnum.h"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassEnum.inl"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassEnumClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassMember.cpp"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassMember.h"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassMember.inl"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassMemberAccessor.cpp"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassMemberAccessor.h"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassMemberClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\class\hkClassVersion1Class.cpp"
+>
+</File>
+	<File
+RelativePath=".\class\hkFinishLoadedObjectFlag.h"
+>
+</File>
+	<File
+RelativePath=".\class\hkInternalClassMember.h"
+>
+</File>
+	<File
+RelativePath=".\class\hkTypeInfo.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="classes"
+>
+	<File
+RelativePath=".\classes\hkBaseClasses.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="config"
+>
+	<File
+RelativePath=".\config\hkConfigMemory.h"
+>
+</File>
+	<File
+RelativePath=".\config\hkConfigMemoryStats.h"
+>
+</File>
+	<File
+RelativePath=".\config\hkConfigMonitors.h"
+>
+</File>
+	<File
+RelativePath=".\config\hkConfigSimd.h"
+>
+</File>
+	<File
+RelativePath=".\config\hkConfigThread.h"
+>
+</File>
+	<File
+RelativePath=".\config\hkConfigVersion.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="debugutil"
+>
+	<File
+RelativePath=".\debugutil\hkCheckDeterminismUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\debugutil\hkCheckDeterminismUtil.h"
+>
+</File>
+	<File
+RelativePath=".\debugutil\hkSimpleStatisticsCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\debugutil\hkSimpleStatisticsCollector.h"
+>
+</File>
+	<File
+RelativePath=".\debugutil\hkStatisticsCollector.h"
+>
+</File>
+	<File
+RelativePath=".\debugutil\hkStreamStatisticsCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\debugutil\hkStreamStatisticsCollector.h"
+>
+</File>
+	<File
+RelativePath=".\debugutil\hkTraceStream.cpp"
+>
+</File>
+	<File
+RelativePath=".\debugutil\hkTraceStream.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="error"
+>
+	<File
+RelativePath=".\error\hkDefaultError.h"
+>
+</File>
+	<File
+RelativePath=".\error\hkError.cpp"
+>
+</File>
+	<File
+RelativePath=".\error\hkError.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="fwd"
+>
+	<File
+RelativePath=".\fwd\hkcctype.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkcfloat.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkcmalloc.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkcmath.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkcstdarg.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkcstdio.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkcstdlib.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkcstring.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkstandardheader.h"
+>
+</File>
+	<File
+RelativePath=".\fwd\hkwindows.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="htl"
+>
+	<File
+RelativePath=".\htl\hkAlgorithm.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkAlgorithm.inl"
+>
+</File>
+	<File
+RelativePath=".\htl\hkArray.cpp"
+>
+</File>
+	<File
+RelativePath=".\htl\hkArray.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkArray.inl"
+>
+</File>
+	<File
+RelativePath=".\htl\hkBitField.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkBitField.inl"
+>
+</File>
+	<File
+RelativePath=".\htl\hkBitFieldClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\htl\hkObjectArray.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkObjectArray.inl"
+>
+</File>
+	<File
+RelativePath=".\htl\hkPointerMap.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkPointerMapBase.cpp"
+>
+</File>
+	<File
+RelativePath=".\htl\hkPointerMapBase.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkQueue.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkQueue.inl"
+>
+</File>
+	<File
+RelativePath=".\htl\hkSmallArray.cpp"
+>
+</File>
+	<File
+RelativePath=".\htl\hkSmallArray.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkSmallArray.inl"
+>
+</File>
+	<File
+RelativePath=".\htl\hkStringMap.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkStringMapBase.cpp"
+>
+</File>
+	<File
+RelativePath=".\htl\hkStringMapBase.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkTree.cpp"
+>
+</File>
+	<File
+RelativePath=".\htl\hkTree.h"
+>
+</File>
+	<File
+RelativePath=".\htl\hkTree.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="memory"
+>
+	<File
+RelativePath=".\memory\hkLocalArray.h"
+>
+</File>
+	<File
+RelativePath=".\memory\hkLocalBuffer.h"
+>
+</File>
+	<File
+RelativePath=".\memory\hkMemory.cpp"
+>
+</File>
+	<File
+RelativePath=".\memory\hkMemory.h"
+>
+</File>
+	<File
+RelativePath=".\memory\hkScratchpad.cpp"
+>
+</File>
+	<File
+RelativePath=".\memory\hkScratchpad.h"
+>
+</File>
+	<File
+RelativePath=".\memory\hkStackTracer.cpp"
+>
+</File>
+	<File
+RelativePath=".\memory\hkStackTracer.h"
+>
+</File>
+	<File
+RelativePath=".\memory\hkThreadMemory.cpp"
+>
+</File>
+	<File
+RelativePath=".\memory\hkThreadMemory.h"
+>
+</File>
+	<File
+RelativePath=".\memory\hkThreadMemory.inl"
+>
+</File>
+	<Filter
+Name="dmacache"
+>
+	<File
+RelativePath=".\memory\dmacache\hkSpuDmaCache.h"
+>
+</File>
+	<File
+RelativePath=".\memory\dmacache\hkSpuDmaCache.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="impl"
+>
+	<File
+RelativePath=".\memory\impl\hkDebugMemory.h"
+>
+</File>
+	<File
+RelativePath=".\memory\impl\hkMallocMemory.h"
+>
+</File>
+	<File
+RelativePath=".\memory\impl\hkOperatorNewMemory.h"
+>
+</File>
+	<File
+RelativePath=".\memory\impl\hkPoolMemory.cpp"
+>
+</File>
+	<File
+RelativePath=".\memory\impl\hkPoolMemory.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="memoryclasses"
+>
+	<File
+RelativePath=".\memoryclasses\hkMemoryClassDefinitions.h"
+>
+</File>
+	<File
+RelativePath=".\memoryclasses\hkMemoryClasses.h"
+>
+</File>
+	<File
+RelativePath=".\memoryclasses\hkMemoryClassesTable.cpp"
+>
+</File>
+	<File
+RelativePath=".\memoryclasses\hkMemoryClassesTable.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="monitor"
+>
+	<File
+RelativePath=".\monitor\hkMonitorStream.cpp"
+>
+</File>
+	<File
+RelativePath=".\monitor\hkMonitorStream.h"
+>
+</File>
+	<File
+RelativePath=".\monitor\hkMonitorStream.inl"
+>
+</File>
+	<File
+RelativePath=".\monitor\hkMonitorStreamAnalyzer.cpp"
+>
+</File>
+	<File
+RelativePath=".\monitor\hkMonitorStreamAnalyzer.h"
+>
+</File>
+	<File
+RelativePath=".\monitor\hkMonitorStreamAnalyzerClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\monitor\hkSpuMonitorCache.cpp"
+>
+</File>
+	<File
+RelativePath=".\monitor\hkSpuMonitorCache.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="singleton"
+>
+	<File
+RelativePath=".\singleton\hkSingleton.cpp"
+>
+</File>
+	<File
+RelativePath=".\singleton\hkSingleton.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="sort"
+>
+	<File
+RelativePath=".\sort\hkUnionFind.cpp"
+>
+</File>
+	<File
+RelativePath=".\sort\hkUnionFind.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="stopwatch"
+>
+	<File
+RelativePath=".\stopwatch\hkStopwatch.cpp"
+>
+</File>
+	<File
+RelativePath=".\stopwatch\hkStopwatch.h"
+>
+</File>
+	<File
+RelativePath=".\stopwatch\hkStopwatch.inl"
+>
+</File>
+	<File
+RelativePath=".\stopwatch\hkSystemClock.cpp"
+>
+</File>
+	<File
+RelativePath=".\stopwatch\hkSystemClock.h"
+>
+</File>
+	<Filter
+Name="impl"
+>
+	<File
+RelativePath=".\stopwatch\impl\hkWindowsSystemClock.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="stream"
+>
+	<File
+RelativePath=".\stream\hkDefaultStreambufFactory.h"
+>
+</File>
+	<File
+RelativePath=".\stream\hkIArchive.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\hkIArchive.h"
+>
+</File>
+	<File
+RelativePath=".\stream\hkIArchive.inl"
+>
+</File>
+	<File
+RelativePath=".\stream\hkIstream.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\hkIstream.h"
+>
+</File>
+	<File
+RelativePath=".\stream\hkIstream.inl"
+>
+</File>
+	<File
+RelativePath=".\stream\hkOArchive.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\hkOArchive.h"
+>
+</File>
+	<File
+RelativePath=".\stream\hkOstream.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\hkOstream.h"
+>
+</File>
+	<File
+RelativePath=".\stream\hkOstream.inl"
+>
+</File>
+	<File
+RelativePath=".\stream\hkSocket.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\hkSocket.h"
+>
+</File>
+	<File
+RelativePath=".\stream\hkStreambufFactory.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\hkStreambufFactory.h"
+>
+</File>
+	<File
+RelativePath=".\stream\hkStreamReader.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\hkStreamReader.h"
+>
+</File>
+	<File
+RelativePath=".\stream\hkStreamWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\hkStreamWriter.h"
+>
+</File>
+	<Filter
+Name="impl"
+>
+	<File
+RelativePath=".\stream\impl\hkArrayStreamWriter.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkBsdSocket.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkBsdSocket.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkBufferedStreamReader.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkBufferedStreamReader.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkBufferedStreamWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkBufferedStreamWriter.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkCrc32StreamWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkCrc32StreamWriter.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkLineNumberStreamReader.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkLineNumberStreamReader.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkMemoryStreamReader.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkMemoryStreamReader.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkOffsetOnlyStreamWriter.cpp"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkOffsetOnlyStreamWriter.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkSeekableStreamReader.h"
+>
+</File>
+	<File
+RelativePath=".\stream\impl\hkSubStreamWriter.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="string"
+>
+	<File
+RelativePath=".\string\hkString.cpp"
+>
+</File>
+	<File
+RelativePath=".\string\hkString.h"
+>
+</File>
+	<File
+RelativePath=".\string\hkString.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="thread"
+>
+	<File
+RelativePath=".\thread\hkCriticalSection.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\hkCriticalSection.h"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSemaphore.h"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSemaphoreBusyWait.h"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSpuDmaManager.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSpuDmaManager.h"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSpuStack.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSpuStack.h"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSpuStack.inl"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSpuUtils.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\hkSpuUtils.h"
+>
+</File>
+	<File
+RelativePath=".\thread\hkThread.h"
+>
+</File>
+	<File
+RelativePath=".\thread\hkThreadLocalData.h"
+>
+</File>
+	<Filter
+Name="impl"
+>
+	<File
+RelativePath=".\thread\impl\hkEmptyCriticalSection.inl"
+>
+</File>
+	<File
+RelativePath=".\thread\impl\hkEmptySpuDmaManager.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="job"
+>
+	<File
+RelativePath=".\thread\job\hkJobQueue.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\job\hkJobQueue.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="util"
+>
+	<File
+RelativePath=".\thread\util\hkMultiThreadLock.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\util\hkMultiThreadLock.h"
+>
+</File>
+	<File
+RelativePath=".\thread\util\hkMultiThreadLockClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\util\hkSpuSimulator.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\util\hkSpuSimulator.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="win32"
+>
+	<File
+RelativePath=".\thread\win32\hkWin32CriticalSection.inl"
+>
+</File>
+	<File
+RelativePath=".\thread\win32\hkWin32Semaphore.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\win32\hkWin32SpuDmaManager.inl"
+>
+</File>
+	<File
+RelativePath=".\thread\win32\hkWin32Thread.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="types"
+>
+	<File
+RelativePath=".\types\hkBaseTypes.h"
+>
+</File>
+	</Filter>
+	<File
+RelativePath=".\hkBase.cpp"
+>
+	<FileConfiguration Name="debug multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="debug|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="hybrid multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="debug multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+</File>
+	<File
+RelativePath=".\hkBase.h"
+>
+</File>
+
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
+

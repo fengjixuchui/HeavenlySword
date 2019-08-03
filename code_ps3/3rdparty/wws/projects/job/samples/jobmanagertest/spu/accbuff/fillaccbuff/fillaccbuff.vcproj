@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="fillaccbuffermodule"
+	ProjectGUID="{B76299C7-1790-4233-8C46-DD95EC3AEC11}"
+	RootNamespace="fillaccbuffermodule"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=debug"
+				ReBuildCommandLine="make all VERSION=debug"
+				CleanCommandLine="make clean VERSION=debug"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=release"
+				ReBuildCommandLine="make all VERSION=release"
+				CleanCommandLine="make clean VERSION=release"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{46235BD2-D8EE-4185-A4B0-9F6F243D6FC1}">
+			<File
+				RelativePath=".\fillaccbuff.cpp">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{81BA61C3-0335-4172-A3ED-21F49D2A67B0}">
+			<File
+				RelativePath=".\fillaccbuff.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{868906E0-9A36-432E-B605-8F8F866BF463}">
+			<File
+				RelativePath=".\makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

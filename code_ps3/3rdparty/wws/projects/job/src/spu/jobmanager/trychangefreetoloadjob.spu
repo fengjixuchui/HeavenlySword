@@ -1,0 +1,169 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+.start
+.include "conventions.inl"
+.text
+	
+// static void WwsJob_TryChangeFreeToLoadJob( void )
+.reg jobHeader, cond1, nextLoadJobNum, kReadCommands, cond2, zero, eaWorkLoad, jobIndex, loadJobNum, mask, mask2, jobData, jdaOff
+.reg loadCommands, mmaLoadCommands, kDmaGet, bufferSetNum, pBufferSets, firstBufferNum, numFreeBuffers, bufferNum
+.reg pLogicalToBufferNums, timeStamp, mask3, jobHasShareableBuffers, pBuffers, size
+.reg jobHeaderCommand, jobIndex, auditsEnabled, oldReadyCount, cond1, nextLoadJobNum, loadJobState, pJobData, cond2, nextLoadJobNum_, firstBufferNum_
+.reg mma, pLoadCommands
+.reg mask1, mask2, mask3
+.reg setMem0, setMem1, setMem2, zero, negOne
+.extern g_WwsJob_eaWorkLoad
+.extern g_WwsJob_spursWorkloadId
+.extern g_WwsJob_dataForJob
+.extern g_WwsJob_jobHeader
+.extern g_WwsJob_jobIndex
+.extern g_WwsJob_spursContext
+.extern g_WwsJob_loadJobNum
+.extern g_WwsJob_loadJobState
+.extern g_WwsJob_jobDataArray
+.extern g_WwsJob_numFreeBuffers
+.extern g_WwsJob_timeStamp
+.extern g_WwsJob_firstBufferNum
+.extern g_WwsJob_runJobState
+.extern SetQwordMem
+.extern StartTagSpecificBarrieredNullListWithInterrupt
+.extern _cellSpursReadyCountSwap
+.extern _cellSpursReadyCountCompareAndSwap
+.extern StoreAuditDataInitialNoDataU64
+.extern StoreAuditDataInitialU64
+.extern StoreAuditDataParameterU64
+.extern AllocateJob
+.if ASSERTS_ENABLED
+.extern TryChangeFreeToLoadJob_AssertLoadNextJobCalled
+.extern TryChangeFreeToLoadJob_AssertLoadCommandsSize
+.endif
+.if VERBOSE_ASSERTS_ENABLED
+.extern TryChangeFreeToLoadJob_AssertJobHeaderCommand
+.endif
+
+.global WwsJob_TryChangeFreeToLoadJob
+WwsJob_TryChangeFreeToLoadJob: // 94 instructions, 376 bytes
+		{nop}									lqa $3, g_WwsJob_eaWorkLoad
+		{nop}									lqa $4, g_WwsJob_dataForJob
+		{nop}									stqd $lr,0x10($sp)
+		{nop}									stqd $sp,-0x20($sp)
+.if ASSERTS_ENABLED
+.reg runJobState, mask_runJobStateBad
+		nop									lqa runJobState, g_WwsJob_runJobState
+		ceqi mask_runJobStateBad,runJobState,WwsJob_RunJobState_kLoadNotAllowed	brnz mask_runJobStateBad, TryChangeFreeToLoadJob_AssertLoadNextJobCalled
+.endif
+		ai $sp, $sp, -0x20							brsl $5, AllocateJob [#AllocateJobCC]
+		{nop}									rotqbyi jobIndex, $3, 12
+		{nop}									stqa $3, g_WwsJob_jobHeader
+		il $4, 0								stqa jobIndex, g_WwsJob_jobIndex
+		{nop}									brhnz $3, Branch1
+		{nop}									stqa $4, g_countToNextPoll
+.if ENABLE_TIMING_AUDITS
+		ila $74, kWwsJob_setSpursKernelReadyCount_begin_zero			brsl $78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		il	$4, 0								lqa	$3, g_WwsJob_spursWorkloadId
+.cuse $3, $4
+		nop									brsl	$lr, _cellSpursReadyCountSwap [#func]
+.cset $3
+.if ENABLE_TIMING_AUDITS
+		ila $74, kWwsJob_setSpursKernelReadyCount_end_zero			brsl $78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		{nop}									stqa $3, g_sideStack+16 {replaces: ai oldReadyCount, $3, 0}
+		{nop}									lqa $3, g_WwsJob_eaWorkLoad
+		{nop}									lqa $4, g_WwsJob_dataForJob
+		{nop}									brsl $5, AllocateJob [#AllocateJobCC]
+		{nop}									rotqbyi jobIndex, $3, 12
+		{nop}									stqa $3, g_WwsJob_jobHeader
+		{nop}									stqa jobIndex, g_WwsJob_jobIndex
+		{nop}									brhz $3, Branch1
+.if ENABLE_TIMING_AUDITS
+		ila $74, kWwsJob_setSpursKernelReadyCount_begin_old			brsl $78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		il	$4, 0								lqa	$3, g_WwsJob_spursWorkloadId
+		{nop}									lqa	$5, g_sideStack+16 {replaces: ai $5, oldReadyCount, 0 }							
+.cuse $3, $4, $5
+		{nop}									brsl $lr, _cellSpursReadyCountCompareAndSwap [#func]
+.if ENABLE_TIMING_AUDITS
+		ila $74, kWwsJob_setSpursKernelReadyCount_end_old			brsl $78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+Branch1:	il $3, 0								lqa jobHeader, g_WwsJob_jobHeader
+.if VERBOSE_ASSERTS_ENABLED
+.reg	mask_jobHeaderCommandBad
+		clgthi mask_jobHeaderCommandBad, jobHeader, 1				brhnz mask_jobHeaderCommandBad, TryChangeFreeToLoadJob_AssertJobHeaderCommand
+.endif
+		ceqhi cond1, jobHeader, 1						brhz cond1, Exit
+		ila pJobData, g_WwsJob_jobDataArray					lqa nextLoadJobNum, g_WwsJob_nextLoadJobNum
+		ila pLoadCommands, g_WwsJob_loadCommands				stqa jobHeader, g_WwsJob_loadJobState
+		il numFreeBuffers, 0x20							lqa jobIndex, g_WwsJob_jobIndex
+		il kDmaGet, 0x40							lqa timeStamp, g_WwsJob_timeStamp
+		rotmi size, jobHeader, -16						lqa eaWorkLoad, g_WwsJob_eaWorkLoad
+		ila pBufferSets, g_WwsJob_bufferSetArray				stqa numFreeBuffers, g_WwsJob_numFreeBuffers
+		shli firstBufferNum, nextLoadJobNum, 5					fsmbi jobData, 0x0000	; jobHasShareableBuffers = 0
+		ai nextLoadJobNum_, nextLoadJobNum, 1					stqa nextLoadJobNum, g_WwsJob_loadJobNum
+		ila pBuffers, g_WwsJob_bufferArray					fsmbi mask1, 0xF000
+		clgti cond2, nextLoadJobNum_, 2						fsmbi mask2, 0x00F0
+		shli firstBufferNum_, nextLoadJobNum, 8					stqa firstBufferNum, g_WwsJob_firstBufferNum
+		andc nextLoadJobNum_, nextLoadJobNum_, cond2				rotqbyi	jobIndex, jobIndex, 8
+		ai timeStamp, timeStamp, 1						rotqbyi	mma, jobHeader, 4
+		selb jobData, jobData, eaWorkLoad, mask1				stqa nextLoadJobNum_, g_WwsJob_nextLoadJobNum
+		ila pLogicalToBufferNums, g_WwsJob_logicalToBufferNumArray		stqa timeStamp, g_WwsJob_timeStamp
+		selb jobData, jobData, jobIndex, mask2					{lnop}
+.if ASSERTS_ENABLED || ENABLE_IMPORTANT_AUDITS
+.reg	loadCmdsSize
+		ila loadCmdsSize, 0xFFF							{lnop}
+		and loadCmdsSize, size, loadCmdsSize					{lnop}
+.endif
+		andi size, size, 0x1FF							{lnop}
+		shli bufferSetNum, nextLoadJobNum, 6					stqx jobData, firstBufferNum, pJobData
+.if ASSERTS_ENABLED
+.reg mask_sizeTooLarge, mask_sizeGte16
+                cgti	mask_sizeGte16, loadCmdsSize, 0xF				{lnop}
+                clgti	mask_sizeTooLarge, loadCmdsSize, MAX_LOAD_COMMANDS_SIZE		brz mask_sizeGte16, TryChangeFreeToLoadJob_AssertLoadCommandsSize
+		{nop}									brnz mask_sizeTooLarge, TryChangeFreeToLoadJob_AssertLoadCommandsSize
+.endif
+.if ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_TryChangeFreeToLoadJob_readLoadCmds		fsmbi	$75, 0
+		ila	$76, 2								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		{nop}									rotqmbyi $74, jobIndex,-4
+		selb	$74, $74, eaWorkLoad, mask1					brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		{nop}									rotqmbyi $74, loadCmdsSize,-4
+		selb	$74, $74, mma, mask1						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		{nop}									wrch $ch16, pLoadCommands
+		{nop}									wrch $ch18, mma
+		{nop}									wrch $ch19, size
+		{nop}									wrch $ch20, mask2 /* kLoadJob_readCommands */
+		{nop}									wrch $ch21, kDmaGet
+		{nop}									brsl $4, StartTagSpecificBarrieredNullListWithInterrupt [#StartBarrieredNullListWithInterruptCC]
+		ila zero, 0								{lnop}
+		a setMem0, pBufferSets, bufferSetNum					{lnop}
+		a setMem1, pBuffers, firstBufferNum_					fsmbi negOne, 0xFFFF
+		a setMem2, pLogicalToBufferNums, firstBufferNum				stqd zero, 0x00(setMem0)
+		{nop}									stqd zero, 0x10(setMem0)
+		{nop}									stqd zero, 0x20(setMem0)
+		{nop}									stqd zero, 0x30(setMem0)
+		{nop}									stqd zero, 0x00(setMem1)
+		{nop}									stqd zero, 0x10(setMem1)
+		{nop}									stqd zero, 0x20(setMem1)
+		{nop}									stqd zero, 0x30(setMem1)
+		{nop}									stqd zero, 0x40(setMem1)
+		{nop}									stqd zero, 0x50(setMem1)
+		{nop}									stqd zero, 0x60(setMem1)
+		{nop}									stqd zero, 0x70(setMem1)
+		{nop}									stqd zero, 0x80(setMem1)
+		{nop}									stqd zero, 0x90(setMem1)
+		{nop}									stqd zero, 0xA0(setMem1)
+		{nop}									stqd zero, 0xB0(setMem1)
+		{nop}									stqd zero, 0xC0(setMem1)
+		{nop}									stqd zero, 0xD0(setMem1)
+		{nop}									stqd zero, 0xE0(setMem1)
+		{nop}									stqd zero, 0xF0(setMem1)
+		{nop}									stqd negOne, 0x00(setMem2)
+		{nop}									stqd negOne, 0x10(setMem2)
+Exit:		{nop}									lqd $lr, 0x30($sp)
+		ai $sp, $sp, 0x20							bi $lr
+.end

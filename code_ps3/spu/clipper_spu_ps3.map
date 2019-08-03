@@ -1,0 +1,562 @@
+Archive member included because of file (symbol)
+
+dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                              dev_ps3/clipper_spu.obj (CullingFrustum::Init(CMatrix const&))
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+START GROUP
+LOAD dev_ps3/clipper_spu.obj
+LOAD dev_ps3/clipper_spumain.obj
+LOAD dev_ps3/ntlib_spu_ps3.lib
+LOAD z:/Hs/dev_ps3/ntlib_spu_ps3.lib
+END GROUP
+                0x000000000003ffd0                gExecInfo = 0x3ffd0
+                0x000000000003fff0                __SpuPrintfLsAddr = 0x3fff0
+                0x0000000000039600                ntPrintf = 0x39600
+                0x0000000000000000                PROVIDE (__executable_start, 0x0)
+                0x0000000000000000                . = 0x0
+
+.snTextGUID     0x0000000000000000       0x20
+                0x0000000000000000        0x4 LONG 0x0
+                0x0000000000000004        0x4 LONG 0x0
+                0x0000000000000008        0x4 LONG 0x0
+                0x000000000000000c        0x4 LONG 0x0
+                0x0000000000000010        0x4 LONG 0x0
+                0x0000000000000014        0x4 LONG 0x0
+                0x0000000000000018        0x4 LONG 0x0
+                0x000000000000001c        0x4 LONG 0x0
+
+.interp
+ *(.interp)
+
+.hash
+ *(.hash)
+
+.dynsym
+ *(.dynsym)
+
+.dynstr
+ *(.dynstr)
+
+.gnu.version
+ *(.gnu.version)
+
+.gnu.version_d
+ *(.gnu.version_d)
+
+.gnu.version_r
+ *(.gnu.version_r)
+
+.rel.init
+ *(.rel.init)
+
+.rela.init
+ *(.rela.init)
+
+.rel.text
+ *(.rel.text .rel.text.* .rel.gnu.linkonce.t.*)
+
+.rela.text
+ *(.rela.text .rela.text.* .rela.gnu.linkonce.t.*)
+
+.rel.fini
+ *(.rel.fini)
+
+.rela.fini
+ *(.rela.fini)
+
+.rel.rodata
+ *(.rel.rodata .rel.rodata.* .rel.gnu.linkonce.r.*)
+
+.rela.rodata
+ *(.rela.rodata .rela.rodata.* .rela.gnu.linkonce.r.*)
+
+.rel.data
+ *(.rel.data .rel.data.* .rel.gnu.linkonce.d.*)
+
+.rela.data
+ *(.rela.data .rela.data.* .rela.gnu.linkonce.d.*)
+
+.rel.tdata
+ *(.rel.tdata .rel.tdata.* .rel.gnu.linkonce.td.*)
+
+.rela.tdata
+ *(.rela.tdata .rela.tdata.* .rela.gnu.linkonce.td.*)
+
+.rel.tbss
+ *(.rel.tbss .rel.tbss.* .rel.gnu.linkonce.tb.*)
+
+.rela.tbss
+ *(.rela.tbss .rela.tbss.* .rela.gnu.linkonce.tb.*)
+
+.rel.ctors
+ *(.rel.ctors)
+
+.rela.ctors
+ *(.rela.ctors)
+
+.rel.dtors
+ *(.rel.dtors)
+
+.rela.dtors
+ *(.rela.dtors)
+
+.rel.got
+ *(.rel.got)
+
+.rela.got
+ *(.rela.got)
+
+.rel.bss
+ *(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)
+
+.rela.bss
+ *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
+
+.rel.plt
+ *(.rel.plt)
+
+.rela.plt
+ *(.rela.plt)
+
+.init
+ *(.init)
+
+.plt
+ *(.plt)
+
+.text           0x0000000000000020     0x61e8
+ *(.text.startup)
+ *(.text .stub .text.* .gnu.linkonce.t.*)
+ .text          0x0000000000000020      0x9f8 dev_ps3/clipper_spu.obj
+                0x0000000000000020                ClipperSPU::SweptSpherePlaneIntersect(float&, float&, CPlane const*, CPoint const*, float, CDirection const*)
+                0x0000000000000160                ClipperSPU::TestBox(CullingFrustum const&, CAABB const&)
+                0x0000000000000258                ClipperSPU::CreateShadowFrustums(ClipperData::DMA_In*, CullingFrustum (&) [3])
+                0x0000000000000600                ClipperSPU::Process(ClipperData::DMA_In*, ClipperData::DMA_Out*)
+ .gnu.linkonce.t._ZN10ClipperSPU10TestSphereILj4EEEjRK14CullingFrustumPK12CSphereBound
+                0x0000000000000a18      0x168 dev_ps3/clipper_spu.obj
+                0x0000000000000a18                unsigned int ClipperSPU::TestSphere<4>(CullingFrustum const&, CSphereBound const*)
+ .gnu.linkonce.t._ZN10ClipperSPU15TestSweptSphereILj4EEEjRK14CullingFrustumPK12CSphereBoundPK10CDirection
+                0x0000000000000b80      0x2b0 dev_ps3/clipper_spu.obj
+                0x0000000000000b80                unsigned int ClipperSPU::TestSweptSphere<4>(CullingFrustum const&, CSphereBound const*, CDirection const*)
+ .gnu.linkonce.t._ZN10ClipperSPU24ProcessRenderablesShadowERK14CullingFrustumPN11ClipperData6DMA_InEPNS3_7DMA_OutERA3_S1_jRjSA_
+                0x0000000000000e30      0x6a0 dev_ps3/clipper_spu.obj
+                0x0000000000000e30                ClipperSPU::ProcessRenderablesShadow(CullingFrustum const&, ClipperData::DMA_In*, ClipperData::DMA_Out*, CullingFrustum const (&) [3], unsigned int, unsigned int&, unsigned int&)
+ .text          0x00000000000014d0       0x38 dev_ps3/clipper_spumain.obj
+                0x00000000000014d0                SpuMain
+ .text          0x0000000000001508     0x2d98 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000037c8                ClipPoly(CullingFrustum const*, int, CPoint*, int&, CPoint*)
+                0x0000000000001698                CullingFrustum::CullingFrustum(CMatrix const&)
+                0x0000000000001508                CAABB::CAABB(CPoint*, unsigned int)
+                0x0000000000002a70                CSphereBound::CSphereBound(CAABB const&)
+                0x0000000000001780                CullingFrustum::CullingFrustum(CMatrix const&)
+                0x00000000000029b8                CSphereBound::CSphereBound(CAABB const&)
+                0x0000000000002b28                CAABB::Transform(CMatrix const&)
+                0x0000000000003910                CullingFrustum::Intersect(CAABB const&, CAABB*) const
+                0x00000000000015d0                CAABB::CAABB(CPoint*, unsigned int)
+                0x0000000000003140                ClipPolyAgainstPlane(CPlane const*, int, CPoint*, int&, CPoint*)
+                0x0000000000001868                CullingFrustum::Init(CMatrix const&)
+ .gnu.linkonce.t._ZN5CAABB5UnionERK6CPoint
+                0x00000000000042a0       0x98 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000042a0                CAABB::Union(CPoint const&)
+ .gnu.linkonce.t._ZNK6CPoint3MaxERKS_
+                0x0000000000004338       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004338                CPoint::Max(CPoint const&) const
+ .gnu.linkonce.t._ZN6CPointC1EU8__vectorf
+                0x00000000000043a8       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000043a8                CPoint::CPoint(float __vector)
+ .gnu.linkonce.t._ZN10Intrinsics7SPU_MaxEU8__vectorfS0_
+                0x00000000000043d8       0xd0 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000043d8                Intrinsics::SPU_Max(float __vector, float __vector)
+ .gnu.linkonce.t._ZNK6CPoint3MinERKS_
+                0x00000000000044a8       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000044a8                CPoint::Min(CPoint const&) const
+ .gnu.linkonce.t._ZN10Intrinsics7SPU_MinEU8__vectorfS0_
+                0x0000000000004518       0xd0 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004518                Intrinsics::SPU_Min(float __vector, float __vector)
+ .gnu.linkonce.t._Z30AABB_ConstructInfiniteNegativeP5CAABB
+                0x00000000000045e8       0x88 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000045e8                AABB_ConstructInfiniteNegative(CAABB*)
+ .gnu.linkonce.t._ZN6CPoint8QuadwordEv
+                0x0000000000004670       0x28 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004670                CPoint::Quadword()
+ .gnu.linkonce.t._ZN6CPointC1Ev
+                0x0000000000004698       0x20 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004698                CPoint::CPoint()
+ .gnu.linkonce.t._ZN7CMatrixC1Ev
+                0x00000000000046b8       0x20 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000046b8                CMatrix::CMatrix()
+ .gnu.linkonce.t._ZN5CAABBC1Ev
+                0x00000000000046d8       0x40 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000046d8                CAABB::CAABB()
+ .gnu.linkonce.t._ZN6CPlaneC1Ev
+                0x0000000000004718       0x58 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004718                CPlane::CPlane()
+ .gnu.linkonce.t._ZN10CDirectionC1Efff
+                0x0000000000004770       0x80 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004770                CDirection::CDirection(float, float, float)
+ .gnu.linkonce.t._ZNK6CPointplERKS_
+                0x00000000000047f0       0x80 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000047f0                CPoint::operator+(CPoint const&) const
+ .gnu.linkonce.t._ZNK6CPointmlEf
+                0x0000000000004870       0xa0 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004870                CPoint::operator*(float) const
+ .gnu.linkonce.t._ZNK6CPointmiERKS_
+                0x0000000000004910       0x80 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004910                CPoint::operator-(CPoint const&) const
+ .gnu.linkonce.t._ZNK5CAABB9GetCentreEv
+                0x0000000000004990       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004990                CAABB::GetCentre() const
+ .gnu.linkonce.t._ZmlfRK6CPoint
+                0x0000000000004a00       0x60 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004a00                operator*(float, CPoint const&)
+ .gnu.linkonce.t._ZN6CPointC1Efff
+                0x0000000000004a60       0x80 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004a60                CPoint::CPoint(float, float, float)
+ .gnu.linkonce.t._ZNK6CPoint1ZEv
+                0x0000000000004ae0       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004ae0                CPoint::Z() const
+ .gnu.linkonce.t._ZNK6CPoint1YEv
+                0x0000000000004b50       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004b50                CPoint::Y() const
+ .gnu.linkonce.t._ZNK6CPoint1XEv
+                0x0000000000004bc0       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004bc0                CPoint::X() const
+ .gnu.linkonce.t._ZN6CPointC1ERK10CDirection
+                0x0000000000004c30       0x40 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004c30                CPoint::CPoint(CDirection const&)
+ .gnu.linkonce.t._ZNK10CDirectionngEv
+                0x0000000000004c70       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004c70                CDirection::operator-() const
+ .gnu.linkonce.t._ZN10CDirectionC1EU8__vectorf
+                0x0000000000004ce0       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004ce0                CDirection::CDirection(float __vector)
+ .gnu.linkonce.t._ZNK10CDirectionplERKS_
+                0x0000000000004d10       0x80 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004d10                CDirection::operator+(CDirection const&) const
+ .gnu.linkonce.t._ZNK10CDirectionmlEf
+                0x0000000000004d90       0xa0 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004d90                CDirection::operator*(float) const
+ .gnu.linkonce.t._ZNK6CPlane11GetDistanceEv
+                0x0000000000004e30       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004e30                CPlane::GetDistance() const
+ .gnu.linkonce.t._ZNK10CDirection3DotERKS_
+                0x0000000000004e60       0x98 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004e60                CDirection::Dot(CDirection const&) const
+ .gnu.linkonce.t._ZN10Intrinsics7SPU_DP3EU8__vectorfS0_
+                0x0000000000004ef8      0x1c8 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000004ef8                Intrinsics::SPU_DP3(float __vector, float __vector)
+ .gnu.linkonce.t._ZNK10CDirection5CrossERKS_
+                0x00000000000050c0      0x1a8 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000050c0                CDirection::Cross(CDirection const&) const
+ .gnu.linkonce.t._ZN10CDirectionC1Ev
+                0x0000000000005268       0x20 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005268                CDirection::CDirection()
+ .gnu.linkonce.t._ZNK10CDirection13QuadwordValueEv
+                0x0000000000005288       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005288                CDirection::QuadwordValue() const
+ .gnu.linkonce.t._ZNK6CPlane9GetNormalEv
+                0x00000000000052b8       0x28 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000052b8                CPlane::GetNormal() const
+ .gnu.linkonce.t._ZN6CPlaneC1ERK7CVector
+                0x00000000000052e0       0xb0 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000052e0                CPlane::CPlane(CVector const&)
+ .gnu.linkonce.t._ZNK7CVectormlEf
+                0x0000000000005390       0xa0 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005390                CVector::operator*(float) const
+ .gnu.linkonce.t.sqrtf
+                0x0000000000005430       0xc0 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005430                sqrtf
+ .gnu.linkonce.t.sqrtf4
+                0x00000000000054f0      0x140 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000054f0                sqrtf4
+ .gnu.linkonce.t._ZNK7CVectorixEi
+                0x0000000000005630       0x80 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005630                CVector::operator[](int) const
+ .gnu.linkonce.t._ZN7CVectorC1EU8__vectorf
+                0x00000000000056b0       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000056b0                CVector::CVector(float __vector)
+ .gnu.linkonce.t._ZN7CVectorC1Ev
+                0x00000000000056e0       0x20 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000056e0                CVector::CVector()
+ .gnu.linkonce.t._ZNK7CMatrix7GetRow1Ev
+                0x0000000000005700       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005700                CMatrix::GetRow1() const
+ .gnu.linkonce.t._ZNK7CMatrix7GetRow2Ev
+                0x0000000000005730       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005730                CMatrix::GetRow2() const
+ .gnu.linkonce.t._ZNK7CMatrix7GetRow3Ev
+                0x0000000000005760       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005760                CMatrix::GetRow3() const
+ .gnu.linkonce.t._ZNK7CMatrix7GetRow0Ev
+                0x0000000000005790       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005790                CMatrix::GetRow0() const
+ .gnu.linkonce.t._ZNK10CDirection6LengthEv
+                0x00000000000057c0       0x90 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000057c0                CDirection::Length() const
+ .gnu.linkonce.t._ZN10Intrinsics8SPU_SqrtEU8__vectorf
+                0x0000000000005850       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005850                Intrinsics::SPU_Sqrt(float __vector)
+ .gnu.linkonce.t._ZN10CDirectionC1ERK6CPoint
+                0x0000000000005880       0x40 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005880                CDirection::CDirection(CPoint const&)
+ .gnu.linkonce.t._ZNK5CAABB3MaxEv
+                0x00000000000058c0       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000058c0                CAABB::Max() const
+ .gnu.linkonce.t._ZmlU8__vectorfRK7CMatrix
+                0x00000000000058f0      0x328 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x00000000000058f0                operator*(float __vector, CMatrix const&)
+ .gnu.linkonce.t._ZNK6CPoint13QuadwordValueEv
+                0x0000000000005c18       0x30 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005c18                CPoint::QuadwordValue() const
+ .gnu.linkonce.t._ZNK5CAABB3MinEv
+                0x0000000000005c48       0x28 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005c48                CAABB::Min() const
+ .gnu.linkonce.t._ZmlfRK10CDirection
+                0x0000000000005c70       0x60 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005c70                operator*(float, CDirection const&)
+ .gnu.linkonce.t._ZSt4fabsf
+                0x0000000000005cd0       0x38 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005cd0                std::fabs(float)
+ .gnu.linkonce.t.fabsf
+                0x0000000000005d08       0xc0 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005d08                fabsf
+ .gnu.linkonce.t.fabsf4
+                0x0000000000005dc8       0x60 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005dc8                fabsf4
+ .gnu.linkonce.t._ZNK10CDirectionmiERKS_
+                0x0000000000005e28       0x80 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005e28                CDirection::operator-(CDirection const&) const
+ .gnu.linkonce.t._ZNK10CDirection1ZEv
+                0x0000000000005ea8       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005ea8                CDirection::Z() const
+ .gnu.linkonce.t._ZNK10CDirection1YEv
+                0x0000000000005f18       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005f18                CDirection::Y() const
+ .gnu.linkonce.t._ZNK10CDirection1XEv
+                0x0000000000005f88       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005f88                CDirection::X() const
+ .gnu.linkonce.t._ZNK14CullingFrustum8GetPlaneEt
+                0x0000000000005ff8       0x60 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000005ff8                CullingFrustum::GetPlane(unsigned short) const
+ .gnu.linkonce.t._ZNK5CAABB7IsValidEv
+                0x0000000000006058       0x40 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000006058                CAABB::IsValid() const
+ .gnu.linkonce.t._ZNK5CAABB17HasPositiveVolumeEv
+                0x0000000000006098       0xd8 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000006098                CAABB::HasPositiveVolume() const
+ .gnu.linkonce.t._ZN5CAABB12IntersectionERKS_
+                0x0000000000006170       0x98 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+                0x0000000000006170                CAABB::Intersection(CAABB const&)
+ *(.gnu.warning)
+
+.fini
+ *(.fini)
+                0x0000000000006208                PROVIDE (__etext, .)
+                0x0000000000006208                PROVIDE (_etext, .)
+                0x0000000000006208                PROVIDE (etext, .)
+
+.rodata         0x0000000000006210      0x130
+ *(.rodata .rodata.* .gnu.linkonce.r.*)
+ .rodata.cst16  0x0000000000006210       0x30 dev_ps3/clipper_spu.obj
+                                         0x50 (size before relaxing)
+ .rodata.str1.16
+                0x0000000000006240       0x80 dev_ps3/clipper_spu.obj
+ .gnu.linkonce.r._ZZN10ClipperSPU24ProcessRenderablesShadowERK14CullingFrustumPN11ClipperData6DMA_InEPNS3_7DMA_OutERA3_S1_jRjSA_E8fTruncer
+                0x00000000000062c0       0x10 dev_ps3/clipper_spu.obj
+                0x00000000000062c0                ClipperSPU::ProcessRenderablesShadow(CullingFrustum const&, ClipperData::DMA_In*, ClipperData::DMA_Out*, CullingFrustum const (&) [3], unsigned int, unsigned int&, unsigned int&)::fTruncer
+ .rodata        0x00000000000062d0       0x70 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.rodata1
+ *(.rodata1)
+
+.eh_frame_hdr
+ *(.eh_frame_hdr)
+                0x0000000000006380                . = ALIGN (0x80)
+                0x0000000000006380                . = ALIGN (0x10)
+                0x0000000000006380                PROVIDE (__preinit_array_start, .)
+
+.preinit_array
+ *(.preinit_array)
+                0x0000000000006380                PROVIDE (__preinit_array_end, .)
+                0x0000000000006380                PROVIDE (__init_array_start, .)
+
+.init_array
+ *(.init_array)
+                0x0000000000006380                PROVIDE (__init_array_end, .)
+                0x0000000000006380                PROVIDE (__fini_array_start, .)
+
+.fini_array
+ *(.fini_array)
+                0x0000000000006380                PROVIDE (__fini_array_end, .)
+
+.data           0x0000000000006380        0x0
+ *(.data .data.* .gnu.linkonce.d.*)
+
+.data1
+ *(.data1)
+
+.tdata
+ *(.tdata .tdata.* .gnu.linkonce.td.*)
+
+.tbss
+ *(.tbss .tbss.* .gnu.linkonce.tb.*)
+ *(.tcommon)
+
+.eh_frame
+ *(.eh_frame)
+
+.gcc_except_table
+ *(.gcc_except_table)
+
+.dynamic
+ *(.dynamic)
+
+.ctors
+ *crtbegin*.o(.ctors)
+ *(EXCLUDE_FILE(*crtend*.o) .ctors)
+ *(SORT(.ctors.*))
+ *(.ctors)
+
+.dtors
+ *crtbegin*.o(.dtors)
+ *(EXCLUDE_FILE(*crtend*.o) .dtors)
+ *(SORT(.dtors.*))
+ *(.dtors)
+
+.jcr
+ *(.jcr)
+
+.got
+ *(.got.plt)
+ *(.got)
+                0x0000000000006380                _edata = .
+                0x0000000000006380                PROVIDE (edata, .)
+                0x0000000000006380                __bss_start = .
+
+.bss            0x0000000000006380        0x0
+ *(.dynbss)
+ *(.bss .bss.* .gnu.linkonce.b.*)
+ *(COMMON)
+                0x0000000000006380                . = ALIGN (0x10)
+                0x0000000000006380                . = ALIGN (0x10)
+                0x0000000000006380                _end = .
+                0x0000000000006380                PROVIDE (end, .)
+
+.stab
+ *(.stab)
+
+.stabstr
+ *(.stabstr)
+
+.stab.excl
+ *(.stab.excl)
+
+.stab.exclstr
+ *(.stab.exclstr)
+
+.stab.index
+ *(.stab.index)
+
+.stab.indexstr
+ *(.stab.indexstr)
+
+.comment        0x0000000000000000       0x84
+ *(.comment)
+ .comment       0x0000000000000000       0x2c dev_ps3/clipper_spu.obj
+ .comment       0x000000000000002c       0x2c dev_ps3/clipper_spumain.obj
+ .comment       0x0000000000000058       0x2c dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.debug
+ *(.debug)
+
+.line
+ *(.line)
+
+.debug_srcinfo
+ *(.debug_srcinfo)
+
+.debug_sfnames
+ *(.debug_sfnames)
+
+.debug_aranges  0x0000000000000000      0x278
+ *(.debug_aranges)
+ .debug_aranges
+                0x0000000000000000       0x38 dev_ps3/clipper_spu.obj
+ .debug_aranges
+                0x0000000000000038       0x20 dev_ps3/clipper_spumain.obj
+ .debug_aranges
+                0x0000000000000058      0x220 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.debug_pubnames
+                0x0000000000000000      0x6ef
+ *(.debug_pubnames)
+ .debug_pubnames
+                0x0000000000000000       0xb6 dev_ps3/clipper_spu.obj
+ .debug_pubnames
+                0x00000000000000b6       0x1e dev_ps3/clipper_spumain.obj
+ .debug_pubnames
+                0x00000000000000d4      0x61b dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.debug_info     0x0000000000000000     0xdb1c
+ *(.debug_info .gnu.linkonce.wi.*)
+ .debug_info    0x0000000000000000     0x654e dev_ps3/clipper_spu.obj
+ .debug_info    0x000000000000654e     0x1f21 dev_ps3/clipper_spumain.obj
+ .debug_info    0x000000000000846f     0x56ad dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.debug_abbrev   0x0000000000000000      0xac6
+ *(.debug_abbrev)
+ .debug_abbrev  0x0000000000000000      0x436 dev_ps3/clipper_spu.obj
+ .debug_abbrev  0x0000000000000436      0x26a dev_ps3/clipper_spumain.obj
+ .debug_abbrev  0x00000000000006a0      0x426 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.debug_line     0x0000000000000000     0x183c
+ *(.debug_line)
+ .debug_line    0x0000000000000000      0xb43 dev_ps3/clipper_spu.obj
+ .debug_line    0x0000000000000b43      0x162 dev_ps3/clipper_spumain.obj
+ .debug_line    0x0000000000000ca5      0xb97 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.debug_frame    0x0000000000000000      0x9c0
+ *(.debug_frame)
+ .debug_frame   0x0000000000000000      0x18c dev_ps3/clipper_spu.obj
+ .debug_frame   0x000000000000018c       0x2c dev_ps3/clipper_spumain.obj
+ .debug_frame   0x00000000000001b8      0x808 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.debug_str      0x0000000000000000     0x20c2
+ *(.debug_str)
+ .debug_str     0x0000000000000000     0x1e7c dev_ps3/clipper_spu.obj
+                                       0x1f69 (size before relaxing)
+ .debug_str     0x0000000000001e7c       0xd4 dev_ps3/clipper_spumain.obj
+                                       0x1458 (size before relaxing)
+ .debug_str     0x0000000000001f50      0x172 dev_ps3/ntlib_spu_ps3.lib(boundingvolumes_spu.obj)
+
+.debug_loc
+ *(.debug_loc)
+
+.debug_macinfo
+ *(.debug_macinfo)
+
+.debug_weaknames
+ *(.debug_weaknames)
+
+.debug_funcnames
+ *(.debug_funcnames)
+
+.debug_typenames
+ *(.debug_typenames)
+
+.debug_varnames
+ *(.debug_varnames)
+
+/DISCARD/
+ *(.note.GNU-stack)
+OUTPUT(z:/Hs/spu/dev/clipper_spu_ps3.elf elf32-spu)
+
+.debug_ranges   0x0000000000000000      0xc78
+ .debug_ranges  0x0000000000000000      0xc78 dev_ps3/clipper_spu.obj

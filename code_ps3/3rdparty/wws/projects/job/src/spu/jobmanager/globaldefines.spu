@@ -1,0 +1,166 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.define kStackMarkerAddr				0x3E000					//LsMemoryLimits::kJobAreaEndPageNum * 1024
+.define kStackMarkerValue_hi				0x7107
+.define kStackMarkerValue_lo				0x7345
+
+;These compile options are now defined in the makefile makeopts:
+;.define	ASSERTS_ENABLED				1
+;.define	ENABLE_IMPORTANT_AUDITS			1
+
+.if ENABLE_IMPORTANT_AUDITS
+.define CODE_FITS_IN_8K			0
+.else
+.define CODE_FITS_IN_8K			1
+.endif
+
+.define SPU_WWSJOB_JOBAPI 			0
+.define SPU_WWSJOB_TRYEXECUTECMDS 		1
+.define SPU_WWSJOB_TRYCHANGESTORETOFREEJOB 	0
+
+.define kNopAudit					0
+.if ENABLE_TIMING_AUDITS || ENABLE_TIMING_PA_BOOKMARKS || ENABLE_WORKLOAD_AUDITS
+.define kWwsJob_begin					1
+.define kWwsJob_end					2
+.endif
+
+.if ENABLE_TIMING_AUDITS || ENABLE_TIMING_PA_BOOKMARKS
+.define kWwsJob_InterruptHandler_begin			3
+.define kWwsJob_InterruptHandler_end			4
+.define kWwsJob_InterruptHandler_real_begin		5
+.define kWwsJob_InterruptHandler_real_end		6
+.define kWwsJob_ChangeLoadToRunJob_jobBegin		7
+.define kWwsJob_ChangeLoadToRunJob_jobEnd		8
+.define kWwsJob_JobApi_begin				9
+.define kWwsJob_JobApi_end				10
+.define kWwsJob_PollSpursKernel_begin			11
+.define kWwsJob_PollSpursKernel_end			12
+.endif
+
+.if ENABLE_TIMING_AUDITS
+.define kWwsJob_setSpursKernelReadyCount_begin_zero	13
+.define kWwsJob_setSpursKernelReadyCount_end_zero	14
+.define kWwsJob_setSpursKernelReadyCount_begin_old	15
+.define kWwsJob_setSpursKernelReadyCount_end_old	16
+.define	kWwsJob_WwsMain_waitForLoadDma_begin		17
+.define	kWwsJob_WwsMain_waitForLoadDma_end		18
+.define	kWwsJob_WwsMain_waitForStoreDma_begin		19
+.define	kWwsJob_WwsMain_waitForStoreDma_end		20
+.define	kWwsJob_WwsMain_beginLoop			21
+.define	kWwsJob_JobApi_TryExecuteCmds_begin		22
+.define	kWwsJob_JobApi_TryExecuteCmds_end	       	23
+.define	kWwsJob_JobApi_TryExecuteCmdsDma_end		24
+.endif
+
+.if ENABLE_IMPORTANT_AUDITS
+.define kWwsJob_WwsInterrupts_begin				25
+
+.define kWwsJob_JobApi_executeCommands				26
+.define kWwsJob_JobApi_loadNextJob				27
+.define kWwsJob_JobApi_bufferSets				28
+.define kWwsJob_JobApi_logicalToBufNums				29
+.define kWwsJob_JobApi_buffers					30
+.define kWwsJob_JobApi_stopLoadingJobs				31
+
+.define kWwsJob_CopyStoreShareBufsToRun_copyBufSetToRun		32
+.define kWwsJob_CopyStoreShareBufsToRun_afterCopy		33
+
+.define kWwsJob_TryDumpAllStoreShareBufs_activeShareBuffer	34
+
+.define kWwsJob_TryDumpShareBuf_writeShareBuf			35
+
+.define kWwsJob_TryChangeFreeToLoadJob_readLoadCmds		36
+
+.define kWwsJob_TryChangeStoreToFreeJob_clearUsed		37
+.define kWwsJob_TryChangeStoreToFreeJob_inactivateNonShareBuf	38
+.define kWwsJob_TryChangeStoreToFreeJob_jobDone			39
+
+.define kWwsJob_TryExecuteLoadCmds				40
+
+.define kWwsJob_TryExecuteCmds_reserveBufSet			41
+.define kWwsJob_TryExecuteCmds_unreserveBufSet			42
+.define kWwsJob_TryExecuteCmds_useBuffer			43
+.define kWwsJob_TryExecuteCmds_foundMatch			44
+.define kWwsJob_TryExecuteCmds_takeBuf				45
+.define kWwsJob_TryExecuteCmds_prevJobBufShareCollide		46
+.define kWwsJob_TryExecuteCmds_gatherRead			47
+.define kWwsJob_TryExecuteCmds_read				48
+.define kWwsJob_TryExecuteCmds_readyToRunJob			49
+.define kWwsJob_TryExecuteCmds_cmdCantExecute			50
+
+.define kWwsJob_FreeLogicalBuffer				51
+
+.define kWwsJob_GetBufferTag					52
+.define kWwsJob_GetBufferTag_returnBufTag			53
+
+.define kWwsJob_FreeDmaTadId					54
+
+.define kWwsJob_UseDmaTagId					55
+.endif	;.if ENABLE_IMPORTANT_AUDITS
+
+.define kLoadJob_readCommands              0
+.define kLoadJob_readBuffers               1
+.define kRunJob_readBuffers                2
+.define kRunJob_writeShareableBuffers      3
+.define kStoreJob_writeShareableBuffers    4
+.define kStoreJob_writeAllShareableBuffers 5
+.define kStoreJob_writeJobBuffers          6
+.define kAudits                            7
+.define kBlockingLoad                      8
+
+; namespace WwsJob_RunJobState { enum {
+.define	WwsJob_RunJobState_kNone 		0
+.define	WwsJob_RunJobState_kLoadNotAllowed	1
+.define	WwsJob_RunJobState_kLoadAllowed		2
+; };}
+; namespace WwsJob_LoadJobState { enum {
+.define	LoadJobState_kNone 		0
+.define LoadJobState_kReadCommands	1
+.define LoadJobState_kExecuteCommands	2
+.define LoadJobState_kCommandsExecuted	3
+; };}
+; namespace DmaTagId { enum {
+.define	DmaTagId_kLoadJob_readCommands			0
+.define	DmaTagId_kLoadJob_readBuffers			1
+.define	DmaTagId_kRunJob_readBuffers			2
+.define	DmaTagId_kRunJob_writeShareableBuffers		3
+.define	DmaTagId_kStoreJob_writeShareableBuffers	4
+.define	DmaTagId_kStoreJob_writeAllShareableBuffers	5
+.define	DmaTagId_kStoreJob_writeJobBuffers		6
+.define	DmaTagId_kAudits				7
+.define	DmaTagId_kNumUsed				8
+.define	DmaTagId_kBlockingLoad				8
+; };}
+
+; namespace WwsJob_ApiCommand { enum {
+.define	ApiCommand_kExecuteCommands	0
+.define	ApiCommand_kGetBufferTag	1
+.define	ApiCommand_kGetBufferTags	2
+.define	ApiCommand_kUseDmaTagId		3
+.define	ApiCommand_kFreeDmaTagId	4
+.define	ApiCommand_kLoadNextJob		5
+.define	ApiCommand_kFreeLogicalBuffer	6
+.define	ApiCommand_kFreeLogicalBuffers	7
+.define	ApiCommand_kStoreAudit		8
+.define ApiCommand_kMaxCommand		8
+; };}
+
+; namespace DmaTagMask { enum {	//== (1 << DmaTagId_*)
+.define	DmaTagMask_kLoadJob_readCommands		0x0001
+.define	DmaTagMask_kLoadJob_readBuffers			0x0002
+.define	DmaTagMask_kRunJob_readBuffers			0x0004
+.define	DmaTagMask_kRunJob_writeShareableBuffers	0x0008
+.define	DmaTagMask_kStoreJob_writeShareableBuffers	0x0010
+.define	DmaTagMask_kStoreJob_writeAllShareableBuffers	0x0020
+.define	DmaTagMask_kStoreJob_writeJobBuffers		0x0040
+.define	DmaTagMask_kAudits				0x0080
+.define	DmaTagMask_kNumUsed				0x0100
+.define	DmaTagMask_kBlockingLoad			0x0100
+; };}
+
+.define kSpuModuleMarker_hi	0xC0DE
+.define kSpuModuleMarker_lo	0xC0DE
+.define MAX_LOAD_COMMANDS_SIZE	0x100

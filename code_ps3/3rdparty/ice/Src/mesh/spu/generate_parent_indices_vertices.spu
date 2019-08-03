@@ -1,0 +1,1425 @@
+;
+; Copyright (c) 2006 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.data
+.align 4
+
+s_ABCD:
+.dshuf "ABCD"
+s_00B0C0D0:
+.dshuf "00B0C0D0"
+s_0B0C0D0E:
+.dshuf "0B0C0D0E"
+s_A000e000:
+.dshuf "A000e000"
+s_00C000g0:
+.dshuf "00C000g0"
+s_00000F0h:
+.dshuf "00000F0h"
+s_0B0d0000:
+.dshuf "0B0d0000"
+s_A0c0E0g0:
+.dshuf "A0c0E0g0"
+s_0b0d0F0H:
+.dshuf "0b0d0F0H"
+s_AbCdEfGh:
+.dshuf "AbCdEfGh"
+s_abcadefd:
+.dshuf "abcadefd"
+s_GHaGbcdb:
+.dshuf "GHaGbcdb"
+s_EFGEHabH:
+.dshuf "EFGEHabH"
+s_cdecfghf:
+.dshuf "cdecfghf"
+s_AacAEegE:
+.dshuf "AacAEegE"
+s_BbaBFfeF:
+.dshuf "BbaBFfeF"
+s_CcbCGgfG:
+.dshuf "CcbCGgfG"
+s_abcaefge:
+.dshuf "abcaefge"
+s_ABCEFGab:
+.dshuf "ABCEFGab"
+s_CEFGabce:
+.dshuf "CEFGabce"
+s_FGabcefg:
+.dshuf "FGabcefg"
+s_Aa000000:
+.dshuf "Aa000000"
+s_ABa00000:
+.dshuf "ABa00000"
+s_ABCa0000:
+.dshuf "ABCa0000"
+s_ABCDa000:
+.dshuf "ABCDa000"
+s_ABCDEa00:
+.dshuf "ABCDEa00"
+s_ABCDEFa0:
+.dshuf "ABCDEFa0"
+s_ABCDEFGa:
+.dshuf "ABCDEFGa"
+
+jumpTable:
+.dw loopUTbl1, loopUTbl2, loopUTbl3, loopUTbl4
+.dw loopUTbl5, loopUTbl6, loopUTbl7, loopUTbl8
+.dw loopUTblLoop, 0, 0, 0
+
+.text
+
+.global MakeParentChildTris
+
+MakeParentChildTris:
+
+.reg p1, p2, p3, p4
+.reg ltriBits, rtriBits, tri0Bits, tri1Bits, tri2Bits, mask0, mask1, mask2
+.reg inc01, inc02, inc03, inc04, inc05, inc06, inc07
+.reg inc11, inc12, inc13, inc14, inc15, inc16, inc17
+.reg inc21, inc22, inc23, inc24, inc25, inc26, inc27
+.reg shufA0, shufA1, shufA2, _shufA0, _shufA1, _shufA2
+.reg shufB0, shufB1, shufB2, _shufB0, _shufB1, _shufB2
+.reg data0, data1, data2, data3, data4, data5, data6, data7
+.reg out1, out2, out3, out4, out5, out6, out7, out8, out9, out10, out11, out12, out13, out14, out15, out16
+
+.reg s_DDDDDDDDDDDDDDDD, s_BBBBBBBB, s_00B0C0D0, s_0B0C0D0E, s_A000e000, s_00C000g0, s_00000F0h, s_ABCD
+.reg s_0B0d0000, s_A0c0E0g0, s_0b0d0F0H, s_AbCdEfGh, s_abcadefd, s_GHaGbcdb, s_EFGEHabH, s_cdecfghf, s_AacAEegE
+.reg s_BbaBFfeF, s_CcbCGgfG, s_abcaefge, s_AacAEegE, s_BbaBFfeF, s_CcbCGgfG, s_abcaefge, s_AacAEegE, s_BbaBFfeF
+.reg s_CcbCGgfG, s_abcaefge, s_AacAEegE, s_BbaBFfeF, s_CcbCGgfG, s_abcaefge, s_ABCEFGab, s_CEFGabce, s_FGabcefg
+.reg s_Aa000000, s_ABa00000, s_ABCa0000, s_ABCDa000, s_ABCDEa00, s_ABCDEFa0, s_ABCDEFGa
+.reg bitCount0, bitCount1, bitCount2, _bitCount0, _bitCount1, _bitCount2, imask0, imask1, imask2, inc0, inc1, inc2, bitStraddle0, bitStraddle1, bitStraddle2
+.reg byteOffset0, byteOffset1, bitOffset, bitShift, byteShift, indexBits0, indexBits1, mask, indexBits, data04, data26, data57, data13, data0426, data5713, data
+.reg c1, c_1, c2, c_2, c3, c_3, c4, c4, offset, triBits, dataMask, newIndices, ibitCount0, ibitCount1, ibitCount2
+.reg _0_5, utbl0_0, ptblOffset, tmp, tmp2, loop, exit, _UniformTableCount, test, jump, jumpTable, jumpOffset
+.reg utbl0_0, utbl0_1, utbl0_2, utbl1_0, utbl1_1, utbl1_2, utbl2_0, utbl2_1, utbl2_2, utbl3_0, utbl3_1, utbl3_2
+.reg utbl4_0, utbl4_1, utbl4_2, utbl5_0, utbl5_1, utbl5_2, utbl6_0, utbl6_1, utbl6_2, utbl7_0, utbl7_1, utbl7_2
+.reg c0_0, c0_1, c0_2, c1_0, c1_1, c1_2, c2_0, c2_1, c2_2, c3_0, c3_1, c3_2
+.reg c4_0, c4_1, c4_2, c5_0, c5_1, c5_2, c6_0, c6_1, c6_2, c7_0, c7_1, c7_2
+.reg _c0_0, _c0_1, _c0_2, _c1_0, _c1_1, _c1_2, _c2_0, _c2_1, _c2_2, _c3_0, _c3_1, _c3_2
+.reg _c4_0, _c4_1, _c4_2, _c5_0, _c5_1, _c5_2, _c6_0, _c6_1, _c6_2, _c7_0, _c7_1, _c7_2
+.reg p0_0, p0_1, p0_2, p1_0, p1_1, p1_2, p2_0, p2_1, p2_2, p3_0, p3_1, p3_2
+.reg p4_0, p4_1, p4_2, p5_0, p5_1, p5_2, p6_0, p6_1, p6_2, p7_0, p7_1, p7_2
+.reg p0_3, p1_3, p2_3, p3_3, p4_3, p5_3, p6_3, p7_3
+.reg soff1, soff2, soff3, soff4, soff5, soff6, soff7, soff8
+.reg soff9, soff10, soff11, soff12, soff13, soff14, soff15, soff16
+.reg soff17, soff18, soff19, soff20, soff21, soff22, soff23, soff24
+
+.reg pl1, pl2, pl3, _tri0Bits, _tri1Bits, _tri2Bits, ptbl0, ptbl1, ptbl2
+.reg ptbl0_0, ptbl0_1, ptbl0_2, ptbl0_3, ptbl0_4, ptbl0_5, ptbl0_6, ptbl0_7
+.reg ptbl1_0, ptbl1_1, ptbl1_2, ptbl1_3, ptbl1_4, ptbl1_5, ptbl1_6, ptbl1_7
+.reg ptbl2_0, ptbl2_1, ptbl2_2, ptbl2_3, ptbl2_4, ptbl2_5, ptbl2_6, ptbl2_7
+.reg cnt01, cnt02, cnt03, cnt04, cnt05, cnt06, cnt07, cnt08
+.reg cnt11, cnt12, cnt13, cnt14, cnt15, cnt16, cnt17, cnt18
+.reg cnt21, cnt22, cnt23, cnt24, cnt25, cnt26, cnt27, cnt28
+.reg cnt21, cnt22, cnt23, cnt24, cnt25, cnt26, cnt27, cnt28
+.reg pUniformTable1, pUniformTable2, pUniformTable3, pUniformTable4, pUniformTable5, pUniformTable6, pUniformTable7, pUniformTable8, pUniformTableN, pUniformTableN2, _pUniformTable
+.reg ptblByteOffset, ptblRead, ptblOffset10, _ptblByteOffset, ptblLow, ptblHi
+
+.reg pTriBitstream	3
+.reg pIndexBitstream	4
+.reg pTriIndices		5
+.reg pOut		6
+.reg pTblOut		7
+.reg pUniformTable	8
+.reg UniformTableCount	9
+.reg triangleCount	10
+
+; save registers on the stack
+{e2}	il	tmp, -800					{o6}	lnop
+{e2}	ai	$2, $sp, 0					{o6}	lnop
+{e2}	a	$sp, $sp, tmp					{o6}	lnop
+	nop							{o6}	lnop
+	{nop}							{o6}	stqd	$2,   0x000($sp)
+	{nop}							{o6}	stqd	$lr,  0x010($sp)
+	{nop}							{o6}	stqd	$80,  0x020($sp)
+	{nop}							{o6}	stqd	$81,  0x030($sp)
+	{nop}							{o6}	stqd	$82,  0x040($sp)
+	{nop}							{o6}	stqd	$83,  0x050($sp)
+	{nop}							{o6}	stqd	$84,  0x060($sp)
+	{nop}							{o6}	stqd	$85,  0x070($sp)
+	{nop}							{o6}	stqd	$86,  0x080($sp)
+	{nop}							{o6}	stqd	$87,  0x090($sp)
+	{nop}							{o6}	stqd	$88,  0x0A0($sp)
+	{nop}							{o6}	stqd	$89,  0x0B0($sp)
+	{nop}							{o6}	stqd	$90,  0x0C0($sp)
+	{nop}							{o6}	stqd	$91,  0x0D0($sp)
+	{nop}							{o6}	stqd	$92,  0x0E0($sp)
+	{nop}							{o6}	stqd	$93,  0x0F0($sp)
+	{nop}							{o6}	stqd	$94,  0x100($sp)
+	{nop}							{o6}	stqd	$95,  0x110($sp)
+	{nop}							{o6}	stqd	$96,  0x120($sp)
+	{nop}							{o6}	stqd	$97,  0x130($sp)
+	{nop}							{o6}	stqd	$98,  0x140($sp)
+	{nop}							{o6}	stqd	$99,  0x150($sp)
+	{nop}							{o6}	stqd	$100, 0x160($sp)
+	{nop}							{o6}	stqd	$101, 0x170($sp)
+	{nop}							{o6}	stqd	$102, 0x180($sp)
+	{nop}							{o6}	stqd	$103, 0x190($sp)
+	{nop}							{o6}	stqd	$104, 0x1A0($sp)
+	{nop}							{o6}	stqd	$105, 0x1B0($sp)
+	{nop}							{o6}	stqd	$106, 0x1C0($sp)
+	{nop}							{o6}	stqd	$107, 0x1D0($sp)
+	{nop}							{o6}	stqd	$108, 0x1E0($sp)
+	{nop}							{o6}	stqd	$109, 0x1F0($sp)
+	{nop}							{o6}	stqd	$110, 0x200($sp)
+	{nop}							{o6}	stqd	$111, 0x210($sp)
+	{nop}							{o6}	stqd	$112, 0x220($sp)
+	{nop}							{o6}	stqd	$113, 0x230($sp)
+	{nop}							{o6}	stqd	$114, 0x240($sp)
+	{nop}							{o6}	stqd	$115, 0x250($sp)
+	{nop}							{o6}	stqd	$116, 0x260($sp)
+	{nop}							{o6}	stqd	$117, 0x270($sp)
+	{nop}							{o6}	stqd	$118, 0x280($sp)
+	{nop}							{o6}	stqd	$119, 0x290($sp)
+	{nop}							{o6}	stqd	$120, 0x2A0($sp)
+	{nop}							{o6}	stqd	$121, 0x2B0($sp)
+	{nop}							{o6}	stqd	$122, 0x2C0($sp)
+	{nop}							{o6}	stqd	$123, 0x2D0($sp)
+	{nop}							{o6}	stqd	$124, 0x2E0($sp)
+	{nop}							{o6}	stqd	$125, 0x2F0($sp)
+	{nop}							{o6}	stqd	$126, 0x300($sp)
+	{nop}							{o6}	stqd	$127, 0x310($sp)
+
+	il	bitOffset, 0						lqa	s_ABCD, s_ABCD
+	ai	triangleCount, triangleCount, 8				lqa	s_AbCdEfGh, s_AbCdEfGh
+	nop								lqa	s_abcadefd, s_abcadefd
+	andi	triangleCount, triangleCount, -8				lqa	s_GHaGbcdb, s_GHaGbcdb
+	nop								lqa	s_EFGEHabH, s_EFGEHabH
+	nop								lqa	s_cdecfghf, s_cdecfghf
+	nop								lqa	s_AacAEegE, s_AacAEegE
+	nop								lqa	s_BbaBFfeF, s_BbaBFfeF
+	nop								lqa	s_CcbCGgfG, s_CcbCGgfG
+	ilhu	_0_5, 0x3f00						lqa	s_abcaefge, s_abcaefge
+	nop								lqa	s_ABCEFGab, s_ABCEFGab
+	nop								lqa	s_CEFGabce, s_CEFGabce
+	nop								lqa	s_FGabcefg, s_FGabcefg
+	nop								lqa	s_Aa000000, s_Aa000000
+	ilh	newIndices, 16						lqa	s_A000e000, s_A000e000
+	il	ptblOffset, 0						lqa	s_0B0d0000, s_0B0d0000
+	ahi	newIndices, newIndices, -1					lqa	s_00000F0h, s_00000F0h
+loop:
+	nop								lqa	s_ABa00000, s_ABa00000
+	nop								lqa	s_ABCa0000, s_ABCa0000
+	nop								lqa	s_ABCDa000, s_ABCDa000
+	nop								lqa	s_ABCDEa00, s_ABCDEa00
+	nop								lqa	s_ABCDEFa0, s_ABCDEFa0
+	nop								lqa	s_A0c0E0g0, s_A0c0E0g0
+	nop								lqa	s_0b0d0F0H, s_0b0d0F0H
+	ilh	dataMask, 0x01FF						lqa	s_00B0C0D0, s_00B0C0D0
+	ilh	s_DDDDDDDDDDDDDDDD, 0x0303					lqa	s_0B0C0D0E, s_0B0C0D0E
+	ilh	s_BBBBBBBB, 0x0203					lqa	s_00C000g0, s_00C000g0
+	nop								lqa	s_ABCDEFGa, s_ABCDEFGa
+
+	nop								lqd	p1, 0x00(pTriIndices)
+	nop								lqd	p2, 0x10(pTriIndices)
+	nop								lqd	p3, 0x20(pTriIndices)
+	nop								lqd	p4, 0x30(pTriIndices)
+	ai	pTriIndices, pTriIndices, 0x40				lnop
+	nop								lnop
+	rotmi	p0_0, p1, -16						shlqbyi	p0_3, p1, 4
+	rotmi	p2_0, p2, -16						shlqbyi	p2_3, p2, 4
+	rotmi	p4_0, p3, -16						shlqbyi	p4_3, p3, 4
+	rotmi	p6_0, p4, -16						shlqbyi	p6_3, p4, 4
+	rotmi	p0_2, p0_3, -16						shlqbyi	p1_1, p1, 8
+	rotmi	p2_2, p2_3, -16						shlqbyi	p3_1, p2, 8
+	rotmi	p4_2, p4_3, -16						shlqbyi	p5_1, p3, 8
+	rotmi	p6_2, p6_3, -16						shlqbyi	p7_1, p4, 8
+	rotmi	p1_0, p1_1, -16						shlqbyi	p1_3, p1, 12
+	rotmi	p3_0, p3_1, -16						shlqbyi	p3_3, p2, 12
+	rotmi	p5_0, p5_1, -16						shlqbyi	p5_3, p3, 12
+	rotmi	p7_0, p7_1, -16						shlqbyi	p7_3, p4, 12
+	rotmi	p1_2, p1_3, -16						lnop
+	rotmi	p3_2, p3_3, -16						lnop
+	rotmi	p5_2, p5_3, -16						lnop
+	rotmi	p7_2, p7_3, -16						lnop
+
+	andi	offset, pTriBitstream, 0xf					lnop
+	nop								lnop
+	nop								lqd	ltriBits, 0x00(pTriBitstream)
+	nop								lnop
+	nop								lqd	rtriBits, 0x10(pTriBitstream)
+	ai	pTriBitstream, pTriBitstream, 3				shufb	offset, offset, offset, s_DDDDDDDDDDDDDDDD
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	a	mask, s_ABCD, offset					lnop
+	nop								lnop
+	nop								shufb	triBits, ltriBits, rtriBits, mask
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	rotmai	tri0Bits, triBits, -24					lnop
+	rotmai	tri1Bits, triBits, -16					lnop
+	rotmai	tri2Bits, triBits, -8					lnop
+	nop								lnop
+	andi	tri0Bits, tri0Bits, 0xff					lnop
+	andi	tri1Bits, tri1Bits, 0xff					lnop
+	andi	tri2Bits, tri2Bits, 0xff					lnop
+
+; make shuffle masks
+	cntb	bitCount0, tri0Bits					fsmh	imask0, tri0Bits
+	cntb	bitCount1, tri1Bits					fsmh	imask1, tri1Bits
+	cntb	bitCount2, tri2Bits					fsmh	imask2, tri2Bits
+	nand	mask0, imask0, imask0					lnop
+	nand	mask1, imask1, imask1					lnop
+	nand	mask2, imask2, imask2					lnop
+	nop								lnop
+	nop								rotqmbyi	inc01, mask0, -2
+	ahi	inc0, mask0, 1						rotqmbyi	inc11, mask1, -2
+	ahi	inc1, mask1, 1						rotqmbyi	inc21, mask2, -2
+	ahi	inc2, mask2, 1						rotqmbyi	inc02, mask0, -4
+	ah	inc0, inc0, inc01						rotqmbyi	inc12, mask1, -4
+	ah	inc1, inc1, inc11						rotqmbyi	inc22, mask2, -4
+	ah	inc2, inc2, inc21						rotqmbyi	inc03, mask0, -6
+	ah	inc0, inc0, inc02						rotqmbyi	inc13, mask1, -6
+	ah	inc1, inc1, inc12						rotqmbyi	inc23, mask2, -6
+	ah	inc2, inc2, inc22						rotqmbyi	inc04, mask0, -8
+	ah	inc0, inc0, inc03						rotqmbyi	inc14, mask1, -8
+	ah	inc1, inc1, inc13						rotqmbyi	inc24, mask2, -8
+	ah	inc2, inc2, inc23						rotqmbyi	inc05, mask0, -10
+	ah	inc0, inc0, inc04						rotqmbyi	inc15, mask1, -10
+	ah	inc1, inc1, inc14						rotqmbyi	inc25, mask2, -10
+	ah	inc2, inc2, inc24						rotqmbyi	inc06, mask0, -12
+	ah	inc0, inc0, inc05						rotqmbyi	inc16, mask1, -12
+	ah	inc1, inc1, inc15						rotqmbyi	inc26, mask2, -12
+	ah	inc2, inc2, inc25						rotqmbyi	inc07, mask0, -14
+	ah	inc0, inc0, inc06						rotqmbyi	inc17, mask1, -14
+	ah	inc1, inc1, inc16						rotqmbyi	inc27, mask2, -14
+	ah	inc2, inc2, inc26						lnop
+	ah	shufA0, inc0, inc07					lnop
+	ah	shufA1, inc1, inc17					lnop
+	ah	shufA2, inc2, inc27					lnop
+	sfhi	shufA0, shufA0, 0						lnop
+	sfhi	shufA1, shufA1, 0						lnop
+	sfhi	shufA2, shufA2, 0						lnop
+	sfi	ibitCount0, bitCount0, 8					lnop
+	sfi	ibitCount1, bitCount1, 8					lnop
+	sfi	ibitCount2, bitCount2, 8					shufb	_bitCount0, bitCount0, bitCount0, s_BBBBBBBB
+	mpyui	bitStraddle0, ibitCount0, 9				shufb	_bitCount1, bitCount1, bitCount1, s_BBBBBBBB
+	mpyui	bitStraddle1, ibitCount1, 9				shufb	_bitCount2, bitCount2, bitCount2, s_BBBBBBBB
+	mpyui	bitStraddle2, ibitCount2, 9				lnop
+
+	nop								rotqmbyi	inc01, imask0, -2
+	nop								rotqmbyi	inc11, imask1, -2
+	nop								rotqmbyi	inc21, imask2, -2
+	nop								rotqmbyi	inc02, imask0, -4
+	ah	inc0, inc01, imask0					rotqmbyi	inc12, imask1, -4
+	ah	inc1, inc11, imask1					rotqmbyi	inc22, imask2, -4
+	ah	inc2, inc21, imask2					rotqmbyi	inc03, imask0, -6
+	ah	inc0, inc0, inc02						rotqmbyi	inc13, imask1, -6
+	ah	inc1, inc1, inc12						rotqmbyi	inc23, imask2, -6
+	ah	inc2, inc2, inc22						rotqmbyi	inc04, imask0, -8
+	ah	inc0, inc0, inc03						rotqmbyi	inc14, imask1, -8
+	ah	inc1, inc1, inc13						rotqmbyi	inc24, imask2, -8
+	ah	inc2, inc2, inc23						rotqmbyi	inc05, imask0, -10
+	ah	inc0, inc0, inc04						rotqmbyi	inc15, imask1, -10
+	ah	inc1, inc1, inc14						rotqmbyi	inc25, imask2, -10
+	ah	inc2, inc2, inc24						rotqmbyi	inc06, imask0, -12
+	ah	inc0, inc0, inc05						rotqmbyi	inc16, imask1, -12
+	ah	inc1, inc1, inc15						rotqmbyi	inc26, imask2, -12
+	ah	inc2, inc2, inc25						rotqmbyi	inc07, imask0, -14
+	ah	inc0, inc0, inc06						rotqmbyi	inc17, imask1, -14
+	ah	inc1, inc1, inc16						rotqmbyi	inc27, imask2, -14
+	ah	inc2, inc2, inc26						lnop
+	ah	shufB0, inc0, inc07					lnop
+	ah	shufB1, inc1, inc17					lnop
+	ah	shufB2, inc2, inc27					lnop
+
+; compose triangle indices and compose store offsets
+; 0 0 0 1 0 1 1 1
+; 0 0 0 1 1 2 3 4
+; 0 0 0 0 1 1 2 3 + 4
+;
+; 1 0 0 1 1 1 0 0
+; 1 1 1 2 3 4 4 4
+; 0 1 1 1 2 3 4 4 + 4
+;
+; 1 1 1 1 0 0 0 0
+; 1 2 3 4 4 4 4 4
+; 0 1 2 3 4 4 4 4 + 4
+	nop								rotqmbyi	soff2, shufB0, -2
+	nop								rotqmbyi	soff10, shufB1, -2
+	nop								rotqmbyi	soff18, shufB2, -2
+	nop								lnop
+	sfh	soff2, soff2, newIndices					lnop
+	sfh	shufB0, shufB0, newIndices					lnop
+	ah	newIndices, newIndices, _bitCount0				lnop
+	nop								lnop
+	sfh	soff10, soff10, newIndices					lnop
+	sfh	shufB1, shufB1, newIndices					lnop
+	ah	newIndices, newIndices, _bitCount1				lnop
+	nop								lnop
+	sfh	soff18, soff18, newIndices					shlqbii	soff2, soff2, 4
+	sfh	shufB2, shufB2, newIndices					shlqbii	soff10, soff10, 4
+	ah	newIndices, newIndices, _bitCount2				shlqbii	soff18, soff18, 4
+
+; shuffle masks are in the form 0 0 0 1 1 2 3 4 but we want it like 01 01 01 23 23 45 67 89 so we *2, <<8, +1 and or together
+	ah	shufA0, shufA0, shufA0					lnop
+	ah	shufA1, shufA1, shufA1					lnop
+	ah	shufA2, shufA2, shufA2					shlqbyi	_shufA0, shufA0, 1
+	ahi	shufA0, shufA0, 1						shlqbyi	_shufA1, shufA1, 1
+	ahi	shufA1, shufA1, 1						shlqbyi	_shufA2, shufA2, 1
+	ahi	shufA2, shufA2, 1						lnop
+	or	shufA0, shufA0, _shufA0					lnop
+	or	shufA1, shufA1, _shufA1					lnop
+	or	shufA2, shufA2, _shufA2					lnop
+
+; 9bits
+; 000000001 111111122 222222333 333334444 444455555 555666666 667777777 788888888 999999990 000000011 111111222 222223333 333344444 44455555555
+; 111111111 111111111 111111111 111111111 111111111 111111111 111111111 111111111 111111111 111111111 111111111 111111111 111111111 111111111
+
+;       0000000000000000 1111111111111111 2222222222222222 3333333333333333 4444444444444444 5555555555555555 6666666666666666 7777777777777777
+;-      0000000001111111 1122222222233333 3333444444444555 5555556666666667 77777777
+;0 ->>7        000000000 1111111112222222 2233333333344444 4444555555555666 666666777777777
+;1 0>>7               00 0000000111111111 2222222223333333 3344444444455555 5555666666666777 777777
+;2 1>>7                       00000000011 1111111222222222 3333333334444444 4455555555566666 6666777777777
+;3 2>>7                              0000 0000011111111122 2222222333333333 4444444445555555 5566666666677777 7777
+;4 3>>7                                      0000000001111 1111122222222233 3333333444444444 5555555556666666 66777777777
+;5 4>>7                                             000000 0001111111112222 2222233333333344 4444444555555555 6666666667777777 77
+;6 5>>7                                                     000000000111111 1112222222223333 3333344444444455 5555555666666666 777777777
+;7 6>>7                                                            00000000 0111111111222222 2223333333334444 4444455555555566 6666666777777777
+; 
+; 01234567
+; abcdefgh
+
+; read 8 sets of 9bit indices from the bitstream
+	rotmai	byteOffset0, bitOffset, -3					lnop
+	andi	bitShift, bitOffset, 7					lnop
+	nop								lnop
+	nop								lnop
+	ai	byteOffset1, byteOffset0, 0x10				lqx	indexBits0, pIndexBitstream, byteOffset0
+	andi	byteShift, byteOffset0, 0xf				lnop
+	a	bitOffset, bitOffset, bitStraddle0				lqx	indexBits1, pIndexBitstream, byteOffset1
+	nop								shufb	mask, byteShift, byteShift, s_DDDDDDDDDDDDDDDD
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	a	mask, s_ABCD, mask					lnop
+	nop								lnop
+	nop								shufb	indexBits, indexBits0, indexBits1, mask
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	shl	indexBits, indexBits, bitShift				lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; shuffle bitstream into halfword positions
+	nop								rotqmbii	data0, indexBits, -7
+	nop								shufb	data2, indexBits, indexBits, s_00B0C0D0
+	nop								lnop
+	nop								lnop
+	nop								shufb	data1, data0, data0, s_0B0C0D0E
+	rotmai data4, data2, -3						lnop
+	rotmai data6, data2, -1						lnop
+	rotmai data2, data2, -5						lnop
+	rotmai data7, data1, -1						lnop
+	rotmai data5, data1, -3						shufb	data04, data0, data4, s_A000e000
+	rotmai data3, data1, -5						lnop
+	rotmai data1, data1, -7						shufb	data26, data2, data6, s_00C000g0
+	nop								lnop
+	nop								shufb	data57, data5, data7, s_00000F0h
+	nop								lnop
+	nop								shufb	data13, data1, data3, s_0B0d0000
+	nop								lnop
+	nop								shufb	data0426, data04, data26, s_A0c0E0g0
+	nop								lnop
+	nop								shufb	data5713, data57, data13, s_0b0d0F0H
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								shufb	c_1, data0426, data5713, s_AbCdEfGh
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	and	c_1, c_1, dataMask					lnop
+
+; read 8 sets of 9bit indices from the bitstream
+	rotmai	byteOffset0, bitOffset, -3					lnop
+	andi	bitShift, bitOffset, 7					lnop
+	nop								lnop
+	nop								lnop
+	ai	byteOffset1, byteOffset0, 0x10				lqx	indexBits0, pIndexBitstream, byteOffset0
+	andi	byteShift, byteOffset0, 0xf				lnop
+	a	bitOffset, bitOffset, bitStraddle1				lqx	indexBits1, pIndexBitstream, byteOffset1
+	nop								shufb	mask, byteShift, byteShift, s_DDDDDDDDDDDDDDDD
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	a	mask, s_ABCD, mask					lnop
+	nop								lnop
+	nop								shufb	indexBits, indexBits0, indexBits1, mask
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	shl	indexBits, indexBits, bitShift				lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; shuffle bitstream into halfword positions
+	nop								rotqmbii	data0, indexBits, -7
+	nop								shufb	data2, indexBits, indexBits, s_00B0C0D0
+	nop								lnop
+	nop								lnop
+	nop								shufb	data1, data0, data0, s_0B0C0D0E
+	rotmai data4, data2, -3						lnop
+	rotmai data6, data2, -1						lnop
+	rotmai data2, data2, -5						lnop
+	rotmai data7, data1, -1						lnop
+	rotmai data5, data1, -3						shufb	data04, data0, data4, s_A000e000
+	rotmai data3, data1, -5						lnop
+	rotmai data1, data1, -7						shufb	data26, data2, data6, s_00C000g0
+	nop								lnop
+	nop								shufb	data57, data5, data7, s_00000F0h
+	nop								lnop
+	nop								shufb	data13, data1, data3, s_0B0d0000
+	nop								lnop
+	nop								shufb	data0426, data04, data26, s_A0c0E0g0
+	nop								lnop
+	nop								shufb	data5713, data57, data13, s_0b0d0F0H
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								shufb	c_2, data0426, data5713, s_AbCdEfGh
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	and	c_2, c_2, dataMask					lnop
+
+; read 8 sets of 9bit indices from the bitstream
+	rotmai	byteOffset0, bitOffset, -3					lnop
+	andi	bitShift, bitOffset, 7					lnop
+	nop								lnop
+	nop								lnop
+	ai	byteOffset1, byteOffset0, 0x10				lqx	indexBits0, pIndexBitstream, byteOffset0
+	andi	byteShift, byteOffset0, 0xf				lnop
+	a	bitOffset, bitOffset, bitStraddle2				lqx	indexBits1, pIndexBitstream, byteOffset1
+	nop								shufb	mask, byteShift, byteShift, s_DDDDDDDDDDDDDDDD
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	a	mask, s_ABCD, mask					lnop
+	nop								lnop
+	nop								shufb	indexBits, indexBits0, indexBits1, mask
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	shl	indexBits, indexBits, bitShift				lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; shuffle bitstream into halfword positions
+	nop								rotqmbii	data0, indexBits, -7
+	nop								shufb	data2, indexBits, indexBits, s_00B0C0D0
+	nop								lnop
+	nop								lnop
+	nop								shufb	data1, data0, data0, s_0B0C0D0E
+	rotmai data4, data2, -3						lnop
+	rotmai data6, data2, -1						lnop
+	rotmai data2, data2, -5						lnop
+	rotmai data7, data1, -1						lnop
+	rotmai data5, data1, -3						shufb	data04, data0, data4, s_A000e000
+	rotmai data3, data1, -5						lnop
+	rotmai data1, data1, -7						shufb	data26, data2, data6, s_00C000g0
+	nop								lnop
+	nop								shufb	data57, data5, data7, s_00000F0h
+	nop								lnop
+	nop								shufb	data13, data1, data3, s_0B0d0000
+	nop								lnop
+	nop								shufb	data0426, data04, data26, s_A0c0E0g0
+	nop								lnop
+	nop								shufb	data5713, data57, data13, s_0b0d0F0H
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								shufb	c_3, data0426, data5713, s_AbCdEfGh
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	and	c_3, c_3, dataMask					lnop
+
+	nop								shufb	c_1, c_1, c_1, shufA0
+	nop								shufb	c_2, c_2, c_2, shufA1
+	nop								shufb	c_3, c_3, c_3, shufA2
+	nop								lnop
+	selb	c_1, c_1, shufB0, imask0					lnop
+	selb	c_2, c_2, shufB1, imask1					lnop
+	selb	c_3, c_3, shufB2, imask2					lnop
+
+; correctly position child indices
+	nop								shufb	c1, c_1, c_1, s_abcadefd
+	nop								shufb	c2, c_1, c_2, s_GHaGbcdb
+	nop								shufb	c3, c_2, c_3, s_EFGEHabH
+	nop								shufb	c4, c_3, c_3, s_cdecfghf
+
+; build and store the 32 triangles (8 tri's subdivided into 4)
+; p0 c0 c2 p0	pa ca cc pa
+; p1 c1 c0 p1	pb cb ca pb
+; p2 c2 c1 p2	pc cc cb pc
+; c0 c1 c2 c0	ca cb cc ca
+	nop								shufb	out1, p1, c1, s_AacAEegE
+	nop								shufb	out2, p1, c1, s_BbaBFfeF
+	nop								shufb	out3, p1, c1, s_CcbCGgfG
+	nop								shufb	out4, p1, c1, s_abcaefge
+	nop								shufb	out5, p2, c2, s_AacAEegE
+	nop								shufb	out6, p2, c2, s_BbaBFfeF
+	nop								shufb	out7, p2, c2, s_CcbCGgfG
+	nop								shufb	out8, p2, c2, s_abcaefge
+	nop								shufb	out9, p3, c3, s_AacAEegE
+	nop								shufb	out10, p3, c3, s_BbaBFfeF
+	nop								shufb	out11, p3, c3, s_CcbCGgfG
+	nop								shufb	out12, p3, c3, s_abcaefge
+	nop								shufb	out13, p4, c4, s_AacAEegE
+	nop								shufb	out14, p4, c4, s_BbaBFfeF
+	nop								shufb	out15, p4, c4, s_CcbCGgfG
+	nop								shufb	out16, p4, c4, s_abcaefge
+	nop								stqd	out1, 0x00(pOut)
+	nop								stqd	out2, 0x10(pOut)
+	nop								stqd	out3, 0x20(pOut)
+	nop								stqd	out4, 0x30(pOut)
+	nop								stqd	out5, 0x40(pOut)
+	nop								stqd	out6, 0x50(pOut)
+	nop								stqd	out7, 0x60(pOut)
+	nop								stqd	out8, 0x70(pOut)
+	nop								stqd	out9, 0x80(pOut)
+	nop								stqd	out10, 0x90(pOut)
+	nop								stqd	out11, 0xa0(pOut)
+	nop								stqd	out12, 0xb0(pOut)
+	nop								stqd	out13, 0xc0(pOut)
+	nop								stqd	out14, 0xd0(pOut)
+	nop								stqd	out15, 0xe0(pOut)
+	nop								stqd	out16, 0xf0(pOut)
+	ai	pOut, pOut, 0x100						lnop
+
+; process parent table
+	nop								shlqbyi	_tri0Bits, tri0Bits, 3
+	nop								shlqbyi	_tri1Bits, tri1Bits, 3
+	nop								shlqbyi	_tri2Bits, tri2Bits, 3
+	nop								shufb	pl1, p1, p2, s_ABCEFGab
+	clz	cnt01, _tri0Bits						shufb	pl2, p2, p3, s_CEFGabce
+	clz	cnt11, _tri1Bits						shufb	pl3, p3, p4, s_FGabcefg
+	clz	cnt21, _tri2Bits						lnop
+	a	cnt01, cnt01, cnt01					lnop
+	a	cnt11, cnt11, cnt11					lnop
+	a	cnt21, cnt21, cnt21					shlqby	ptbl0_0, pl1, cnt01
+	andbi	_tri0Bits, _tri0Bits, 0x7f					shlqby	ptbl1_0, pl2, cnt11
+	andbi	_tri1Bits, _tri1Bits, 0x7f					shlqby	ptbl2_0, pl3, cnt21
+	andbi	_tri2Bits, _tri2Bits, 0x7f					lnop
+	clz	cnt02, _tri0Bits						lnop
+	clz	cnt12, _tri1Bits						lnop
+	clz	cnt22, _tri2Bits						lnop
+	a	cnt02, cnt02, cnt02					lnop
+	a	cnt12, cnt12, cnt12					lnop
+	a	cnt22, cnt22, cnt22					shlqby	ptbl0_1, pl1, cnt02
+	andbi	_tri0Bits, _tri0Bits, 0x3f					shlqby	ptbl1_1, pl2, cnt12
+	andbi	_tri1Bits, _tri1Bits, 0x3f					shlqby	ptbl2_1, pl3, cnt22
+	andbi	_tri2Bits, _tri2Bits, 0x3f					lnop
+	clz	cnt03, _tri0Bits						lnop
+	clz	cnt13, _tri1Bits						lnop
+	clz	cnt23, _tri2Bits						lnop
+	a	cnt03, cnt03, cnt03					lnop
+	a	cnt13, cnt13, cnt13					lnop
+	a	cnt23, cnt23, cnt23					shlqby	ptbl0_2, pl1, cnt03
+	andbi	_tri0Bits, _tri0Bits, 0x1f					shlqby	ptbl1_2, pl2, cnt13
+	andbi	_tri1Bits, _tri1Bits, 0x1f					shlqby	ptbl2_2, pl3, cnt23
+	andbi	_tri2Bits, _tri2Bits, 0x1f					lnop
+	clz	cnt04, _tri0Bits						lnop
+	clz	cnt14, _tri1Bits						lnop
+	clz	cnt24, _tri2Bits						lnop
+	a	cnt04, cnt04, cnt04					lnop
+	a	cnt14, cnt14, cnt14					lnop
+	a	cnt24, cnt24, cnt24					shlqby	ptbl0_3, pl1, cnt04
+	andbi	_tri0Bits, _tri0Bits, 0x0f					shlqby	ptbl1_3, pl2, cnt14
+	andbi	_tri1Bits, _tri1Bits, 0x0f					shlqby	ptbl2_3, pl3, cnt24
+	andbi	_tri2Bits, _tri2Bits, 0x0f					lnop
+	clz	cnt05, _tri0Bits						lnop
+	clz	cnt15, _tri1Bits						lnop
+	clz	cnt25, _tri2Bits						lnop
+	a	cnt05, cnt05, cnt05					lnop
+	a	cnt15, cnt15, cnt15					lnop
+	a	cnt25, cnt25, cnt25					shlqby	ptbl0_4, pl1, cnt05
+	andbi	_tri0Bits, _tri0Bits, 0x07					shlqby	ptbl1_4, pl2, cnt15
+	andbi	_tri1Bits, _tri1Bits, 0x07					shlqby	ptbl2_4, pl3, cnt25
+	andbi	_tri2Bits, _tri2Bits, 0x07					lnop
+	clz	cnt06, _tri0Bits						lnop
+	clz	cnt16, _tri1Bits						lnop
+	clz	cnt26, _tri2Bits						lnop
+	a	cnt06, cnt06, cnt06					lnop
+	a	cnt16, cnt16, cnt16					lnop
+	a	cnt26, cnt26, cnt26					shlqby	ptbl0_5, pl1, cnt06
+	andbi	_tri0Bits, _tri0Bits, 0x03					shlqby	ptbl1_5, pl2, cnt16
+	andbi	_tri1Bits, _tri1Bits, 0x03					shlqby	ptbl2_5, pl3, cnt26
+	andbi	_tri2Bits, _tri2Bits, 0x03					lnop
+	clz	cnt07, _tri0Bits						lnop
+	clz	cnt17, _tri1Bits						lnop
+	clz	cnt27, _tri2Bits						lnop
+	a	cnt07, cnt07, cnt07					lnop
+	a	cnt17, cnt17, cnt17					lnop
+	a	cnt27, cnt27, cnt27					shlqby	ptbl0_6, pl1, cnt07
+	andbi	_tri0Bits, _tri0Bits, 0x01					shlqby	ptbl1_6, pl2, cnt17
+	andbi	_tri1Bits, _tri1Bits, 0x01					shlqby	ptbl2_6, pl3, cnt27
+	andbi	_tri2Bits, _tri2Bits, 0x01					lnop
+	clz	cnt08, _tri0Bits						lnop
+	clz	cnt18, _tri1Bits						lnop
+	clz	cnt28, _tri2Bits						lnop
+	a	cnt08, cnt08, cnt08					lnop
+	a	cnt18, cnt18, cnt18					lnop
+	a	cnt28, cnt28, cnt28					shlqby	ptbl0_7, pl1, cnt08
+	nop								shlqby	ptbl1_7, pl2, cnt18
+	nop								shlqby	ptbl2_7, pl3, cnt28
+	nop								shufb	ptbl0, ptbl0_0, ptbl0_1, s_Aa000000
+	nop								shufb	ptbl1, ptbl1_0, ptbl1_1, s_Aa000000
+	nop								shufb	ptbl2, ptbl2_0, ptbl2_1, s_Aa000000
+	nop								lnop
+	nop								shufb	ptbl0, ptbl0, ptbl0_2, s_ABa00000
+	nop								shufb	ptbl1, ptbl1, ptbl1_2, s_ABa00000
+	nop								shufb	ptbl2, ptbl2, ptbl2_2, s_ABa00000
+	nop								lnop
+	nop								shufb	ptbl0, ptbl0, ptbl0_3, s_ABCa0000
+	nop								shufb	ptbl1, ptbl1, ptbl1_3, s_ABCa0000
+	nop								shufb	ptbl2, ptbl2, ptbl2_3, s_ABCa0000
+	nop								lnop
+	nop								shufb	ptbl0, ptbl0, ptbl0_4, s_ABCDa000
+	nop								shufb	ptbl1, ptbl1, ptbl1_4, s_ABCDa000
+	nop								shufb	ptbl2, ptbl2, ptbl2_4, s_ABCDa000
+	nop								lnop
+	nop								shufb	ptbl0, ptbl0, ptbl0_5, s_ABCDEa00
+	nop								shufb	ptbl1, ptbl1, ptbl1_5, s_ABCDEa00
+	nop								shufb	ptbl2, ptbl2, ptbl2_5, s_ABCDEa00
+	nop								lnop
+	nop								shufb	ptbl0, ptbl0, ptbl0_6, s_ABCDEFa0
+	nop								shufb	ptbl1, ptbl1, ptbl1_6, s_ABCDEFa0
+	nop								shufb	ptbl2, ptbl2, ptbl2_6, s_ABCDEFa0
+	nop								lnop
+	nop								shufb	ptbl0, ptbl0, ptbl0_7, s_ABCDEFGa
+	nop								shufb	ptbl1, ptbl1, ptbl1_7, s_ABCDEFGa
+	nop								shufb	ptbl2, ptbl2, ptbl2_7, s_ABCDEFGa
+
+; store new indices parent stream
+	andi	ptblByteOffset, ptblOffset, 0xf				lqx	ptblRead, pTblOut, ptblOffset
+	ai	ptblOffset10, ptblOffset, 0x10				lnop
+	sfi	_ptblByteOffset, ptblByteOffset, 0				lnop
+	sfi	ptblByteOffset, ptblByteOffset, 16				lnop
+	nop								rotqmby	ptblLow, ptbl0, _ptblByteOffset
+	nop								shlqby	ptblHi, ptbl0, ptblByteOffset
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	or	ptblLow, ptblRead, ptblLow					lnop
+	nop								lnop
+	nop								stqx	ptblLow, pTblOut, ptblOffset
+	a	ptblOffset, ptblOffset, bitCount0				stqx	ptblHi, pTblOut, ptblOffset10
+	nop								lnop
+	a	ptblOffset, ptblOffset, bitCount0				lnop
+	nop								lnop
+
+	andi	ptblByteOffset, ptblOffset, 0xf				lqx	ptblRead, pTblOut, ptblOffset
+	ai	ptblOffset10, ptblOffset, 0x10				lnop
+	sfi	_ptblByteOffset, ptblByteOffset, 0				lnop
+	sfi	ptblByteOffset, ptblByteOffset, 16				lnop
+	nop								rotqmby	ptblLow, ptbl1, _ptblByteOffset
+	nop								shlqby	ptblHi, ptbl1, ptblByteOffset
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	or	ptblLow, ptblRead, ptblLow					lnop
+	nop								lnop
+	nop								stqx	ptblLow, pTblOut, ptblOffset
+	a	ptblOffset, ptblOffset, bitCount1				stqx	ptblHi, pTblOut, ptblOffset10
+	nop								lnop
+	a	ptblOffset, ptblOffset, bitCount1				lnop
+	nop								lnop
+
+	andi	ptblByteOffset, ptblOffset, 0xf				lqx	ptblRead, pTblOut, ptblOffset
+	ai	ptblOffset10, ptblOffset, 0x10				lnop
+	sfi	_ptblByteOffset, ptblByteOffset, 0				lnop
+	sfi	ptblByteOffset, ptblByteOffset, 16				lnop
+	nop								rotqmby	ptblLow, ptbl2, _ptblByteOffset
+	nop								shlqby	ptblHi, ptbl2, ptblByteOffset
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	or	ptblLow, ptblRead, ptblLow					lnop
+	nop								lnop
+	nop								stqx	ptblLow, pTblOut, ptblOffset
+	a	ptblOffset, ptblOffset, bitCount2				stqx	ptblHi, pTblOut, ptblOffset10
+	nop								lnop
+	a	ptblOffset, ptblOffset, bitCount2				lnop
+
+; split indices into their own registers
+	rotmi	soff1, soff2, -16						shlqbyi	soff4, soff2, 4
+	rotmi	soff9, soff10, -16					shlqbyi	soff12, soff10, 4
+	rotmi	soff17, soff18, -16					shlqbyi	soff20, soff18, 4
+	rotmi	soff3, soff4, -16						shlqbyi	soff6, soff2, 8
+	rotmi	soff11, soff12, -16					shlqbyi	soff14, soff10, 8
+	rotmi	soff19, soff20, -16					shlqbyi	soff22, soff18, 8
+	rotmi	soff5, soff6, -16						shlqbyi	soff8, soff2, 12
+	rotmi	soff13, soff14, -16					shlqbyi	soff16, soff10, 12
+	rotmi	soff21, soff22, -16					shlqbyi	soff24, soff18, 12
+	rotmi	soff7, soff8, -16						lnop
+	rotmi	soff15, soff16, -16					lnop
+	rotmi	soff23, soff24, -16					lnop
+
+	ai	tmp, UniformTableCount, -1					lqd	pUniformTable1, 0x00(pUniformTable)
+	nop								lqd	pUniformTable2, 0x04(pUniformTable)
+	shli	tmp, tmp, 2						lqd	pUniformTable3, 0x08(pUniformTable)
+	nop								lqd	pUniformTable4, 0x0c(pUniformTable)
+	nop								lqd	pUniformTable5, 0x10(pUniformTable)
+	nop								lqd	pUniformTable6, 0x14(pUniformTable)
+	a	_pUniformTable, pUniformTable, tmp				lqd	pUniformTable7, 0x18(pUniformTable)
+	nop								lqd	pUniformTable8, 0x1c(pUniformTable)
+	ori	_UniformTableCount, UniformTableCount, 0			lqd	pUniformTableN, 0x00(_pUniformTable)
+
+	cgthi	test, tmp, 8*4						lqx	utbl0_0, _pUniformTable, p0_0
+	il	tmp2, 8*4						lqx	utbl0_1, _pUniformTable, p1
+	ila	jumpTable, jumpTable					lqx	utbl0_2, _pUniformTable, p0_2
+	nop								lqx	utbl1_0, _pUniformTable, p1_0
+	nop								lqx	utbl1_1, _pUniformTable, p1_1
+	nop								lqx	utbl1_2, _pUniformTable, p1_2
+	selb	jumpOffset, tmp, tmp2, test				lqx	utbl2_0, _pUniformTable, p2_0
+	fa	c0_0, utbl0_0, utbl0_1					lqx	utbl2_1, _pUniformTable, p2
+	fa	c0_1, utbl0_1, utbl0_2					lqx	utbl2_2, _pUniformTable, p2_2
+	fa	c0_2, utbl0_0, utbl0_2					lqx	utbl3_0, _pUniformTable, p3_0
+	fa	c1_0, utbl1_0, utbl1_1					lqx	utbl3_1, _pUniformTable, p3_1
+	fa	c1_1, utbl1_1, utbl1_2					lqx	utbl3_2, _pUniformTable, p3_2
+	fa	c1_2, utbl1_0, utbl1_2					lqx	utbl4_0, _pUniformTable, p4_0
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, _pUniformTable, p3
+	nop								lqx	jump, jumpTable, jumpOffset
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, _pUniformTable, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, _pUniformTable, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, _pUniformTable, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, _pUniformTable, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, _pUniformTable, p6_0
+	nop								shlqby	jump, jump, jumpOffset
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, _pUniformTable, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, _pUniformTable, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, _pUniformTable, p7_0
+	nop								hbr	jumpBrn, jump
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, _pUniformTable, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, _pUniformTable, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lqx	utbl0_0, _pUniformTable, p0_0
+	fa	c6_0, utbl6_0, utbl6_1					lqx	utbl0_1, _pUniformTable, p1
+	fa	c6_1, utbl6_1, utbl6_2					lqx	utbl0_2, _pUniformTable, p0_2
+	fa	c6_2, utbl6_0, utbl6_2					lqx	utbl1_0, _pUniformTable, p1_0
+	fa	c7_0, utbl7_0, utbl7_1					lqx	utbl1_1, _pUniformTable, p1_1
+	fa	c7_1, utbl7_1, utbl7_2					lqx	utbl1_2, _pUniformTable, p1_2
+	fa	c7_2, utbl7_0, utbl7_2					lqx	utbl2_0, _pUniformTable, p2_0
+	fm	_c0_0, c0_0, _0_5						lqx	utbl2_1, _pUniformTable, p2
+	fm	_c0_1, c0_1, _0_5						lqx	utbl2_2, _pUniformTable, p2_2
+	fm	_c0_2, c0_2, _0_5						lqx	utbl3_0, _pUniformTable, p3_0
+	fm	_c1_0, c1_0, _0_5						lqx	utbl3_1, _pUniformTable, p3_1
+	fm	_c1_1, c1_1, _0_5						lqx	utbl3_2, _pUniformTable, p3_2
+	fm	_c1_2, c1_2, _0_5						lqx	utbl4_0, _pUniformTable, p4_0
+	nop							jumpBrn:	bi	jump [loopUTblLoop loopUTbl1 loopUTbl2 loopUTbl3 loopUTbl4 loopUTbl5 loopUTbl6 loopUTbl7 loopUTbl8]
+loopUTblLoop:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTableN, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTableN, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTableN, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTableN, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTableN, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTableN, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTableN, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTableN, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTableN, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTableN, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTableN, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTableN, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTableN, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTableN, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTableN, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTableN, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTableN, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTableN, soff18
+	fa	c0_0, utbl0_0, utbl0_1					stqx	_c6_0, pUniformTableN, soff19
+	fa	c0_1, utbl0_1, utbl0_2					stqx	_c6_1, pUniformTableN, soff20
+	fa	c0_2, utbl0_0, utbl0_2					stqx	_c6_2, pUniformTableN, soff21
+	fa	c1_0, utbl1_0, utbl1_1					stqx	_c7_0, pUniformTableN, soff22
+	fa	c1_1, utbl1_1, utbl1_2					stqx	_c7_1, pUniformTableN, soff23
+	fa	c1_2, utbl1_0, utbl1_2					stqx	_c7_2, pUniformTableN, soff24
+	cgthi	test, _UniformTableCount, 8				lqd	pUniformTableN, 0x00(_pUniformTable)
+	ila	loop, loopUTblLoop					lqd	pUniformTableN2, -4(_pUniformTable)
+	ila	exit, loopUTbl8						lnop
+	ai	_pUniformTable, _pUniformTable, -4				lnop
+	selb	loop, exit, loop, test					lnop
+	nop								lnop
+	nop								hbr	loopUTblBrn, loop
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, pUniformTableN, p3
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, pUniformTableN, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, pUniformTableN, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, pUniformTableN, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, pUniformTableN, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, pUniformTableN, p6_0
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, pUniformTableN, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, pUniformTableN, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, pUniformTableN, p7_0
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, pUniformTableN, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, pUniformTableN, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lqx	utbl0_0, pUniformTableN2, p0_0
+	fa	c6_0, utbl6_0, utbl6_1					lqx	utbl0_1, pUniformTableN2, p1
+	fa	c6_1, utbl6_1, utbl6_2					lqx	utbl0_2, pUniformTableN2, p0_2
+	fa	c6_2, utbl6_0, utbl6_2					lqx	utbl1_0, pUniformTableN2, p1_0
+	fa	c7_0, utbl7_0, utbl7_1					lqx	utbl1_1, pUniformTableN2, p1_1
+	fa	c7_1, utbl7_1, utbl7_2					lqx	utbl1_2, pUniformTableN2, p1_2
+	fa	c7_2, utbl7_0, utbl7_2					lqx	utbl2_0, pUniformTableN2, p2_0
+	fm	_c0_0, c0_0, _0_5						lqx	utbl2_1, pUniformTableN2, p2
+	fm	_c0_1, c0_1, _0_5						lqx	utbl2_2, pUniformTableN2, p2_2
+	fm	_c0_2, c0_2, _0_5						lqx	utbl3_0, pUniformTableN2, p3_0
+	fm	_c1_0, c1_0, _0_5						lqx	utbl3_1, pUniformTableN2, p3_1
+	fm	_c1_1, c1_1, _0_5						lqx	utbl3_2, pUniformTableN2, p3_2
+	fm	_c1_2, c1_2, _0_5						lqx	utbl4_0, pUniformTableN2, p4_0
+	ai	_UniformTableCount, _UniformTableCount, -1	loopUTblBrn:	bi	loop [loopUTblLoop loopUTbl8]
+loopUTbl8:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTable8, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTable8, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTable8, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTable8, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTable8, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTable8, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTable8, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTable8, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTable8, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTable8, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTable8, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTable8, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTable8, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTable8, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTable8, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTable8, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTable8, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTable8, soff18
+	fa	c0_0, utbl0_0, utbl0_1					stqx	_c6_0, pUniformTable8, soff19
+	fa	c0_1, utbl0_1, utbl0_2					stqx	_c6_1, pUniformTable8, soff20
+	fa	c0_2, utbl0_0, utbl0_2					stqx	_c6_2, pUniformTable8, soff21
+	fa	c1_0, utbl1_0, utbl1_1					stqx	_c7_0, pUniformTable8, soff22
+	fa	c1_1, utbl1_1, utbl1_2					stqx	_c7_1, pUniformTable8, soff23
+	fa	c1_2, utbl1_0, utbl1_2					stqx	_c7_2, pUniformTable8, soff24
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, pUniformTable7, p3
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, pUniformTable7, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, pUniformTable7, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, pUniformTable7, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, pUniformTable7, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, pUniformTable7, p6_0
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, pUniformTable7, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, pUniformTable7, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, pUniformTable7, p7_0
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, pUniformTable7, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, pUniformTable7, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lqx	utbl0_0, pUniformTable6, p0_0
+	fa	c6_0, utbl6_0, utbl6_1					lqx	utbl0_1, pUniformTable6, p1
+	fa	c6_1, utbl6_1, utbl6_2					lqx	utbl0_2, pUniformTable6, p0_2
+	fa	c6_2, utbl6_0, utbl6_2					lqx	utbl1_0, pUniformTable6, p1_0
+	fa	c7_0, utbl7_0, utbl7_1					lqx	utbl1_1, pUniformTable6, p1_1
+	fa	c7_1, utbl7_1, utbl7_2					lqx	utbl1_2, pUniformTable6, p1_2
+	fa	c7_2, utbl7_0, utbl7_2					lqx	utbl2_0, pUniformTable6, p2_0
+	fm	_c0_0, c0_0, _0_5						lqx	utbl2_1, pUniformTable6, p2
+	fm	_c0_1, c0_1, _0_5						lqx	utbl2_2, pUniformTable6, p2_2
+	fm	_c0_2, c0_2, _0_5						lqx	utbl3_0, pUniformTable6, p3_0
+	fm	_c1_0, c1_0, _0_5						lqx	utbl3_1, pUniformTable6, p3_1
+	fm	_c1_1, c1_1, _0_5						lqx	utbl3_2, pUniformTable6, p3_2
+	fm	_c1_2, c1_2, _0_5						lqx	utbl4_0, pUniformTable6, p4_0
+loopUTbl7:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTable7, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTable7, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTable7, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTable7, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTable7, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTable7, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTable7, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTable7, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTable7, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTable7, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTable7, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTable7, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTable7, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTable7, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTable7, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTable7, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTable7, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTable7, soff18
+	fa	c0_0, utbl0_0, utbl0_1					stqx	_c6_0, pUniformTable7, soff19
+	fa	c0_1, utbl0_1, utbl0_2					stqx	_c6_1, pUniformTable7, soff20
+	fa	c0_2, utbl0_0, utbl0_2					stqx	_c6_2, pUniformTable7, soff21
+	fa	c1_0, utbl1_0, utbl1_1					stqx	_c7_0, pUniformTable7, soff22
+	fa	c1_1, utbl1_1, utbl1_2					stqx	_c7_1, pUniformTable7, soff23
+	fa	c1_2, utbl1_0, utbl1_2					stqx	_c7_2, pUniformTable7, soff24
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, pUniformTable6, p3
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, pUniformTable6, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, pUniformTable6, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, pUniformTable6, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, pUniformTable6, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, pUniformTable6, p6_0
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, pUniformTable6, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, pUniformTable6, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, pUniformTable6, p7_0
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, pUniformTable6, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, pUniformTable6, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lqx	utbl0_0, pUniformTable5, p0_0
+	fa	c6_0, utbl6_0, utbl6_1					lqx	utbl0_1, pUniformTable5, p1
+	fa	c6_1, utbl6_1, utbl6_2					lqx	utbl0_2, pUniformTable5, p0_2
+	fa	c6_2, utbl6_0, utbl6_2					lqx	utbl1_0, pUniformTable5, p1_0
+	fa	c7_0, utbl7_0, utbl7_1					lqx	utbl1_1, pUniformTable5, p1_1
+	fa	c7_1, utbl7_1, utbl7_2					lqx	utbl1_2, pUniformTable5, p1_2
+	fa	c7_2, utbl7_0, utbl7_2					lqx	utbl2_0, pUniformTable5, p2_0
+	fm	_c0_0, c0_0, _0_5						lqx	utbl2_1, pUniformTable5, p2
+	fm	_c0_1, c0_1, _0_5						lqx	utbl2_2, pUniformTable5, p2_2
+	fm	_c0_2, c0_2, _0_5						lqx	utbl3_0, pUniformTable5, p3_0
+	fm	_c1_0, c1_0, _0_5						lqx	utbl3_1, pUniformTable5, p3_1
+	fm	_c1_1, c1_1, _0_5						lqx	utbl3_2, pUniformTable5, p3_2
+	fm	_c1_2, c1_2, _0_5						lqx	utbl4_0, pUniformTable5, p4_0
+loopUTbl6:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTable6, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTable6, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTable6, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTable6, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTable6, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTable6, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTable6, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTable6, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTable6, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTable6, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTable6, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTable6, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTable5, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTable5, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTable5, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTable5, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTable5, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTable5, soff18
+	fa	c0_0, utbl0_0, utbl0_1					stqx	_c6_0, pUniformTable5, soff19
+	fa	c0_1, utbl0_1, utbl0_2					stqx	_c6_1, pUniformTable5, soff20
+	fa	c0_2, utbl0_0, utbl0_2					stqx	_c6_2, pUniformTable5, soff21
+	fa	c1_0, utbl1_0, utbl1_1					stqx	_c7_0, pUniformTable5, soff22
+	fa	c1_1, utbl1_1, utbl1_2					stqx	_c7_1, pUniformTable5, soff23
+	fa	c1_2, utbl1_0, utbl1_2					stqx	_c7_2, pUniformTable5, soff24
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, pUniformTable5, p3
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, pUniformTable5, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, pUniformTable5, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, pUniformTable5, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, pUniformTable5, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, pUniformTable5, p6_0
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, pUniformTable5, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, pUniformTable5, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, pUniformTable5, p7_0
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, pUniformTable5, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, pUniformTable5, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lqx	utbl0_0, pUniformTable4, p0_0
+	fa	c6_0, utbl6_0, utbl6_1					lqx	utbl0_1, pUniformTable4, p1
+	fa	c6_1, utbl6_1, utbl6_2					lqx	utbl0_2, pUniformTable4, p0_2
+	fa	c6_2, utbl6_0, utbl6_2					lqx	utbl1_0, pUniformTable4, p1_0
+	fa	c7_0, utbl7_0, utbl7_1					lqx	utbl1_1, pUniformTable4, p1_1
+	fa	c7_1, utbl7_1, utbl7_2					lqx	utbl1_2, pUniformTable4, p1_2
+	fa	c7_2, utbl7_0, utbl7_2					lqx	utbl2_0, pUniformTable4, p2_0
+	fm	_c0_0, c0_0, _0_5						lqx	utbl2_1, pUniformTable4, p2
+	fm	_c0_1, c0_1, _0_5						lqx	utbl2_2, pUniformTable4, p2_2
+	fm	_c0_2, c0_2, _0_5						lqx	utbl3_0, pUniformTable4, p3_0
+	fm	_c1_0, c1_0, _0_5						lqx	utbl3_1, pUniformTable4, p3_1
+	fm	_c1_1, c1_1, _0_5						lqx	utbl3_2, pUniformTable4, p3_2
+	fm	_c1_2, c1_2, _0_5						lqx	utbl4_0, pUniformTable4, p4_0
+loopUTbl5:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTable5, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTable5, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTable5, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTable5, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTable5, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTable5, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTable5, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTable5, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTable5, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTable5, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTable5, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTable5, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTable5, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTable5, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTable5, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTable5, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTable5, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTable5, soff18
+	fa	c0_0, utbl0_0, utbl0_1					stqx	_c6_0, pUniformTable5, soff19
+	fa	c0_1, utbl0_1, utbl0_2					stqx	_c6_1, pUniformTable5, soff20
+	fa	c0_2, utbl0_0, utbl0_2					stqx	_c6_2, pUniformTable5, soff21
+	fa	c1_0, utbl1_0, utbl1_1					stqx	_c7_0, pUniformTable5, soff22
+	fa	c1_1, utbl1_1, utbl1_2					stqx	_c7_1, pUniformTable5, soff23
+	fa	c1_2, utbl1_0, utbl1_2					stqx	_c7_2, pUniformTable5, soff24
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, pUniformTable4, p3
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, pUniformTable4, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, pUniformTable4, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, pUniformTable4, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, pUniformTable4, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, pUniformTable4, p6_0
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, pUniformTable4, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, pUniformTable4, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, pUniformTable4, p7_0
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, pUniformTable4, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, pUniformTable4, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lqx	utbl0_0, pUniformTable3, p0_0
+	fa	c6_0, utbl6_0, utbl6_1					lqx	utbl0_1, pUniformTable3, p1
+	fa	c6_1, utbl6_1, utbl6_2					lqx	utbl0_2, pUniformTable3, p0_2
+	fa	c6_2, utbl6_0, utbl6_2					lqx	utbl1_0, pUniformTable3, p1_0
+	fa	c7_0, utbl7_0, utbl7_1					lqx	utbl1_1, pUniformTable3, p1_1
+	fa	c7_1, utbl7_1, utbl7_2					lqx	utbl1_2, pUniformTable3, p1_2
+	fa	c7_2, utbl7_0, utbl7_2					lqx	utbl2_0, pUniformTable3, p2_0
+	fm	_c0_0, c0_0, _0_5						lqx	utbl2_1, pUniformTable3, p2
+	fm	_c0_1, c0_1, _0_5						lqx	utbl2_2, pUniformTable3, p2_2
+	fm	_c0_2, c0_2, _0_5						lqx	utbl3_0, pUniformTable3, p3_0
+	fm	_c1_0, c1_0, _0_5						lqx	utbl3_1, pUniformTable3, p3_1
+	fm	_c1_1, c1_1, _0_5						lqx	utbl3_2, pUniformTable3, p3_2
+	fm	_c1_2, c1_2, _0_5						lqx	utbl4_0, pUniformTable3, p4_0
+loopUTbl4:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTable4, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTable4, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTable4, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTable4, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTable4, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTable4, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTable4, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTable4, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTable4, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTable4, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTable4, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTable4, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTable4, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTable4, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTable4, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTable4, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTable4, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTable4, soff18
+	fa	c0_0, utbl0_0, utbl0_1					stqx	_c6_0, pUniformTable4, soff19
+	fa	c0_1, utbl0_1, utbl0_2					stqx	_c6_1, pUniformTable4, soff20
+	fa	c0_2, utbl0_0, utbl0_2					stqx	_c6_2, pUniformTable4, soff21
+	fa	c1_0, utbl1_0, utbl1_1					stqx	_c7_0, pUniformTable4, soff22
+	fa	c1_1, utbl1_1, utbl1_2					stqx	_c7_1, pUniformTable4, soff23
+	fa	c1_2, utbl1_0, utbl1_2					stqx	_c7_2, pUniformTable4, soff24
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, pUniformTable3, p3
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, pUniformTable3, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, pUniformTable3, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, pUniformTable3, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, pUniformTable3, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, pUniformTable3, p6_0
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, pUniformTable3, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, pUniformTable3, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, pUniformTable3, p7_0
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, pUniformTable3, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, pUniformTable3, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lqx	utbl0_0, pUniformTable2, p0_0
+	fa	c6_0, utbl6_0, utbl6_1					lqx	utbl0_1, pUniformTable2, p1
+	fa	c6_1, utbl6_1, utbl6_2					lqx	utbl0_2, pUniformTable2, p0_2
+	fa	c6_2, utbl6_0, utbl6_2					lqx	utbl1_0, pUniformTable2, p1_0
+	fa	c7_0, utbl7_0, utbl7_1					lqx	utbl1_1, pUniformTable2, p1_1
+	fa	c7_1, utbl7_1, utbl7_2					lqx	utbl1_2, pUniformTable2, p1_2
+	fa	c7_2, utbl7_0, utbl7_2					lqx	utbl2_0, pUniformTable2, p2_0
+	fm	_c0_0, c0_0, _0_5						lqx	utbl2_1, pUniformTable2, p2
+	fm	_c0_1, c0_1, _0_5						lqx	utbl2_2, pUniformTable2, p2_2
+	fm	_c0_2, c0_2, _0_5						lqx	utbl3_0, pUniformTable2, p3_0
+	fm	_c1_0, c1_0, _0_5						lqx	utbl3_1, pUniformTable2, p3_1
+	fm	_c1_1, c1_1, _0_5						lqx	utbl3_2, pUniformTable2, p3_2
+	fm	_c1_2, c1_2, _0_5						lqx	utbl4_0, pUniformTable2, p4_0
+loopUTbl3:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTable3, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTable3, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTable3, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTable3, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTable3, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTable3, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTable3, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTable3, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTable3, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTable3, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTable3, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTable3, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTable3, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTable3, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTable3, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTable3, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTable3, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTable3, soff18
+	fa	c0_0, utbl0_0, utbl0_1					stqx	_c6_0, pUniformTable3, soff19
+	fa	c0_1, utbl0_1, utbl0_2					stqx	_c6_1, pUniformTable3, soff20
+	fa	c0_2, utbl0_0, utbl0_2					stqx	_c6_2, pUniformTable3, soff21
+	fa	c1_0, utbl1_0, utbl1_1					stqx	_c7_0, pUniformTable3, soff22
+	fa	c1_1, utbl1_1, utbl1_2					stqx	_c7_1, pUniformTable3, soff23
+	fa	c1_2, utbl1_0, utbl1_2					stqx	_c7_2, pUniformTable3, soff24
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, pUniformTable2, p3
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, pUniformTable2, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, pUniformTable2, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, pUniformTable2, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, pUniformTable2, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, pUniformTable2, p6_0
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, pUniformTable2, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, pUniformTable2, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, pUniformTable2, p7_0
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, pUniformTable2, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, pUniformTable2, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lqx	utbl0_0, pUniformTable1, p0_0
+	fa	c6_0, utbl6_0, utbl6_1					lqx	utbl0_1, pUniformTable1, p1
+	fa	c6_1, utbl6_1, utbl6_2					lqx	utbl0_2, pUniformTable1, p0_2
+	fa	c6_2, utbl6_0, utbl6_2					lqx	utbl1_0, pUniformTable1, p1_0
+	fa	c7_0, utbl7_0, utbl7_1					lqx	utbl1_1, pUniformTable1, p1_1
+	fa	c7_1, utbl7_1, utbl7_2					lqx	utbl1_2, pUniformTable1, p1_2
+	fa	c7_2, utbl7_0, utbl7_2					lqx	utbl2_0, pUniformTable1, p2_0
+	fm	_c0_0, c0_0, _0_5						lqx	utbl2_1, pUniformTable1, p2
+	fm	_c0_1, c0_1, _0_5						lqx	utbl2_2, pUniformTable1, p2_2
+	fm	_c0_2, c0_2, _0_5						lqx	utbl3_0, pUniformTable1, p3_0
+	fm	_c1_0, c1_0, _0_5						lqx	utbl3_1, pUniformTable1, p3_1
+	fm	_c1_1, c1_1, _0_5						lqx	utbl3_2, pUniformTable1, p3_2
+	fm	_c1_2, c1_2, _0_5						lqx	utbl4_0, pUniformTable1, p4_0
+loopUTbl2:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTable2, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTable2, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTable2, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTable2, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTable2, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTable2, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTable2, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTable2, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTable2, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTable2, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTable2, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTable2, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTable2, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTable2, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTable2, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTable2, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTable2, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTable2, soff18
+	fa	c0_0, utbl0_0, utbl0_1					stqx	_c6_0, pUniformTable2, soff19
+	fa	c0_1, utbl0_1, utbl0_2					stqx	_c6_1, pUniformTable2, soff20
+	fa	c0_2, utbl0_0, utbl0_2					stqx	_c6_2, pUniformTable2, soff21
+	fa	c1_0, utbl1_0, utbl1_1					stqx	_c7_0, pUniformTable2, soff22
+	fa	c1_1, utbl1_1, utbl1_2					stqx	_c7_1, pUniformTable2, soff23
+	fa	c1_2, utbl1_0, utbl1_2					stqx	_c7_2, pUniformTable2, soff24
+	fa	c2_0, utbl2_0, utbl2_1					lqx	utbl4_1, pUniformTable1, p3
+	fa	c2_1, utbl2_1, utbl2_2					lqx	utbl4_2, pUniformTable1, p4_2
+	fa	c2_2, utbl2_0, utbl2_2					lqx	utbl5_0, pUniformTable1, p5_0
+	fa	c3_0, utbl3_0, utbl3_1					lqx	utbl5_1, pUniformTable1, p5_1
+	fa	c3_1, utbl3_1, utbl3_2					lqx	utbl5_2, pUniformTable1, p5_2
+	fa	c3_2, utbl3_0, utbl3_2					lqx	utbl6_0, pUniformTable1, p6_0
+	fa	c4_0, utbl4_0, utbl4_1					lqx	utbl6_1, pUniformTable1, p4
+	fa	c4_1, utbl4_1, utbl4_2					lqx	utbl6_2, pUniformTable1, p6_2
+	fa	c4_2, utbl4_0, utbl4_2					lqx	utbl7_0, pUniformTable1, p7_0
+	fa	c5_0, utbl5_0, utbl5_1					lqx	utbl7_1, pUniformTable1, p7_1
+	fa	c5_1, utbl5_1, utbl5_2					lqx	utbl7_2, pUniformTable1, p7_2
+	fa	c5_2, utbl5_0, utbl5_2					lnop
+	fa	c6_0, utbl6_0, utbl6_1					lnop
+	fa	c6_1, utbl6_1, utbl6_2					lnop
+	fa	c6_2, utbl6_0, utbl6_2					lnop
+	fa	c7_0, utbl7_0, utbl7_1					lnop
+	fa	c7_1, utbl7_1, utbl7_2					lnop
+	fa	c7_2, utbl7_0, utbl7_2					lnop
+	fm	_c0_0, c0_0, _0_5						lnop
+	fm	_c0_1, c0_1, _0_5						lnop
+	fm	_c0_2, c0_2, _0_5						lnop
+	fm	_c1_0, c1_0, _0_5						lnop
+	fm	_c1_1, c1_1, _0_5						lnop
+	fm	_c1_2, c1_2, _0_5						lnop
+loopUTbl1:
+	fm	_c2_0, c2_0, _0_5						stqx	_c0_0, pUniformTable1, soff1
+	fm	_c2_1, c2_1, _0_5						stqx	_c0_1, pUniformTable1, soff2
+	fm	_c2_2, c2_2, _0_5						stqx	_c0_2, pUniformTable1, soff3
+	fm	_c3_0, c3_0, _0_5						stqx	_c1_0, pUniformTable1, soff4
+	fm	_c3_1, c3_1, _0_5						stqx	_c1_1, pUniformTable1, soff5
+	fm	_c3_2, c3_2, _0_5						stqx	_c1_2, pUniformTable1, soff6
+	fm	_c4_0, c4_0, _0_5						stqx	_c2_0, pUniformTable1, soff7
+	fm	_c4_1, c4_1, _0_5						stqx	_c2_1, pUniformTable1, soff8
+	fm	_c4_2, c4_2, _0_5						stqx	_c2_2, pUniformTable1, soff9
+	fm	_c5_0, c5_0, _0_5						stqx	_c3_0, pUniformTable1, soff10
+	fm	_c5_1, c5_1, _0_5						stqx	_c3_1, pUniformTable1, soff11
+	fm	_c5_2, c5_2, _0_5						stqx	_c3_2, pUniformTable1, soff12
+	fm	_c6_0, c6_0, _0_5						stqx	_c4_0, pUniformTable1, soff13
+	fm	_c6_1, c6_1, _0_5						stqx	_c4_1, pUniformTable1, soff14
+	fm	_c6_2, c6_2, _0_5						stqx	_c4_2, pUniformTable1, soff15
+	fm	_c7_0, c7_0, _0_5						stqx	_c5_0, pUniformTable1, soff16
+	fm	_c7_1, c7_1, _0_5						stqx	_c5_1, pUniformTable1, soff17
+	fm	_c7_2, c7_2, _0_5						stqx	_c5_2, pUniformTable1, soff18
+	nop								stqx	_c6_0, pUniformTable1, soff19
+	nop								stqx	_c6_1, pUniformTable1, soff20
+	nop								stqx	_c6_2, pUniformTable1, soff21
+	nop								stqx	_c7_0, pUniformTable1, soff22
+	nop								stqx	_c7_1, pUniformTable1, soff23
+	nop								stqx	_c7_2, pUniformTable1, soff24
+
+;stop
+	ila	loop, loop						lnop
+	ai	triangleCount, triangleCount, -8				lnop
+	ila	exit, exit						lnop
+	ceqi	test, triangleCount, 0					lnop
+	nop								lnop
+	selb	loop, loop, exit, test					lnop
+	nop								lnop
+	nop							loopBrn:	bi	loop [loop exit]
+exit:
+; restore registers from the stack
+	{nop}							{o6}	lqd	$lr,  0x010($sp)
+	{nop}							{o6}	lqd	$80,  0x020($sp)
+	{nop}							{o6}	lqd	$81,  0x030($sp)
+	{nop}							{o6}	lqd	$82,  0x040($sp)
+	{nop}							{o6}	lqd	$83,  0x050($sp)
+	{nop}							{o6}	lqd	$84,  0x060($sp)
+	{nop}							{o6}	lqd	$85,  0x070($sp)
+	{nop}							{o6}	lqd	$86,  0x080($sp)
+	{nop}							{o6}	lqd	$87,  0x090($sp)
+	{nop}							{o6}	lqd	$88,  0x0A0($sp)
+	{nop}							{o6}	lqd	$89,  0x0B0($sp)
+	{nop}							{o6}	lqd	$90,  0x0C0($sp)
+	{nop}							{o6}	lqd	$91,  0x0D0($sp)
+	{nop}							{o6}	lqd	$92,  0x0E0($sp)
+	{nop}							{o6}	lqd	$93,  0x0F0($sp)
+	{nop}							{o6}	lqd	$94,  0x100($sp)
+	{nop}							{o6}	lqd	$95,  0x110($sp)
+	{nop}							{o6}	lqd	$96,  0x120($sp)
+	{nop}							{o6}	lqd	$97,  0x130($sp)
+	{nop}							{o6}	lqd	$98,  0x140($sp)
+	{nop}							{o6}	lqd	$99,  0x150($sp)
+	{nop}							{o6}	lqd	$100, 0x160($sp)
+	{nop}							{o6}	lqd	$101, 0x170($sp)
+	{nop}							{o6}	lqd	$102, 0x180($sp)
+	{nop}							{o6}	lqd	$103, 0x190($sp)
+	{nop}							{o6}	lqd	$104, 0x1A0($sp)
+	{nop}							{o6}	lqd	$105, 0x1B0($sp)
+	{nop}							{o6}	lqd	$106, 0x1C0($sp)
+	{nop}							{o6}	lqd	$107, 0x1D0($sp)
+	{nop}							{o6}	lqd	$108, 0x1E0($sp)
+	{nop}							{o6}	lqd	$109, 0x1F0($sp)
+	{nop}							{o6}	lqd	$110, 0x200($sp)
+	{nop}							{o6}	lqd	$111, 0x210($sp)
+	{nop}							{o6}	lqd	$112, 0x220($sp)
+	{nop}							{o6}	lqd	$113, 0x230($sp)
+	{nop}							{o6}	lqd	$114, 0x240($sp)
+	{nop}							{o6}	lqd	$115, 0x250($sp)
+	{nop}							{o6}	lqd	$116, 0x260($sp)
+	{nop}							{o6}	lqd	$117, 0x270($sp)
+	{nop}							{o6}	lqd	$118, 0x280($sp)
+	{nop}							{o6}	lqd	$119, 0x290($sp)
+	{nop}							{o6}	lqd	$120, 0x2A0($sp)
+	{nop}							{o6}	lqd	$121, 0x2B0($sp)
+	{nop}							{o6}	lqd	$122, 0x2C0($sp)
+	{nop}							{o6}	lqd	$123, 0x2D0($sp)
+	{nop}							{o6}	lqd	$124, 0x2E0($sp)
+	{nop}							{o6}	lqd	$125, 0x2F0($sp)
+	{nop}							{o6}	lqd	$126, 0x300($sp)
+	{nop}							{o6}	lqd	$127, 0x310($sp)
+	{nop}							{o6}	lqd	$sp,  0x000($sp)
+	{nop}								bi	$lr
+
+
+
+
+
+
+
+
+.define TEST 0
+
+
+; self-test code
+.if TEST
+
+.data
+
+.align 12
+
+m_indices:	.dh 0, 1, 2, 0, 1, 2, 3, 1
+		.dh 2, 3, 4, 2, 3, 4, 5, 3
+		.dh 4, 5, 6, 4, 5, 6, 7, 5
+		.dh 6, 7, 8, 6, 7, 8, 9, 7
+m_3bitStream:	.dw 0xffffffff, 0x00000000, 0x00000000, 0x00000000
+m_9bitStream:	.dw 0xFF803FE0, 0x0FF803FE, 0x00000000, 0x00000000
+
+m_uniform0:	.df 1.0, 1.0, 1.0, 1.0
+		.df 2.0, 2.0, 2.0, 2.0
+		.df 3.0, 3.0, 3.0, 3.0
+		.df 4.0, 4.0, 4.0, 4.0
+		.df 5.0, 5.0, 5.0, 5.0
+		.df 6.0, 6.0, 6.0, 6.0
+		.df 7.0, 7.0, 7.0, 7.0
+		.df 8.0, 8.0, 8.0, 8.0
+		.df 9.0, 9.0, 9.0, 9.0
+		.df 10.0, 10.0, 10.0, 10.0
+		.df 11.0, 11.0, 11.0, 11.0
+
+m_uniform1:	.df 0.0, 1.0, 2.0, 3.0
+		.df 1.0, 2.0, 3.0, 4.0
+		.df 2.0, 3.0, 4.0, 5.0
+		.df 3.0, 4.0, 5.0, 6.0
+		.df 4.0, 5.0, 6.0, 7.0
+		.df 5.0, 6.0, 7.0, 8.0
+		.df 6.0, 7.0, 8.0, 9.0
+		.df 7.0, 8.0, 9.0, 10.0
+		.df 8.0, 9.0, 10.0, 11.0
+		.df 9.0, 10.0, 11.0, 12.0
+		.df 10.0, 11.0, 12.0, 13.0
+		.df 11.0, 12.0, 13.0, 14.0
+m_uniform:	.dw m_uniform0, m_uniform1, 0, 0
+
+m_parentTableOut:	.dh 0, 0, 0, 0, 0, 0, 0, 0		; 0000 0001 0002 0001 0002 0003 0002 0003
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 0004 0003 0004 0005 0004 0005 0006 0005
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 0006 0007 0006 0007 0008 0007 0008 0009
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+
+; p0 c0 c2 p0	pa ca cc pa
+; p1 c1 c0 p1	pb cb ca pb
+; p2 c2 c1 p2	pc cc cb pc
+; c0 c1 c2 c0	ca cb cc ca
+m_triIndicesOut:	.dh 0, 0, 0, 0, 0, 0, 0, 0		; 00 10 12 00	01 13 15 01
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 01 11 10 01	02 14 13 02
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 02 12 11 02	03 15 14 03
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 10 11 12 10	13 14 15 13
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+		.dh 0, 0, 0, 0, 0, 0, 0, 0		; 
+
+.text
+
+.global _start
+_start:
+
+{e2}	ila	$3, m_3bitStream						{lnop}
+{e2}	il	$4, m_9bitStream						{lnop}
+{e2}	ila	$5, m_indices						{lnop}
+{e2}	ila	$6, m_triIndicesOut					{lnop}
+{e2}	ila	$7, m_parentTableOut					{lnop}
+{e2}	ila	$8, m_uniform						{lnop}
+{e2}	ila	$9, 2							{lnop}
+{e2}	ila	$10, 2							{lnop}
+	nop								{o?}	brsl	$lr, MakeParentChildTris [#func]
+	nop								stop
+
+.endif ; TEST
+
+.end

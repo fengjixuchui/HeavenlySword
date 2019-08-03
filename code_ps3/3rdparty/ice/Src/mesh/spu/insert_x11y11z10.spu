@@ -1,0 +1,457 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global InsertX11Y11Z10
+; Implements InsertX11Y11Z10() in ice/mesh/icemeshcompress.cpp
+; void InsertX11Y11Z10(F32 *pSrc, F32 *pDst, U32 dstStride, U32 numComponents, U16 *pReindex, U32 numVerts, VF32 scale, VF32 bias);
+;
+; Inserts a series of F32s contained in a uniform table into a vertex stream, in the form of X11Y11Z10s.
+;
+; This rountine will only write the required data.  No data is trashed.
+
+.extern m_strideShifts
+.extern m_IJABijabIJABijab
+.extern m_x11y11z10_comp_shifts
+.extern m_x11y11z10_comp_scale
+.extern m_x11y11z10_comp_bias
+
+
+
+.text
+
+.reg pSrc		3	; Must be 16 byte aligned
+.reg pDst		4
+.reg dstStride		5
+.reg numElements	6	; This is not used, but is here so all insert routines have the same prototype
+.reg pReindex		7	; Pointer to the reindex table
+.reg numVerts		8
+.reg scale		9	; Value by which to scale all of the data.
+.reg bias		10	; Value by which to bias all of the data.
+
+.reg boundOffset		; Source offset from qword boundary
+.reg bReturn			; Set if function is completed
+.reg cData0
+.reg cData1
+.reg cData2
+.reg cData3
+.reg countShift
+.reg crossBound
+.reg dstData0
+.reg dstData0_2
+.reg dstData1
+.reg dstData1_2
+.reg dstData2
+.reg dstData2_2
+.reg dstData3
+.reg dstData3_2
+.reg dstOffset__		; Destination memory offset
+.reg dstOffset_			; Destination memory offset, delayed 1 loop iteration
+.reg dstOffset			; Destination memory offset, delayed 2 loop iterations
+.reg inData0
+.reg inData1
+.reg inData2
+.reg inData3
+.reg innerCount
+.reg innerStride4		; Inner stride times 4
+.reg innerStride		; Destination stride times 4
+.reg jumpAddr
+.reg kAdd
+.reg kBitShift
+.reg kMul
+.reg loopAddr
+.reg loopCount
+.reg loopMoreThanTwice
+.reg minusBoundOffset
+.reg negBoundOffset
+.reg noStraddleWrite
+.reg one
+.reg outData0
+.reg outData0_2
+.reg outData1
+.reg outData1_2
+.reg outData2
+.reg outData2_2
+.reg outData3
+.reg outData3_2
+.reg outerBranch		; Do we need to re-enter function (is every part of stream accounted for?) or return
+.reg outerCount
+.reg outerLoop			; Address of outer_loop
+.reg pDst0_2
+.reg pDst1
+.reg pDst1_2
+.reg pDst2
+.reg pDst21
+.reg pDst21_2
+.reg pDst2_2
+.reg pDst22
+.reg pDst22_2
+.reg pDst23
+.reg pDst23_2
+.reg pDst3
+.reg pDst3_2
+.reg pReindexC
+.reg rData0
+.reg rData1
+.reg rData2
+.reg rData3
+.reg reindex0
+.reg reindex1
+.reg reindex2
+.reg reindex3
+.reg reindexMaskInc
+.reg reindexMaskOffset
+.reg reindexOffset
+.reg reindexOffset1
+.reg reindexOffset2
+.reg reindexOffset3
+.reg reindexOffset4
+.reg sData0
+.reg sData1
+.reg sData2
+.reg sData3
+.reg s_DDDDDDDDDDDDDDDD
+.reg sel_bitMask
+.reg sel_bitMaskWord
+.reg sel_elementMask
+.reg sel_mask
+.reg sel_sMask
+.reg shift
+.reg s_IJABijabIJABijab
+.reg sixteen
+.reg sLoopAddr
+.reg srcOffset0
+.reg srcOffset1
+.reg srcOffset2
+.reg srcOffset3
+.reg s_reindex
+.reg s_reindex2
+.reg s_reindexMask
+.reg straddleOffset
+.reg strideShift
+.reg strideShifts
+.reg s_xzMask
+.reg s_yMask
+.reg write1
+.reg write2
+.reg write3
+.reg writeVerts
+.reg xyz0
+.reg xyz1
+.reg xyz2
+.reg xyz3
+.reg xz02
+.reg xz13
+.reg y02
+.reg y13
+
+.align 7
+
+InsertX11Y11Z10:
+{e2}	il	one, 1						{o6}	lqr	strideShifts, m_strideShifts
+	{nop}							{o?}	biz	numVerts, $lr
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2}	ilhu	sel_bitMaskWord, 0x003F					{lnop}
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303			{o6}	lqr	kMul, m_x11y11z10_comp_scale
+{e2}	iohl	sel_bitMaskWord, 0xF800				{o4}	rotqby	strideShift, strideShifts, dstStride
+{e2}	ila	sLoopAddr, insert_x11y11z10_straddle_loop	{o6}	lqr	kAdd, m_x11y11z10_comp_bias
+{e2}	ila	outerLoop, insert_x11y11z10_outer_loop		{o6}	lqr	s_IJABijabIJABijab, m_IJABijabIJABijab
+{e2}	il	sixteen, 0x10						{lnop}
+{e2}	andi	strideShift, strideShift, 0x7				{lnop}
+{e6}	fm	scale, scale, kMul				{o6}	lqr	s_reindexMask, m_reindexMasks
+{e4}	shli	reindexMaskOffset, strideShift, 2		{o4}	shlqbi	shift, one, strideShift
+{e6}	fma	bias, kMul, bias, kAdd				{o4}	fsmbi	sel_elementMask, 0xF000
+{e2}	sfi	countShift, strideShift, 0				{lnop}
+{e4}	shl	innerStride, dstStride, strideShift			{lnop}
+{e4}	shli	reindexOffset1, shift, 1			{o4}	shlqbii	reindexOffset2, shift, 2
+{e2}	ai	outerCount, shift, -1				{o4}	shlqbii	reindexOffset4, shift, 3
+{e2}	ila	loopAddr, insert_x11y11z10_loop			{o4}	rotqby	s_reindexMask, s_reindexMask, reindexMaskOffset
+{e4}	shli	innerStride4, innerStride, 2			{o6}	lqr	kBitShift, m_x11y11z10_comp_shifts
+{e2}	a	reindexOffset3, reindexOffset2, reindexOffset1	{o4}	shufb	reindexMaskInc, reindexOffset2, reindexOffset2, s_DDDDDDDDDDDDDDDD
+
+insert_x11y11z10_outer_loop:
+{e2 L}	andi	reindexOffset, pReindex, 0xF			{o4 L}	fsmbi	dstOffset, 0
+{e2 L}	andi	boundOffset, pDst, 0xF				{o6 L}	lqd	dstData0, 0x00(pDst)
+{e2 L}	a	innerCount, numVerts, outerCount		{o4 L}	shufb	reindexOffset, reindexOffset, reindexOffset, s_DDDDDDDDDDDDDDDD
+{e2 L}	ai	outerCount, outerCount, -1			{o4 L}	fsmbi	dstOffset_, 0
+{e2 L}	a	pDst21, pDst, innerStride			{o4 L}	rotqmbi innerCount, innerCount, countShift
+{e2 L}	sfi	negBoundOffset, boundOffset, 0			{o4 L}	fsmbi	dstOffset__, 0
+{e2 L}	cgti	crossBound, boundOffset, 0x0C			{o6 L}	lqd	dstData1, 0x00(pDst21)
+{e2 L}	sfi	minusBoundOffset, boundOffset, 16		{o4 L}	rotqmby	sel_mask, sel_elementMask, negBoundOffset
+{e2 L}	selb	straddleOffset, dstOffset, sixteen, crossBound	{o? L}	biz	innerCount, $lr
+{e2 L}	ai	loopCount, innerCount, 7			{o4 L}	shlqby	sel_sMask, sel_elementMask, minusBoundOffset
+{e2 L}	a	pDst22, pDst21, innerStride			{o4 L}	shlqbii	pReindexC, pReindex, 0				
+{e2 L}	a	pDst0_2, pDst, straddleOffset			{o4 L}	rotqmbii loopCount, loopCount, -2
+{e2 L}	a	pDst23, pDst22, innerStride			{o6 L}	lqd	dstData2, 0x00(pDst22)
+{e2 L}	a	pDst21_2, pDst21, straddleOffset		{o6 L}	lqd	dstData0_2, 0x00(pDst0_2)
+{e2 L}	a	pDst22_2, pDst22, straddleOffset		{o6 L}	lqd	dstData3, 0x00(pDst23)
+{e2 L}	a	pDst23_2, pDst23, straddleOffset		{o6 L}	lqd	dstData1_2, 0x00(pDst21_2)
+{e2 L}	selb	jumpAddr, loopAddr, sLoopAddr, crossBound	{o6 L}	lqd	dstData2_2, 0x00(pDst22_2)
+{e2 L}	cgti	loopMoreThanTwice, loopCount, 2			{o6 L}	lqd	dstData3_2, 0x00(pDst23_2)
+{e2 L}	ai	pReindex, pReindex, 2				{o  L}	hbr	insert_x11y11z10_branch, jumpAddr
+{e2 L}	and	noStraddleWrite, loopMoreThanTwice, crossBound	{o4 L}	rotqby	s_xzMask, s_IJABijabIJABijab, negBoundOffset
+{e2 L}	a	s_reindex, reindexOffset, s_reindexMask		{o6 0}	lqd	reindex0, 0x00(pReindexC)
+{e2 L}	selb	pDst3_2, pDst0_2, pDst23_2, noStraddleWrite	{o6 0}	lqx	reindex1, pReindexC, reindexOffset1
+{e2 L}	a	s_reindex2, s_reindex, reindexMaskInc		{o6 0}	lqx	reindex2, pReindexC, reindexOffset2
+{e2 L}	selb	pDst2_2, pDst0_2, pDst22_2, noStraddleWrite	{o6 0}	lqx	reindex3, pReindexC, reindexOffset3
+{e2 L}	selb	pDst1_2, pDst0_2, pDst21_2, noStraddleWrite	{o4 L}	rotqbyi	s_yMask, s_xzMask, 1
+{e2 L}	selb	pDst3, pDst, pDst23, loopMoreThanTwice		{o4 L}	rotqby	sel_bitMask, sel_bitMaskWord, negBoundOffset
+{e2 L}	selb	pDst2, pDst, pDst22, loopMoreThanTwice			lnop
+{e2 L}	selb	pDst1, pDst, pDst21, loopMoreThanTwice			{lnop}
+{e2 L}	orbi	s_yMask, s_yMask, 0x4					{lnop}
+.cset cData0, cData1, cData2, cData3
+.cset xyz0, xyz1, xyz2, xyz3
+
+insert_x11y11z10_straddle_loop:
+{e2 3}	selb	outData1_2, dstData1_2, xyz1, sel_sMask		{o6 2}	lqx	dstData1_2, pDst21_2, dstOffset_
+{e2 3}	selb	outData0_2, dstData0_2, xyz0, sel_sMask		{o6 2}	lqx	dstData0_2, pDst0_2, dstOffset_
+{e2 3}	selb	outData3_2, dstData3_2, xyz3, sel_sMask		{o6 2}	lqx	dstData3_2, pDst23_2, dstOffset_
+{e2 3}	selb	outData2_2, dstData2_2, xyz2, sel_sMask		{o6 2}	lqx	dstData2_2, pDst22_2, dstOffset_
+{e2 L}	andi	writeVerts, innerCount, 0x3			{o6 3}	stqx	outData3_2, pDst3_2, dstOffset
+{e2 L}	ceqi	bReturn, outerCount, -1				{o6 3}	stqx	outData2_2, pDst2_2, dstOffset
+{e2 L}	ceqi	write1, writeVerts, 1				{o6 3}	stqx	outData1_2, pDst1_2, dstOffset
+{e2 L}	selb	outerBranch, outerLoop, $lr, bReturn		{o6 3}	stqx	outData0_2, pDst0_2, dstOffset
+
+insert_x11y11z10_loop:
+{e4 2}	rotm	rData1, cData1, kBitShift			{o4 1}	shufb	srcOffset1, reindex0, reindex1, s_reindex
+{e4 2}	rotm	rData3, cData3, kBitShift			{o4 1}	shufb	srcOffset3, reindex2, reindex3, s_reindex2
+{e2 3}	selb	outData3, dstData3, xyz3, sel_mask		{o6 2}	lqx	dstData3, pDst23, dstOffset_
+{e2 3}	selb	outData2, dstData2, xyz2, sel_mask		{o6 2}	lqx	dstData2, pDst22, dstOffset_
+{e4 1}	rotmi	srcOffset0, srcOffset1, -16			{o6 1}	lqx	inData1, pSrc, srcOffset1
+{e4 1}	rotmi	srcOffset2, srcOffset3, -16			{o6 1}	lqx	inData3, pSrc, srcOffset3
+{e2 3}	selb	outData1, dstData1, xyz1, sel_mask		{o6 2}	lqx	dstData1, pDst21, dstOffset_
+{e2 1}	a	pReindexC, pReindexC, reindexOffset4		{o4 2}	shufb	xz13, rData1, rData3, s_xzMask
+{e2 3}	selb	outData0, dstData0, xyz0, sel_mask		{o6 1}	lqx	inData0, pSrc, srcOffset0
+{e4 2}	rotm	rData0, cData0, kBitShift			{o6 1}	lqx	inData2, pSrc, srcOffset2
+{e4 2}	rotm	rData2, cData2, kBitShift			{o6 2}	lqx	dstData0, pDst, dstOffset_
+{e6 1}	fma	sData1, inData1, scale, bias			{o4 2}	shufb	y13, rData1, rData3, s_yMask
+{e6 1}	fma	sData3, inData3, scale, bias			{o6 3}	stqx	outData3, pDst3, dstOffset
+{e2 1}	ai	loopCount, loopCount, -1			{o6 3}	stqx	outData2, pDst2, dstOffset
+{e6 1}	fma	sData0, inData0, scale, bias			{o4 2}	shufb	y02, rData0, rData2, s_yMask
+{e6 1}	fma	sData2, inData2, scale, bias			{o4 2}	shufb	xz02, rData0, rData2, s_xzMask
+{e2 2}	selb	xyz1, xz13, y13, sel_bitMask			{o6 3}	stqx	outData1, pDst1, dstOffset
+{e7 1}	cflts	cData1, sData1, 31				{o6 0}	lqd	reindex0, 0x00(pReindexC)
+{e7 1}	cflts	cData3, sData3, 31				{o6 0}	lqx	reindex1, pReindexC, reindexOffset1
+{e2 2}	selb	xyz0, xz02, y02, sel_bitMask			{o6 0}	lqx	reindex2, pReindexC, reindexOffset2
+{e7 1}	cflts	cData0, sData0, 31				{o6 0}	lqx	reindex3, pReindexC, reindexOffset3
+{e7 1}	cflts	cData2, sData2, 31				{o6 3}	stqx	outData0, pDst, dstOffset
+{e2 3}	ori	dstOffset, dstOffset_, 0			{o4 2}	rotqbyi	xyz2, xyz0, 4
+{e2 2}	ori	dstOffset_, dstOffset__, 0			{o4 2}	rotqbyi	xyz3, xyz1, 4
+{e2 1}	a	dstOffset__, dstOffset__, innerStride4			; Branch is on next line.
+				insert_x11y11z10_branch:	{o? 1}	binz	loopCount, jumpAddr [insert_x11y11z10_loop insert_x11y11z10_straddle_loop]
+
+{e2 3}	selb	outData0_2, dstData0_2, xyz0, sel_sMask			{lnop}
+{e2 3}	selb	outData0, dstData0, xyz0, sel_mask			{lnop}
+{e2 3}	selb	outData1_2, dstData1_2, xyz1, sel_sMask		{o6 3}	stqx	outData0_2, pDst0_2, dstOffset
+{e2 3}	selb	outData1, dstData1, xyz1, sel_mask		{o6 3}	stqx	outData0, pDst, dstOffset
+{e2 L}	a	pDst, pDst, dstStride				{o? L}	binz	write1, outerBranch	[insert_x11y11z10_outer_loop]
+{e2 L}	ceqi	write2, writeVerts, 2				{o6 3}	stqx	outData1_2, pDst21_2, dstOffset
+{e2 3}	selb	outData2_2, dstData2_2, xyz2, sel_sMask		{o6 3}	stqx	outData1, pDst21, dstOffset
+{e2 3}	selb	outData2, dstData2, xyz2, sel_mask		{o? L}	binz	write2, outerBranch	[insert_x11y11z10_outer_loop]
+{e2 L}	ceqi	write3, writeVerts, 3				{o6 3}	stqx	outData2_2, pDst22_2, dstOffset
+{e2 3}	selb	outData3_2, dstData3_2, xyz3, sel_sMask		{o6 3}	stqx	outData2, pDst22, dstOffset
+{e2 3}	selb	outData3, dstData3, xyz3, sel_mask		{o? L}	binz	write3, outerBranch	[insert_x11y11z10_outer_loop]
+	nop							{o6 3}	stqx	outData3_2, pDst23_2, dstOffset
+	{nop}							{o6 3}	stqx	outData3, pDst23, dstOffset
+	{nop}							{o? L}	bi	outerBranch	[insert_x11y11z10_outer_loop]
+
+
+
+.if 0 ; Unrolled loop
+
+;; Advance the destination offset.
+{e2 1}	a	dstOffset, dstOffset, inerStride4		
+
+;; Load the next set of four reindex entries
+	{nop}							{o6 0}	lqd	reindex0, 0x00(pReindexC)
+	{nop}							{o6 0}	lqx	reindex1, pReindexC, reindexOffset1
+	{nop}							{o6 0}	lqx	reindex2, pReindexC, reindexOffset2
+	{nop}							{o6 0}	lqx	reindex3, pReindexC, reindexOffset3
+{e2 1}	ai	pReindex, pReindex, reindexOffset4		
+
+;; Shuffle the reindex entries into the preferred words of the source offsets
+	{nop}							{o4 1}	shufb	srcOffset1, reindex0, reindex1, s_reindex
+	{nop}							{o4 1}	shufb	srcOffset3, reindex2, reindex3, s_reindex
+{e4 1}	rotmi	srcOffset0, srcOffset1, -16			
+{e4 1}	rotmi	srcOffset2, srcOffset3, -16			
+
+;; Load input quads
+	{nop}							{o6 1}	lqx	inData0, pSrc, srcOffset0
+	{nop}							{o6 1}	lqx	inData1, pSrc, srcOffset1
+	{nop}							{o6 1}	lqx	inData2, pSrc, srcOffset2
+	{nop}							{o6 1}	lqx	inData3, pSrc, srcOffset3
+
+;; Apply the requested scale and offset
+{e6 1}	fma	sData0, inData0, scale, bias			
+{e6 1}	fma	sData1, inData1, scale, bias			
+{e6 1}	fma	sData2, inData2, scale, bias			
+{e6 1}	fma	sData3, inData3, scale, bias			
+
+;; Convert to signed ints in the range -1.0..1.0
+{e7 2}	cflts	cData0, sData0, 31				
+{e7 2}	cflts	cData1, sData1, 31				
+{e7 2}	cflts	cData2, sData2, 31				
+{e7 2}	cflts	cData3, sData3, 31				
+
+;; Shift the around so the bits we're interested in are in the right place
+{e4 2}	rotm	rData2, cData2, kBitShift			
+{e4 2}	rotm	rData0, cData0, kBitShift			
+{e4 2}	rotm	rData3, cData3, kBitShift			
+{e4 2}	rotm	rData1, cData1, kBitShift			
+
+;; Shuffle and combine into the final compressed values
+	{nop}							{o4 2}	shufb	xz02, rData0, rData2, s_xzMask
+	{nop}							{o4 2}	shufb	y02, rData0, rData2, s_yMask
+	{nop}							{o4 2}	shufb	xz13, rData1, rData3, s_xzMask
+	{nop}							{o4 2}	shufb	y13, rData1, rData3, s_yMask
+{e2 2}	selb	xyz0, xz02, y02, sel_bitMask			
+{e2 2}	selb	xyz1, xz13, y13, sel_bitMask			
+	{nop}							{o4 3}	rotqbyi	xyz2, xyz0, 4
+	{nop}							{o4 3}	rotqbyi	xyz3, xyz1, 4
+
+;; Load the contents of the destination quads, so we can shuffle the results into them.
+	{nop}							{o6 2}	lqx	dstData3, pDst23, dstOffset
+	{nop}							{o6 2}	lqx	dstData2, pDst22, dstOffset
+	{nop}							{o6 2}	lqx	dstData1, pDst21, dstOffset
+	{nop}							{o6 2}	lqx	dstData0, pDst, dstOffset
+	{nop}							
+	{nop}							
+
+;; Combine the new compressed data with the existing stream data
+{e2 3}	selb	outData3, dstData3, xyz3, sel_mask		
+{e2 3}	selb	outData2, dstData2, xyz2, sel_mask		
+{e2 3}	selb	outData1, dstData1, xyz1, sel_mask		
+{e2 3}	selb	outData0, dstData0, xyz0, sel_mask		
+
+;; Write the updated output data back to the output stream
+	{nop}							{o6 3}	stqx	outData3, pDst3, dstOffset
+	{nop}							{o6 3}	stqx	outData2, pDst2, dstOffset
+	{nop}							{o6 3}	stqx	outData1, pDst1, dstOffset
+	{nop}							{o6 3}	stqx	outData0, pDst, dstOffset
+
+;; advance to the next iteration
+{e2 1}	ai	loopCount, loopCount, -1			
+	{nop}							{o? 1}	brnz	loopCount, insert_x11y11z10_loop [insert_x11y11z10_loop]
+
+.endif ; Unrolled loop
+
+
+
+.if TEST
+
+.data
+
+.align 12
+m_in_f32_stream:	.df	 0.00, 0.00, 0.00, 0.00
+			.df	 0.01, 0.01, 0.01, 0.01
+			.df	 0.02, 0.02, 0.02, 0.02
+			.df	 0.03, 0.03, 0.03, 0.03
+			.df	 0.04, 0.04, 0.04, 0.04
+			.df	 0.05, 0.05, 0.05, 0.05
+			.df	 0.06, 0.06, 0.06, 0.06
+			.df	 0.07, 0.07, 0.07, 0.07
+			.df	 0.08, 0.08, 0.08, 0.08
+			.df	 0.09, 0.09, 0.09, 0.09
+			.df	 0.10, 0.10, 0.10, 0.10
+			.df	 0.11, 0.11, 0.11, 0.11
+			.df	 0.12, 0.12, 0.12, 0.12
+			.df	 0.13, 0.13, 0.13, 0.13
+			.df	 0.14, 0.14, 0.14, 0.14
+			.df	 0.15, 0.15, 0.15, 0.15
+			.df	 0.16, 0.16, 0.16, 0.16
+			.df	 0.17, 0.17, 0.17, 0.17
+			.df	 0.18, 0.18, 0.18, 0.18
+			.df	 0.19, 0.19, 0.19, 0.19
+			.df	 0.20, 0.20, 0.20, 0.20
+			.df	 0.21, 0.21, 0.21, 0.21
+			.df	 0.22, 0.22, 0.22, 0.22
+			.df	 0.23, 0.23, 0.23, 0.23
+			.df	 0.24, 0.24, 0.24, 0.24
+			.df	 0.25, 0.25, 0.25, 0.25
+			.df	 0.26, 0.26, 0.26, 0.26
+			.df	 0.27, 0.27, 0.27, 0.27
+			.df	 0.28, 0.28, 0.28, 0.28
+			.df	 0.29, 0.29, 0.29, 0.29
+			.df	 0.30, 0.30, 0.30, 0.30
+			.df	 0.31, 0.31, 0.31, 0.31
+
+m_in_index_stream:	.dh	0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70
+			.dh	0x70, 0x60, 0x50, 0x40, 0x30, 0x20, 0x10, 0x00
+			.dh	0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x90, 0x80
+			.dh	0x70, 0x60, 0x50, 0x40, 0x30, 0x20, 0x10, 0x00
+			.dh	0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x90, 0x80
+			.dh	0x70, 0x60, 0x50, 0x40, 0x30, 0x20, 0x10, 0x00
+			.dh	0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x90, 0x80
+			.dh	0x70, 0x60, 0x50, 0x40, 0x30, 0x20, 0x10, 0x00
+			.dh	0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x90, 0x80
+			.dh	0x70, 0x60, 0x50, 0x40, 0x30, 0x20, 0x10, 0x00
+			.dh	0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x90, 0x80
+			.dh	0x70, 0x60, 0x50, 0x40, 0x30, 0x20, 0x10, 0x00
+			.dh	0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x90, 0x80
+			.dh	0x70, 0x60, 0x50, 0x40, 0x30, 0x20, 0x10, 0x00
+			.dh	0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x90, 0x80
+			.dh	0x70, 0x60, 0x50, 0x40, 0x30, 0x20, 0x10, 0x00
+
+m_out_stream:		.dw 0x0037c0de, 0x0037c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0137c0de, 0x0137c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0237c0de, 0x0237c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0337c0de, 0x0337c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0437c0de, 0x0437c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0537c0de, 0x0537c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0637c0de, 0x0637c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0737c0de, 0x0737c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0837c0de, 0x0837c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0937c0de, 0x0937c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0a37c0de, 0x0a37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0b37c0de, 0x0b37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0c37c0de, 0x0c37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0d37c0de, 0x0d37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0e37c0de, 0x0e37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0f37c0de, 0x0f37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1037c0de, 0x1037c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1137c0de, 0x1137c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1237c0de, 0x1237c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1437c0de, 0x1437c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1537c0de, 0x1537c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1637c0de, 0x1637c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1737c0de, 0x1737c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1837c0de, 0x1837c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1937c0de, 0x1937c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1a37c0de, 0x1a37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1b37c0de, 0x1b37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1c37c0de, 0x1c37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1d37c0de, 0x1d37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1e37c0de, 0x1e37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1f37c0de, 0x1f37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2037c0de, 0x2037c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2137c0de, 0x2137c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2237c0de, 0x2237c0de, 0x1337c0de, 0x1337c0de
+
+m_mul:			.df	1, 1, 1, 1
+m_add:			.df	0, 0, 0, 0
+
+.text
+
+.global _start
+_start:
+	ila	pSrc, m_in_f32_stream					lqr	scale, m_mul
+	ila	pDst, m_out_stream					lqr	bias, m_add
+	il	dstStride, 0x1E						{lnop}
+	ai	pDst, pDst, 2						{lnop}
+	ila	pReindex, m_in_index_stream				{lnop}
+	il	numVerts, 34						{lnop}
+	{nop}								brsl	$lr, InsertX11Y11Z10 [#func]
+	{nop}								stop
+
+.endif
+
+.end
+

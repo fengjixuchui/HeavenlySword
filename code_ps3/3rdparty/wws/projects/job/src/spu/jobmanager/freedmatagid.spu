@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern FreeDmaTagId
+.global WwsJob_FreeDmaTagId
+WwsJob_FreeDmaTagId:
+		ai $4, $lr, 0								br FreeDmaTagId
+.end
+.endif
+
+
+.start
+.include "conventions.inl"
+.usecc FreeDmaTagIdCC
+.text
+.extern StoreAuditDataInitialU64
+.extern	StoreAuditDataParameterU64
+.if	ASSERTS_ENABLED
+.extern	FreeDmaTagId_AssertDmaTagId
+.extern	FreeDmaTagId_AssertDmaTagIdUsed
+.endif
+
+// void WwsJob_FreeDmaTagId( U32 dmaTagId )
+.reg tmp
+.reg dmaTagMask
+.reg usedDmaTagMask
+.extern g_WwsJob_usedDmaTagMask
+.global FreeDmaTagId
+FreeDmaTagId: // 8  instructions, 32 bytes
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_FreeDmaTadId					rotqbyi	$75, $3, 0
+		ila	$76, 1								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+.endif
+		ila tmp, 1								hbr FdtiBranch, $4
+		shl dmaTagMask, tmp, $3							lqa usedDmaTagMask, g_WwsJob_usedDmaTagMask
+.if	ASSERTS_ENABLED
+.reg	mask_dmaTagIdBad, mask_dmaTagIdUsed
+		andi	mask_dmaTagIdBad, $3, -32					brz	$3, FreeDmaTagId_AssertDmaTagId
+		and	mask_dmaTagIdUsed, usedDmaTagMask, dmaTagMask			brnz	mask_dmaTagIdBad, FreeDmaTagId_AssertDmaTagId
+		nop									brz	mask_dmaTagIdUsed, FreeDmaTagId_AssertDmaTagIdUsed
+.endif
+		andc usedDmaTagMask, usedDmaTagMask, dmaTagMask				stqa usedDmaTagMask, g_WwsJob_usedDmaTagMask
+.if	ENABLE_IMPORTANT_AUDITS
+		{nop}									rotqmbyi $74, usedDmaTagMask,-4
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		nop							FdtiBranch:	bi $4
+		// NOTE: commenting the nop is intentional, link order makes this ok.
+.end

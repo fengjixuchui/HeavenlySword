@@ -1,0 +1,11 @@
+*****************************************
+ Do not delete this file from AlienBrain
+*****************************************
+
+This file is used within AlienBrain to contain the number of people currently getting latest at any one point in time. 
+
+It must not be removed from AB.
+
+Please see Mike Ball for more information.
+
+Ta!

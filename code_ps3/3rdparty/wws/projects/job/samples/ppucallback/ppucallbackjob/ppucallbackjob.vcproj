@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="ppucallbackjob"
+	ProjectGUID="{F0C77CC9-1935-4F5F-85A5-1798388FEE78}"
+	RootNamespace="helloworldjob"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=debug"
+				ReBuildCommandLine="make all VERSION=debug"
+				CleanCommandLine="make clean VERSION=debug"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=release"
+				ReBuildCommandLine="make all VERSION=release"
+				CleanCommandLine="make clean VERSION=release"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{6DDBBC7E-6856-4B4E-B7BC-7CBAC6812152}">
+			<File
+				RelativePath=".\ppucallbackjob.cpp">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{8066564D-550F-4D1B-982F-1ABB3C7D5787}">
+			<File
+				RelativePath=".\ppucallbackjob.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{F48A919B-C27D-4AD5-AC21-0866F0DE1E57}">
+			<File
+				RelativePath=".\makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

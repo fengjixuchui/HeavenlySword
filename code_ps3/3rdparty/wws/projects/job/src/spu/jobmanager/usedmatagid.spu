@@ -1,0 +1,69 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern UseDmaTagId
+.global WwsJob_UseDmaTagId
+WwsJob_UseDmaTagId:
+		ai $4, $lr, 0								br UseDmaTagId
+.end
+.endif
+
+
+.start
+.include "conventions.inl"
+.usecc UseDmaTagIdCC
+.text
+
+// static U32	WwsJob_UseDmaTagId( void )
+
+.reg usedDmaTagMask
+.reg cond1, jumpToEn, invUsedDmaTagMask, mask, jumpToDis
+.reg storeJobNum, storeJobExists
+.reg comp
+.extern g_WwsJob_usedDmaTagMask
+.extern StoreAuditDataInitialU64
+.extern StoreAuditDataParameterU64
+.extern UseDmaTagId_AssertAllTagsUsed
+.extern WwsJob_TryChangeStoreToFreeJob
+
+//Be aware in this function that g_WwsJob_usedDmaTagMask could have changed on an interrupt
+
+.global UseDmaTagId
+UseDmaTagId: // 16 instructions, 64 bytes
+
+UdtiLoop:
+		il	mask, 1								lqa	usedDmaTagMask, g_WwsJob_usedDmaTagMask
+		nor	invUsedDmaTagMask, usedDmaTagMask, usedDmaTagMask		ceqi	comp, usedDmaTagMask, -1
+		clz	$3, invUsedDmaTagMask						brnz	comp, DmaTagsNotAvailableYet
+DmaTagsAreAvailable:
+		sfi	$3, $3, 31							{lnop}
+		shl	mask, mask, $3							{lnop}
+		or	usedDmaTagMask, usedDmaTagMask, mask				stqa	usedDmaTagMask, g_WwsJob_usedDmaTagMask
+.if	ENABLE_IMPORTANT_AUDITS
+		il	$74, kWwsJob_UseDmaTagId					rotqbyi	$75, $3, 0
+		il	$76, 1								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		{nop}									rotqmbyi $74, usedDmaTagMask,-4
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		{nop}							UdtiBranch:	bi	$4
+
+
+DmaTagsNotAvailableYet:
+		ila	jumpToEn, UdtiEi						{nop}
+.if ASSERTS_ENABLED
+		nop									lqa	storeJobNum, g_WwsJob_storeJobNum
+		cgthi	storeJobExists, storeJobNum, -1					brz	storeJobExists, UseDmaTagId_AssertAllTagsUsed
+.endif
+		ila	jumpToDis, WwsJob_TryChangeStoreToFreeJob			bie	jumpToEn [UdtiEi] UdtiEi:
+		ila	$lr, UdtiLoop							bid	jumpToDis [WwsJob_TryChangeStoreToFreeJob]
+
+.end

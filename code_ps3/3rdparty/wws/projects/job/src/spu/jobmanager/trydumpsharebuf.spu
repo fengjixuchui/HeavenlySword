@@ -1,0 +1,103 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.reg shuf, shuf2, buffer, bufferSet
+.extern TryDumpShareBuf
+.global WwsJob_TryDumpShareBuf
+WwsJob_TryDumpShareBuf:
+		.cset $3, $4, $5, $6, $7
+		{nop}									stqd	$lr, 16($sp)
+		{nop}									stqd	$sp, -32($sp)
+		{nop}									lqd	buffer, 80($sp)
+		{nop}									lqd	bufferSet, 64($sp)
+		{nop}									cdd	shuf, 0($sp)
+		{nop}									cwd	shuf2, 0($sp)
+		nop									shufb	$5,$5,buffer,shuf
+		nop									shufb	$3,$3,bufferSet,shuf2
+		ai $sp, $sp, -32							brsl	$8, TryDumpShareBuf [#TryDumpShareBufCC]
+		ai $sp, $sp, 32								lqd	$lr, 16($sp)
+		nop									bi	$lr
+.end
+.endif
+
+.start 
+.include "conventions.inl"
+.text
+.usecc TryDumpShareBufCC
+
+// static Bool32 WwsJob_TryDumpShareBuf( WwsJob_BufferSet bufferSet, WwsJob_Buffer *pBuffer, WwsJob_Buffer buffer, U32 bufferPageNum, U32 dmaTagId )
+//                                                              $3                $4                     $5                $6                $7
+.reg mask, mask2, mask3
+.reg shareableWriteIfDiscarded
+.reg lsAddress, mmAddress, mmLength
+.reg sixteenK, cond1, size, kDmaPut, shuf, buffer
+.reg uniqueDmaTagId, one, bufferSet, pBuffer
+.reg numPagesPerBuffer, spm1, spm2
+.extern g_WwsJob_shareablePageMask
+.extern IsDmaTagMaskDone
+.extern FreeDmaTagId
+.extern GetPageMasks
+.extern StoreAuditDataInitialU64
+.extern	StoreAuditDataParameterU64
+.global TryDumpShareBuf
+TryDumpShareBuf: // 62 instructions, 248 bytes
+		ila sixteenK, 0x4000							fsmbi mask2, 0x0FFF
+		ilhu mask, 0x2000							rotqbyi bufferSet, $3, 0
+		ai pBuffer, $4, 0							cdd shuf, 0($4)
+		and shareableWriteIfDiscarded, $5, mask					brz shareableWriteIfDiscarded, TdsbCond1
+											.cuse mask2
+		ila kDmaPut, 0x20							hbra TdsbBranch1, TdsbLoop1
+		shli lsAddress, $6, 10							rotqbyi mmAddress, $5, 4
+		andi mmAddress, mmAddress, -16						rotqmbii mmLength, $5, -4
+		ila mask3, 0x3FFF0							fsmbi $3, 0x0000
+;.if	ENABLE_IMPORTANT_AUDITS		;Can't be colored at the moment
+;.reg numPagesPerBuffer, audit_U64, sel_aBCD
+;		ila	$74, kWwsJob_TryDumpShareBuf_writeShareBuf			rotqbyi numPagesPerBuffer, $5, -2
+;		ila	$76, 1								shlqbyi	$75, $6{bufferPageNum}, 1
+;		andi	numPagesPerBuffer, numPagesPerBuffer, 0xFF			lnop
+;		or	$75, $75, numPagesPerBuffer					brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+;		shli	audit_U64, mmLength, 8						{lnop}
+;		or	audit_U64, audit_U64, $7					{lnop}
+;		selb	$74, audit_U64, $5{buffer:mmAddress in wd[1]}, mask2		brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+;.endif
+
+TdsbLoop1:	and mmLength, mmLength, mask3						wrch $ch16, lsAddress
+		clgt cond1, mmLength, sixteenK						wrch $ch18, mmAddress
+		selb size, mmLength, sixteenK, cond1					wrch $ch19, size
+		sf mmLength, size, mmLength						wrch $ch20, $7
+		a lsAddress, lsAddress, size						wrch $ch21, kDmaPut
+		a mmAddress, mmAddress, size				TdsbBranch1:	brnz mmLength, TdsbLoop1
+		andc $5, $5, mask							hbr TdsbBranch2, $8
+		{nop}									lqd buffer, 0($4)
+		{nop}									shufb buffer, $5, buffer, shuf
+		{nop}									stqd buffer, 0($4)
+		{nop}							TdsbBranch2:	bi $8
+TdsbCond1:	rotmi uniqueDmaTagId, $5, -22						{lnop}
+		andi uniqueDmaTagId, uniqueDmaTagId, 0x1F				{lnop}
+		ila one, 1								brz uniqueDmaTagId, TdsbCond2
+		shl $3, one, uniqueDmaTagId						brsl $4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		nop									biz $3, $8
+		ai $3, uniqueDmaTagId, 0						brsl $4, FreeDmaTagId [#FreeDmaTagIdCC]
+TdsbCond2:	and $5, $5, mask2							hbra TdsbBranch3, GetPageMasks
+		{nop}									lqd buffer, 0(pBuffer)
+		{nop}									lqa spm1, g_WwsJob_shareablePageMask
+		rotmi $4, bufferSet, -16						lqa spm2, g_WwsJob_shareablePageMask+16
+		andi $4, $4, 0xFF							shufb buffer, $5, buffer, shuf
+		ai $3, $6, 0								stqd buffer, 0(pBuffer)
+		andi $4, $4, 0xFF					TdsbBranch3:	brsl $5, GetPageMasks [#GetPageMasksCC]
+		andc spm1, spm1, $3							{lnop}
+		andc spm2, spm2, $4							{lnop}
+		{nop}									stqa spm1, g_WwsJob_shareablePageMask
+		{nop}									stqa spm2, g_WwsJob_shareablePageMask+16
+		ila $3, 1								bi $8
+
+.end	

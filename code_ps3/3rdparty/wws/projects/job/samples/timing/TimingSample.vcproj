@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="TimingSample"
+	ProjectGUID="{769BDAA2-92A0-42EB-963C-E2F76F6679C5}"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=debug"
+				ReBuildCommandLine="make all VERSION=debug"
+				CleanCommandLine="make clean VERSION=debug"
+				Output="$(OutDir)\..\..\..\..\..\images\job\timing.ppu.self"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=release"
+				ReBuildCommandLine="make all VERSION=release"
+				CleanCommandLine="make clean VERSION=release"
+				Output="$(OutDir)\..\..\..\..\..\images\job\timing.ppu.self"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{2FA89C72-2996-40B0-B614-9D3749E18E92}">
+			<File
+				RelativePath=".\main.cpp">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{9AF56889-127A-495E-BA8A-AA47C8F075E3}">
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{0B8EFA1D-B027-4312-B3A9-2C7BA9F97B2D}">
+			<File
+				RelativePath=".\makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

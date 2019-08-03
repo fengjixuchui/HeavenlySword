@@ -1,0 +1,67 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+
+.start
+.include "conventions.inl"
+
+.text
+		
+// static bool WwsJob_PollSpursKernel( void )
+.reg isSwapped
+.reg newEaWorkload
+.reg newCountVal
+.reg countToNextPoll
+.reg countMinusOne
+.reg zero
+.extern g_bJobManagerAuditsEnabled
+.extern g_sideStack
+.extern g_WwsJob_spursContext
+.extern g_countToNextPoll
+.extern StoreAuditDataInitialNoDataU64
+.extern cellSpursPoll
+.extern cellSpursModulePollAndSwap
+.extern cellSpursModuleGetWorkloadData
+
+.define kNumCallsBetweenPolls	4
+
+.global WwsJob_PollSpursKernelQuick
+.global WwsJob_PollSpursKernel
+
+WwsJob_PollSpursKernelQuick:	// 8(+18) instruction, 32(+72) bytes
+	il	$3, 1									lqa	countToNextPoll, g_countToNextPoll
+	ai	countMinusOne, countToNextPoll, -1					lnop
+	il	newCountVal, kNumCallsBetweenPolls					stqa	countMinusOne, g_countToNextPoll
+	{nop}										binz	countToNextPoll, $lr
+	{nop}										stqa	newCountVal, g_countToNextPoll
+
+	//Fallthrough
+
+WwsJob_PollSpursKernel:	// 18 instruction, 72 bytes
+	{nop}										stqa	$lr, g_sideStack
+.if ENABLE_TIMING_AUDITS
+	ila	$74, kWwsJob_PollSpursKernel_begin					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if ENABLE_TIMING_PA_BOOKMARKS
+	il	$74, kWwsJob_PollSpursKernel_begin					wrch	$ch69, $74
+.endif
+	{nop}										brsl	$lr, cellSpursPoll [#func]
+	il	zero, 0									brnz	$3, IsPreempted
+	il	$3, 0									br	PSKend
+IsPreempted:
+	{nop}										stqa	zero, g_countToNextPoll
+NotPreemptedAndNotSwapped:
+PSKend:
+	{nop}										lqa	$lr, g_sideStack
+.if ENABLE_TIMING_PA_BOOKMARKS
+	il	$74, kWwsJob_PollSpursKernel_end					wrch	$ch69, $74
+.endif
+.if ENABLE_TIMING_AUDITS
+	il	$74, kWwsJob_PollSpursKernel_end					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+	sfi	$3, $3, 1								bi	$lr
+
+.end

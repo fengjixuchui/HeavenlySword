@@ -1,0 +1,2703 @@
+;
+; Copyright (c) 2006 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.if 0
+
+; This module contain two functions, one (MakeOffsetTable) for building a stream offset table for randomly accessing the skinning stream data, 
+; and one (LookupVertMatrix) for taking an input list of vertex indices and building the skinning matrices for those vertices.
+; 
+; vertex index list format
+;                        quadword
+; | vtx0 | vtx1 | vtx2 | vtx3 | vtx4 | vtx5 | vtx6 | vtx7 |
+; All indices are stored in halfwords. Two sequential 0x0800 are used to terminate the vertex list, yeilding a max index limit of 4095.
+;
+; i.e. 0x0001, 0x0002, 0x0000, 0x0004, 0x0800, 0x0800
+; this list needs the matrices building for vertices 1, 2, 0 and 4.
+;
+; offset table data format
+;    4 bits      28 bits        word          word     word
+; | straddle | stream addr | weight addr | jump addr | unused |
+;
+; "straddle" can be 8 or 2. 8 is for the diff stream, while 2 is for the same stream
+; "stream addr" is a pointer to either the diff or same stream. This pointer is the address minus 2, this is to get the
+; matrix half word into the prefered slot.
+; "weight addr" is a pointer to the weight data for the vertex.
+; "jump addr" is the address of the function used to build the matrix for this vertex.
+; each vertex uses 8 bytes i.e. verts are grouped 2 to a quadword
+; if bit 31 of the matrix offset is set, then the offset is for the "diff stream", if it's not set the "same stream" is used
+;
+; i.e. 0x8000207e, 0x000020c4, 0x0000194, 0x00000000
+; this example shows a straddle of 8, a matrix stream pointer of 207e (2080 - 2), the weights are at address 0x000020c4
+; and the function code is at address 0x00000194
+;
+; For building matrices there are 5 different routines. These routines jump1, jump2, jump3, jump4, jumpn are optimised
+; for 1 - 4 and n number of matrices. The rountines are rolled up to preload the next function jump address and
+; data for upto 3 matrices.
+; The cycle counts for each function are
+;  1 matrix 24 cycles / matrix
+;  2 matrix 14 cycles / matrix
+;  3 matrix 11.3 cycles / matrix
+;  4 matrix 10.5 cycles / matrix
+;  n matrices 14 cycles / matrix for first four, 17 cycles / matrix for each after
+;
+;
+;
+;
+; The function to build the stream offset table works very closely to the skinning functions, the control stream of bytes
+; are parsed sequentially, and offsets are calculated and stored in the offset table. A halfword jump table is used to
+; convert the control byte into a function call. Each function is custom written to process the different data types (same1,
+; diff1, samen, diffn, next/repeat, stop)
+;
+
+;
+; unrolled version of the code
+;
+LookupVertMatrix:
+
+; m_JumpTbl_p:	.dw exit, loop, 0, 0
+
+; load the vertex index, rotate it into the prefered data slot, and move the pointer to the next address
+	{nop}							{o6 1}	lqd	vertex, 0(pVertex)
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqby	vertex, vertex, pVertex
+{e2 1}	ai	pVertex, pVertex, 2					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+
+; shift the vertex index into the perfered slot for an halfword and multiply by 16 to get
+; the vertex offset into the offsetTable
+{e4 1}	rotmi	vertex, vertex, -12					{lnop}
+	{nop}								{lnop}
+
+; load in the offsetTable data for the vertex and split the qword into a pointer to the same/diff stream, a
+; pointer to the weights, pointer to the rolled up function to handle this vertex and the straddle data
+; for the same/diff stream
+	{nop}							{o6 1}	lqx	pStream, pVtxOffTbl, vertex
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqbyi	pWeights, pStream, 4
+	rotmi	straddle, pStream, -28				{o4 1}	rotqbyi	funcAddr, pStream, 12
+
+; preload the mtx index from the stream and the weight data. The stream is stored minus 2 to get the data
+; to the prefered slot. _2 is a constant of 2 to compose the corrected address
+; the bottom four bits of the mtx index store either 0 or 4. This is used to rotate a jump table to either
+; loop or exit. 0 states loop again, 4 states finished.
+	{nop}							{o6 1}	lqx	mtx, pStream, _2
+	{nop}							{o6 1}	lqd	weights, 0(pWeights)
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	rotqby	mtx, mtx, pStream
+	{nop}							{o4 2}	rotqby	weights, weights, pWeights
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqby	_jumppAddr, loopJump, mtx
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+
+loop:
+
+; preload next matrix index and increment the stream by the stream straddle (2 for same, 8 for diff)
+	{nop}							{o6 2}	lqx	mtxNext, pStream, two
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	rotqby	mtxNext, mtxNext, pStream
+{e2 1}	a	pStream, pStream, straddle					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqby	jumppAddr, loopJump, mtxNext
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+; hint the branch
+	{nop}							{o  2}	hbr	n_branch, jumpAddr
+
+; load weight and matrix, increment weight pointer and rotate into prefered word
+	{nop}							{o6 1}	lqd	weights, 0(pWeights)
+{e2 1}	ai	pWeights, pWeights, 16				{o6 1}	lqx	mat0_0_2, pMatrices00, mtx
+	{nop}							{o6 1}	lqx	mat0_1_2, pMatrices10, mtx
+	{nop}							{o6 1}	lqx	mat0_2_2, pMatrices20, mtx
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	rotqby	weights, weights, pWeights
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+
+; copy weight data in all words of register ready for simd mulitply. Copy preloaded matrix index into current matri index 
+	{nop}							{o4 1}	shufb	weight_0, weights, weights, s_AAAA
+	{nop}								{lnop}
+	{nop}								{lnop}
+	ori	mtx, mtxNext, 0						{lnop}
+
+; mul matrix by weight and add onto blended matrix. Jump to exit, or if more matrices, loop back
+{e6 1}	fma	mat0_0, mat0_0_2, weight_0, mat0_0				{lnop}
+{e6 1}	fma	mat0_1, mat0_1_2, weight_0, mat0_1				{lnop}
+{e6 1}	fma	mat0_2, mat0_2_2, weight_0, mat0_2		n_branch:{o? 1}	bi	jumpAddr	[loop exit]
+
+exit:	{nop}								bi	$lr
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	il	outInc, 0x40						lqa	s_ACac, s_ACac
+	ai	pPos10, pPos00, 0x10					lqa	s_BDbd, s_BDbd
+	ai	pPos20, pPos00, 0x20					lqa	sel_ABcd, sel_ABcd
+	ai	pPos30, pPos00, 0x30					lqa	s_AaBb, s_AaBb
+	ai	pNormal10, pNormal00, 0x10					lqa	s_BbAa, s_BbAa
+	ai	pNormal20, pNormal00, 0x20					lqa	s_CcCc, s_CcCc
+	ai	pNormal30, pNormal00, 0x30					lqa	s_cdAB, s_cdAB
+	ai	pTangent10, pTangent00, 0x10				lqa	s_DAad, s_DAad
+	ai	pTangent20, pTangent00, 0x20				lqa	s_BCbc, s_BCbc
+	ai	pTangent30, pTangent00, 0x30				lqa	s_dAD0, s_dAD0
+	il	inOff, 0							lqa	s_BcDa, s_BcDa
+	il	outOff, 0						lqa	s_BCDD, s_BCDD
+	ila	jumpSkinLoop, skinLoop					lqa	sel_AbcD, sel_AbcD
+	ai	vtxCount, vtxCount, 3					lqa	sel_ABCd, sel_ABCd
+	nop{and	outInc, outInc, sel_ABcd}					lqa	sel_aBcD, sel_aBcD
+	rotmi	vtxCount, vtxCount, -2					lnop
+
+skinLoop:
+	nop							{06 1}	lqd	mat0_0, 0x00(pMatrix)
+	nop							{06 1}	lqd	mat0_1, 0x10(pMatrix)
+	nop							{06 1}	lqd	mat0_2, 0x20(pMatrix)
+	nop							{06 1}	lqd	mat1_0, 0x30(pMatrix)
+	nop							{06 1}	lqd	mat1_1, 0x40(pMatrix)
+	nop							{06 1}	lqd	mat1_2, 0x50(pMatrix)
+	nop							{06 1}	lqd	mat2_0, 0x60(pMatrix)
+	nop							{06 1}	lqd	mat2_1, 0x70(pMatrix)
+	nop							{06 1}	lqd	mat2_2, 0x80(pMatrix)
+	nop							{06 1}	lqd	mat3_0, 0x90(pMatrix)
+	nop							{06 1}	lqd	mat3_1, 0xa0(pMatrix)
+	nop							{06 1}	lqd	mat3_2, 0xb0(pMatrix)
+
+;==============================================================================================================================
+; Blended Matrix Shuffle
+;
+;==============================================================================================================================
+; The blending functions output four blended matrices in twelve registers with each register containing a single row
+; of a single matrix, like this:
+;	m0_00 m0_01 m0_02 m0_03     m1_00 m1_01 m1_02 m1_03     m2_00 m2_01 m2_02 m2_03     m3_00 m3_01 m3_02 m3_03
+;	m0_10 m0_11 m0_12 m0_13     m1_10 m1_11 m1_12 m1_13     m2_10 m2_11 m2_12 m2_13     m3_10 m3_11 m3_12 m3_13
+;	m0_20 m0_21 m0_22 m0_23     m1_20 m1_21 m1_22 m1_23     m2_20 m2_21 m2_22 m2_23     m3_20 m3_21 m3_22 m3_23
+; However, for effeicent processing, we need to shuffle the matrices so that each of twelve registers contains the
+; same element from each of the four matrices, like this:
+;	m0_00 m1_00 m2_00 m3_00     m0_01 m1_01 m2_01 m3_01     m0_02 m1_02 m2_02 m3_02     m0_03 m1_03 m2_03 m3_03
+;	m0_10 m1_10 m2_10 m3_10     m0_11 m1_11 m2_11 m3_11     m0_12 m1_12 m2_12 m3_12     m0_13 m1_13 m2_13 m3_13
+;	m0_20 m1_20 m2_20 m3_20     m0_21 m1_21 m2_21 m3_21     m0_22 m1_22 m2_22 m3_22     m0_23 m1_23 m2_23 m3_23
+; We do this here.
+	nop							{o4 1}	shufb	shuftemp1, mat0_0, mat1_0, s_ACac
+	nop							{o4 1}	shufb	shuftemp2, mat2_0, mat3_0, s_ACac
+	nop							{o4 1}	shufb	shuftemp3, mat0_2, mat1_2, s_ACac
+	nop							{o4 1}	shufb	shuftemp4, mat2_2, mat3_2, s_ACac
+	nop							{o4 1}	shufb	shuftemp5, mat0_1, mat1_1, s_ACac
+	nop							{o4 1}	shufb	shuftemp6, mat2_1, mat3_1, s_ACac
+	nop							{o4 1}	shufb	shuftemp7, mat0_1, mat1_1, s_BDbd
+	nop							{o4 1}	shufb	shuftemp8, mat2_1, mat3_1, s_BDbd
+	nop							{o4 1}	shufb	shuftemp9, mat0_0, mat1_0, s_BDbd
+	nop							{o4 1}	shufb	shuftemp10, mat2_0, mat3_0, s_BDbd
+	nop							{o4 1}	shufb	shuftemp11, mat0_2, mat1_2, s_BDbd
+	nop							{o4 1}	shufb	shuftemp12, mat2_2, mat3_2, s_BDbd
+	nop							{o4 1}	shufb	mat_00, shuftemp1, shuftemp2, s_ACac
+	nop							{o4 1}	shufb	mat_01, shuftemp9, shuftemp10, s_ACac
+	nop							{o4 1}	shufb	mat_02, shuftemp1, shuftemp2, s_BDbd
+	nop							{o4 1}	shufb	mat_03, shuftemp9, shuftemp10, s_BDbd
+	nop							{o4 1}	shufb	mat_10, shuftemp5, shuftemp6, s_ACac
+	nop							{o4 1}	shufb	mat_11, shuftemp7, shuftemp8, s_ACac
+	nop							{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BDbd
+	nop							{o4 1}	shufb	mat_13, shuftemp7, shuftemp8, s_BDbd
+	nop							{o4 1}	shufb	mat_20, shuftemp3, shuftemp4, s_ACac
+	nop							{o4 1}	shufb	mat_21, shuftemp11, shuftemp12, s_ACac
+	nop							{o4 1}	shufb	mat_22, shuftemp3, shuftemp4, s_BDbd
+	nop							{o4 1}	shufb	mat_23, shuftemp11, shuftemp12, s_BDbd
+	nop								lnop
+	nop								lnop
+
+;==============================================================================================================================
+; Blended Cofactor Matrix Calculation
+;
+;==============================================================================================================================
+; Since these matrices are not necessarily orthonormal, we can not directly use them to transform the normals.
+; Instead we need to use the cofactor matrices of each of the four matrices.
+; Here, we calculate the four cofactor matrices, which is essentially three cross products.
+{e6 1}	fm	cofm_00, mat_11, mat_22					lnop
+{e6 1}	fm	cofm_01, mat_12, mat_20					lnop
+{e6 1}	fm	cofm_02, mat_11, mat_20					lnop
+{e6 1}	fm	cofm_10, mat_01, mat_22					lnop
+{e6 1}	fm	cofm_11, mat_02, mat_20					lnop
+{e6 1}	fm	cofm_12, mat_01, mat_20					lnop
+{e6 1}	fm	cofm_20, mat_02, mat_11					lnop
+{e6 1}	fm	cofm_21, mat_00, mat_12					lnop
+{e6 1}	fm	cofm_22, mat_00, mat_11					lnop
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00				lnop
+{e6 1}	fnms	cofm_01, mat_10, mat_22, cofm_01				lnop
+{e6 1}	fms	cofm_02, mat_10, mat_21, cofm_02				lnop
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10				lnop
+{e6 1}	fms	cofm_11, mat_00, mat_22, cofm_11				lnop
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12				lnop
+{e6 1}	fnms	cofm_20, mat_01, mat_12, cofm_20				lnop
+{e6 1}	fms	cofm_21, mat_02, mat_10, cofm_21				lnop
+{e6 1}	fnms	cofm_22, mat_01, mat_10, cofm_22				lnop
+
+;==============================================================================================================================
+; Vertex Position Transformation
+;
+;==============================================================================================================================
+; Load four vertex positions.
+	nop							{o6 0}	lqx	pos0, pPos00, inOff
+	nop							{o6 0}	lqx	pos1, pPos10, inOff
+	nop							{o6 0}	lqx	pos2, pPos20, inOff
+	nop							{o6 0}	lqx	pos3, pPos30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex positions start as:
+;	x0  y0  z0  --
+;	x1  y1  z1  --
+;	x2  y2  z2  --
+;	x3  y3  z3  --
+; But we need them as:
+;	x0  x1  x2  x3
+;	y0  y1  y2  y3
+;	z0  z1  z2  z3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+	nop							{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+	nop							{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+	nop							{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd			{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd				lnop
+
+; Transform the four vertex positions using the transformation matrices with translations.
+{e6 1}	fma	px2, px, mat_00, mat_03					lnop
+{e6 1}	fma	py2, px, mat_10, mat_13					lnop
+{e6 1}	fma	pz2, px, mat_20, mat_23					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	px2, pz, mat_02, px2					lnop
+{e6 1}	fma	py2, pz, mat_12, py2					lnop
+{e6 1}	fma	pz2, pz, mat_22, pz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	px3, py, mat_01, px2					lnop
+{e6 1}	fma	py3, py, mat_11, py2					lnop
+{e6 1}	fma	pz3, py, mat_21, pz2					lnop
+
+; The four transformed vertex positions are in the following format:
+;	x0  x1  x2  x3
+;	y0  y1  y2  y3
+;	z0  z1  z2  z3
+; But we need them back as:
+;	x0  y0  z0  --
+;	x1  y1  z1  --
+;	x2  y2  z2  --
+;	x3  y3  z3  --
+; So we shuffle them here.
+	nop							{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+	nop							{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+
+; Store the four transformed vertex positions.
+	nop							{o6 2}	stqx	opos0, pPos00, outOff
+	nop							{o6 2}	stqx	opos1, pPos10, outOff
+	nop							{o6 2}	stqx	opos3, pPos30, outOff
+	nop							{o6 2}	stqx	opos2, pPos20, outOff
+
+;==============================================================================================================================
+; Vertex Normal Transformation
+;
+;==============================================================================================================================
+; Load four vertex normals.
+	nop							{o6 1}	lqx	norm0, pNormal00, inOff
+	nop							{o6 1}	lqx	norm1, pNormal10, inOff
+	nop							{o6 1}	lqx	norm2, pNormal20, inOff
+	nop							{o6 1}	lqx	norm3, pNormal30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex normals start as:
+;	nx0 ny0 nz0 ---
+;	nx1 ny1 nz1 ---
+;	nx2 ny2 nz2 ---
+;	nx3 ny3 nz3 ---
+; But we need them as:
+;	nx0 nx1 nx2 nx3
+;	ny0 ny1 ny2 ny3
+;	nz0 nz1 nz2 nz3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+	nop							{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+	nop							{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+	nop							{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd			{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd				lnop
+	nop								lnop
+
+; Transform the four vertex normals using the cofactor matrices.
+{e6 1}	fm	nx2, nz, cofm_02						lnop
+{e6 1}	fm	ny2, nz, cofm_12						lnop
+{e6 1}	fm	nz2, nz, cofm_22						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nx2, nx, cofm_00, nx2					lnop
+{e6 1}	fma	ny2, nx, cofm_10, ny2					lnop
+{e6 1}	fma	nz2, nx, cofm_20, nz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nx4, ny, cofm_01, nx2					lnop
+{e6 1}	fma	ny4, ny, cofm_11, ny2					lnop
+{e6 1}	fma	nz4, ny, cofm_21, nz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Since the cofactor matrices may not be orthonormal, we need to renormalize the vertex normals.
+; Although, the vertex shader program will probably normalize the normals there, the normals may
+; need to be compressed into a normalized format to be passed along to the GPU, so we need to
+; renormalize them here anyway so that they are in range.
+; N = N / sqrt(nx * nx + ny * ny + nz * nz)
+{e6 1}	fm	nrmag, nx4, nx4						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nrmag, ny4, ny4, nrmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fma	nrmag, nz4, nz4, nrmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 2}	frsqest	nest, nrmag
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e7 2}	fi	nrmag2, nrmag, nest					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fm	nx5, nx4, nrmag2						lnop
+{e6 2}	fm	ny5, ny4, nrmag2						lnop
+{e6 2}	fm	nz5, nz4, nrmag2						lnop
+
+; The four transformed vertex normals are in the following format:
+;	nx0 nx1 nx2 nx3
+;	ny0 ny1 ny2 ny3
+;	nz0 nz1 nz2 nz3
+; But we need them back as:
+;	nx0 ny0 nz0 ---
+;	nx1 ny1 nz1 ---
+;	nx2 ny2 nz2 ---
+;	nx3 ny3 nz3 ---
+; So we shuffle them here.
+	nop							{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+	nop							{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+
+; In case the original vertex normals have a flip factor stored with them in the fourth field, we need
+; to restore that here.
+{e2 2}	selb	onorm0, onorm0, norm0, sel_ABCd				lnop
+{e2 2}	selb	onorm1, onorm1, norm1, sel_ABCd				lnop
+{e2 2}	selb	onorm3, onorm3, norm3, sel_ABCd				lnop
+{e2 2}	selb	onorm2, onorm2, norm2, sel_ABCd				lnop
+
+; Store the four transformed vertex normals.
+	nop							{o6 2}	stqx	onorm0, pNormal00, outOff
+	nop							{o6 2}	stqx	onorm1, pNormal10, outOff
+	nop							{o6 2}	stqx	onorm2, pNormal20, outOff
+	nop							{o6 2}	stqx	onorm3, pNormal30, outOff
+
+;==============================================================================================================================
+; Vertex Tangent Transformation
+;
+;==============================================================================================================================
+; Load four vertex tangents.
+	nop							{o6 1}	lqx	tan0, pTangent00, inOff
+	nop							{o6 1}	lqx	tan1, pTangent10, inOff
+	nop							{o6 1}	lqx	tan2, pTangent20, inOff
+	nop							{o6 1}	lqx	tan3, pTangent30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex tangents start as:
+;	tx0 ty0 tz0 ---
+;	tx1 ty1 tz1 ---
+;	tx2 ty2 tz2 ---
+;	tx3 ty3 tz3 ---
+; But we need them as:
+;	tx0 tx1 tx2 tx3
+;	ty0 ty1 ty2 ty3
+;	tz0 tz1 tz2 tz3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+	nop							{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+	nop							{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+	nop							{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd			{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd				lnop
+	nop								lnop
+
+; Transform the four vertex tangents using the matrices.
+{e6 1}	fm	tx2, tz, mat_02						lnop
+{e6 1}	fm	ty2, tz, mat_12						lnop
+{e6 1}	fm	tz2, tz, mat_22						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	tx2, tx, mat_00, tx2					lnop
+{e6 1}	fma	ty2, tx, mat_10, ty2					lnop
+{e6 1}	fma	tz2, tx, mat_20, tz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	tx4, ty, mat_01, tx2					lnop
+{e6 1}	fma	ty4, ty, mat_11, ty2					lnop
+{e6 1}	fma	tz4, ty, mat_21, tz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Since the matrices may not be orthonormal, we need to renormalize the vertex tangents.
+; Although, the vertex shader program will probably normalize the tangents there, the tangents may
+; need to be compressed into a normalized format to be passed along to the GPU, so we need to
+; renormalize them here anyway so that they are in range.
+; T = T / sqrt(tx * tx + ty * ty + tz * tz)
+{e6 1}	fm	trmag, tx4, tx4						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	trmag, ty4, ty4, trmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fma	trmag, tz4, tz4, trmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 2}	frsqest	test, trmag
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e7 2}	fi	trmag2, trmag, test					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fm	tx5, tx4, trmag2						lnop
+{e6 2}	fm	ty5, ty4, trmag2						lnop
+{e6 2}	fm	tz5, tz4, trmag2						lnop
+
+; The four transformed vertex tangents are in the following format:
+;	tx0 tx1 tx2 tx3
+;	ty0 ty1 ty2 ty3
+;	tz0 tz1 tz2 tz3
+; But we need them back as:
+;	tx0 ty0 tz0 ---
+;	tx1 ty1 tz1 ---
+;	tx2 ty2 tz2 ---
+;	tx3 ty3 tz3 ---
+; So we shuffle them here.
+	nop							{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+	nop							{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+
+; In case the original vertex tangents have a flip factor stored with them in the fourth field, we need
+; to restore that here.
+{e2 2}	selb	otan0, otan0, tan0, sel_ABCd				lnop
+{e2 2}	selb	otan1, otan1, tan1, sel_ABCd				lnop
+{e2 2}	selb	otan3, otan3, tan3, sel_ABCd				lnop
+{e2 2}	selb	otan2, otan2, tan2, sel_ABCd				lnop
+
+; Store the four transformed vertex tangents.
+	nop							{o6 2}	stqx	otan0, pTangent00, outOff
+	nop							{o6 2}	stqx	otan1, pTangent10, outOff
+	nop							{o6 2}	stqx	otan2, pTangent20, outOff
+	nop							{o6 2}	stqx	otan3, pTangent30, outOff
+
+
+;==============================================================================================================================
+; Pointer Increments and Control Byte Flow Control
+;
+;==============================================================================================================================
+; Now that all of the stores have occured, we need increment the output pointer.  Since the loops will
+; eventually be rolled up, we will need a delay for incrementing the output pointer.  This is done by
+; shuffling the output increment value down a register over the course of several iterations.  The value
+; in the preferred word starts at 0, but after several interations becomes 0x40, the correct increment value.
+	nop							{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 1}	ai	vtxCount, vtxCount, -1					lnop
+	nop								lnop
+	nop								lnop
+{e2 2}	a	outOff, outOff, outInc					lnop
+
+; Also, we need to increment the input pointer.
+{e2 1}	ai	inOff, inOff, 0x40					lnop
+
+; Also, we need to increment the matrix pointer.
+{e2 1}	ai	pMatrix, pMatrix, 0xc0					lnop
+
+; Next, we calculate the jump target.
+{e2 1}	ceqi	test, vtxCount, 0						lnop
+	nop								lnop
+{e2 1}	selb	jumpAddr, jumpSkinLoop, $lr, test				lnop
+	nop								lnop
+
+; Lastly, we hint the jump target and then finally jump there.
+; The possible branch targets can be seen in brackets after the jump instruction.
+	nop							{o  1}	hbr	skin_branch, jumpAddr
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+						skin_branch:	{o? 1}	bi	jumpAddr	[skinExit skinLoop]
+skinExit:
+	nop								bi $lr
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	il	outInc, 0x40						lqa	s_ACac, s_ACac
+	ai	pPos10, pPos00, 0x10					lqa	s_BDbd, s_BDbd
+	ai	pPos20, pPos00, 0x20					lqa	sel_ABcd, sel_ABcd
+	ai	pPos30, pPos00, 0x30					lqa	s_AaBb, s_AaBb
+	ai	pNormal10, pNormal00, 0x10					lqa	s_BbAa, s_BbAa
+	ai	pNormal20, pNormal00, 0x20					lqa	s_CcCc, s_CcCc
+	ai	pNormal30, pNormal00, 0x30					lqa	s_cdAB, s_cdAB
+	ai	pTangent10, pTangent00, 0x10				lqa	s_DAad, s_DAad
+	ai	pTangent20, pTangent00, 0x20				lqa	s_BCbc, s_BCbc
+	ai	pTangent30, pTangent00, 0x30				lqa	s_dAD0, s_dAD0
+	il	inOff, 0							lqa	s_BcDa, s_BcDa
+	il	outOff, 0						lqa	s_BCDD, s_BCDD
+	ila	jumpskinChildLoop, skinChildLoop				lqa	sel_AbcD, sel_AbcD
+	ai	vtxCount, vtxCount, 3					lqa	sel_ABCd, sel_ABCd
+	nop{and	outInc, outInc, sel_ABcd}					lqa	sel_aBcD, sel_aBcD
+	rotmi	vtxCount, vtxCount, -2					lnop
+
+skinChildLoop:
+; load the 8 parent matrix indices and multiply by 0x30
+	nop							{06 0}	lqd	parent, 0x00(pParents)
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e4 0}	shlhi	parent, parent, 4						lnop
+{e4 0}	shlhi	parent1, parent, 5					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e2 0}	ah	parent1, parent, parent1					lnop
+	nop								lnop
+
+; extract parent matrix offsets
+{e4 0}	rotmi	parent0, parent1, -16				{04 0}	shlqbyi	parent3, parent1, 4
+	nop							{04 0}	shlqbyi	parent5, parent1, 8
+	nop							{04 0}	shlqbyi	parent7, parent1, 12
+	nop								lnop
+{e4 0}	rotmi	parent2, parent3, -16					lnop
+{e4 0}	rotmi	parent4, parent5, -16					lnop
+{e4 0}	rotmi	parent6, parent7, -16					lnop
+
+; load parent matrices
+	nop							{06 0}	lqx	pmat00, pMatrix00, parent0
+	nop							{06 0}	lqx	pmat01, pMatrix10, parent0
+	nop							{06 0}	lqx	pmat02, pMatrix20, parent0
+	nop							{06 0}	lqx	pmat10, pMatrix00, parent1
+	nop							{06 0}	lqx	pmat11, pMatrix10, parent1
+	nop							{06 0}	lqx	pmat12, pMatrix20, parent1
+	nop							{06 0}	lqx	pmat20, pMatrix00, parent2
+	nop							{06 0}	lqx	pmat21, pMatrix10, parent2
+	nop							{06 0}	lqx	pmat22, pMatrix20, parent2
+	nop							{06 0}	lqx	pmat30, pMatrix00, parent3
+	nop							{06 0}	lqx	pmat31, pMatrix10, parent3
+	nop							{06 0}	lqx	pmat32, pMatrix20, parent3
+	nop							{06 0}	lqx	pmat40, pMatrix00, parent4
+	nop							{06 0}	lqx	pmat41, pMatrix10, parent4
+	nop							{06 0}	lqx	pmat42, pMatrix20, parent4
+	nop							{06 0}	lqx	pmat50, pMatrix00, parent5
+	nop							{06 0}	lqx	pmat51, pMatrix10, parent5
+	nop							{06 0}	lqx	pmat52, pMatrix20, parent5
+	nop							{06 0}	lqx	pmat60, pMatrix00, parent6
+	nop							{06 0}	lqx	pmat61, pMatrix10, parent6
+	nop							{06 0}	lqx	pmat62, pMatrix20, parent6
+	nop							{06 0}	lqx	pmat70, pMatrix00, parent7
+	nop							{06 0}	lqx	pmat71, pMatrix10, parent7
+	nop							{06 0}	lqx	pmat72, pMatrix20, parent7
+
+; blend the two parent matrices to make the childs matrix
+{e6 0}	fm	mat0_0, pmat00, weight0					lnop
+{e6 0}	fm	mat0_1, pmat01, weight0					lnop
+{e6 0}	fm	mat0_2, pmat02, weight0					lnop
+{e6 0}	fm	mat1_0, pmat20, weight0					lnop
+{e6 0}	fm	mat1_1, pmat21, weight0					lnop
+{e6 0}	fm	mat1_2, pmat22, weight0					lnop
+{e6 0}	fm	mat2_0, pmat40, weight0					lnop
+{e6 0}	fm	mat2_1, pmat41, weight0					lnop
+{e6 0}	fm	mat2_2, pmat42, weight0					lnop
+{e6 0}	fm	mat3_0, pmat60, weight0					lnop
+{e6 0}	fm	mat3_1, pmat61, weight0					lnop
+{e6 0}	fm	mat3_2, pmat62, weight0					lnop
+{e6 0}	fma	mat0_0, pmat10, weight1, mat0_0				lnop
+{e6 0}	fma	mat0_1, pmat11, weight1, mat0_1				lnop
+{e6 0}	fma	mat0_2, pmat12, weight1, mat0_2				lnop
+{e6 0}	fma	mat1_0, pmat30, weight1, mat1_0				lnop
+{e6 0}	fma	mat1_1, pmat31, weight1, mat1_1				lnop
+{e6 0}	fma	mat1_2, pmat32, weight1, mat1_2				lnop
+{e6 0}	fma	mat2_0, pmat50, weight1, mat2_0				lnop
+{e6 0}	fma	mat2_1, pmat51, weight1, mat2_1				lnop
+{e6 0}	fma	mat2_2, pmat52, weight1, mat2_2				lnop
+{e6 0}	fma	mat3_0, pmat70, weight1, mat3_0				lnop
+{e6 0}	fma	mat3_1, pmat71, weight1, mat3_1				lnop
+{e6 0}	fma	mat3_2, pmat72, weight1, mat3_2				lnop
+
+;==============================================================================================================================
+; Blended Matrix Shuffle
+;
+;==============================================================================================================================
+; The blending functions output four blended matrices in twelve registers with each register containing a single row
+; of a single matrix, like this:
+;	m0_00 m0_01 m0_02 m0_03     m1_00 m1_01 m1_02 m1_03     m2_00 m2_01 m2_02 m2_03     m3_00 m3_01 m3_02 m3_03
+;	m0_10 m0_11 m0_12 m0_13     m1_10 m1_11 m1_12 m1_13     m2_10 m2_11 m2_12 m2_13     m3_10 m3_11 m3_12 m3_13
+;	m0_20 m0_21 m0_22 m0_23     m1_20 m1_21 m1_22 m1_23     m2_20 m2_21 m2_22 m2_23     m3_20 m3_21 m3_22 m3_23
+; However, for effeicent processing, we need to shuffle the matrices so that each of twelve registers contains the
+; same element from each of the four matrices, like this:
+;	m0_00 m1_00 m2_00 m3_00     m0_01 m1_01 m2_01 m3_01     m0_02 m1_02 m2_02 m3_02     m0_03 m1_03 m2_03 m3_03
+;	m0_10 m1_10 m2_10 m3_10     m0_11 m1_11 m2_11 m3_11     m0_12 m1_12 m2_12 m3_12     m0_13 m1_13 m2_13 m3_13
+;	m0_20 m1_20 m2_20 m3_20     m0_21 m1_21 m2_21 m3_21     m0_22 m1_22 m2_22 m3_22     m0_23 m1_23 m2_23 m3_23
+; We do this here.
+	nop							{o4 1}	shufb	shuftemp1, mat0_0, mat1_0, s_ACac
+	nop							{o4 1}	shufb	shuftemp2, mat2_0, mat3_0, s_ACac
+	nop							{o4 1}	shufb	shuftemp3, mat0_2, mat1_2, s_ACac
+	nop							{o4 1}	shufb	shuftemp4, mat2_2, mat3_2, s_ACac
+	nop							{o4 1}	shufb	shuftemp5, mat0_1, mat1_1, s_ACac
+	nop							{o4 1}	shufb	shuftemp6, mat2_1, mat3_1, s_ACac
+	nop							{o4 1}	shufb	shuftemp7, mat0_1, mat1_1, s_BDbd
+	nop							{o4 1}	shufb	shuftemp8, mat2_1, mat3_1, s_BDbd
+	nop							{o4 1}	shufb	shuftemp9, mat0_0, mat1_0, s_BDbd
+	nop							{o4 1}	shufb	shuftemp10, mat2_0, mat3_0, s_BDbd
+	nop							{o4 1}	shufb	shuftemp11, mat0_2, mat1_2, s_BDbd
+	nop							{o4 1}	shufb	shuftemp12, mat2_2, mat3_2, s_BDbd
+	nop							{o4 1}	shufb	mat_00, shuftemp1, shuftemp2, s_ACac
+	nop							{o4 1}	shufb	mat_01, shuftemp9, shuftemp10, s_ACac
+	nop							{o4 1}	shufb	mat_02, shuftemp1, shuftemp2, s_BDbd
+	nop							{o4 1}	shufb	mat_03, shuftemp9, shuftemp10, s_BDbd
+	nop							{o4 1}	shufb	mat_10, shuftemp5, shuftemp6, s_ACac
+	nop							{o4 1}	shufb	mat_11, shuftemp7, shuftemp8, s_ACac
+	nop							{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BDbd
+	nop							{o4 1}	shufb	mat_13, shuftemp7, shuftemp8, s_BDbd
+	nop							{o4 1}	shufb	mat_20, shuftemp3, shuftemp4, s_ACac
+	nop							{o4 1}	shufb	mat_21, shuftemp11, shuftemp12, s_ACac
+	nop							{o4 1}	shufb	mat_22, shuftemp3, shuftemp4, s_BDbd
+	nop							{o4 1}	shufb	mat_23, shuftemp11, shuftemp12, s_BDbd
+	nop								lnop
+	nop								lnop
+
+;==============================================================================================================================
+; Blended Cofactor Matrix Calculation
+;
+;==============================================================================================================================
+; Since these matrices are not necessarily orthonormal, we can not directly use them to transform the normals.
+; Instead we need to use the cofactor matrices of each of the four matrices.
+; Here, we calculate the four cofactor matrices, which is essentially three cross products.
+{e6 1}	fm	cofm_00, mat_11, mat_22					lnop
+{e6 1}	fm	cofm_01, mat_12, mat_20					lnop
+{e6 1}	fm	cofm_02, mat_11, mat_20					lnop
+{e6 1}	fm	cofm_10, mat_01, mat_22					lnop
+{e6 1}	fm	cofm_11, mat_02, mat_20					lnop
+{e6 1}	fm	cofm_12, mat_01, mat_20					lnop
+{e6 1}	fm	cofm_20, mat_02, mat_11					lnop
+{e6 1}	fm	cofm_21, mat_00, mat_12					lnop
+{e6 1}	fm	cofm_22, mat_00, mat_11					lnop
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00				lnop
+{e6 1}	fnms	cofm_01, mat_10, mat_22, cofm_01				lnop
+{e6 1}	fms	cofm_02, mat_10, mat_21, cofm_02				lnop
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10				lnop
+{e6 1}	fms	cofm_11, mat_00, mat_22, cofm_11				lnop
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12				lnop
+{e6 1}	fnms	cofm_20, mat_01, mat_12, cofm_20				lnop
+{e6 1}	fms	cofm_21, mat_02, mat_10, cofm_21				lnop
+{e6 1}	fnms	cofm_22, mat_01, mat_10, cofm_22				lnop
+
+;==============================================================================================================================
+; Vertex Position Transformation
+;
+;==============================================================================================================================
+; Load four vertex positions.
+	nop							{o6 0}	lqx	pos0, pPos00, inOff
+	nop							{o6 0}	lqx	pos1, pPos10, inOff
+	nop							{o6 0}	lqx	pos2, pPos20, inOff
+	nop							{o6 0}	lqx	pos3, pPos30, inOff
+; Load four displacement normals.
+	nop							{o6 0}	lqx	disp0, pDisp00, inOff
+	nop							{o6 0}	lqx	disp1, pDisp10, inOff
+	nop							{o6 0}	lqx	disp2, pDisp20, inOff
+	nop							{o6 0}	lqx	disp3, pDisp30, inOff
+	nop								lnop
+	nop								lnop
+
+; Displace the four vertex positions using the displacement normal.
+{e6 1}	fma	pos0, disp0, weight2, pos0					lnop
+{e6 1}	fma	pos1, disp1, weight2, pos1					lnop
+{e6 1}	fma	pos2, disp2, weight2, pos2					lnop
+{e6 1}	fma	pos3, disp3, weight2, pos3					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex positions start as:
+;	x0  y0  z0  --
+;	x1  y1  z1  --
+;	x2  y2  z2  --
+;	x3  y3  z3  --
+; But we need them as:
+;	x0  x1  x2  x3
+;	y0  y1  y2  y3
+;	z0  z1  z2  z3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+	nop							{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+	nop							{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+	nop							{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd			{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd				lnop
+
+; Transform the four vertex positions using the transformation matrices with translations.
+{e6 1}	fma	px2, px, mat_00, mat_03					lnop
+{e6 1}	fma	py2, px, mat_10, mat_13					lnop
+{e6 1}	fma	pz2, px, mat_20, mat_23					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	px2, pz, mat_02, px2					lnop
+{e6 1}	fma	py2, pz, mat_12, py2					lnop
+{e6 1}	fma	pz2, pz, mat_22, pz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	px3, py, mat_01, px2					lnop
+{e6 1}	fma	py3, py, mat_11, py2					lnop
+{e6 1}	fma	pz3, py, mat_21, pz2					lnop
+
+; The four transformed vertex positions are in the following format:
+;	x0  x1  x2  x3
+;	y0  y1  y2  y3
+;	z0  z1  z2  z3
+; But we need them back as:
+;	x0  y0  z0  --
+;	x1  y1  z1  --
+;	x2  y2  z2  --
+;	x3  y3  z3  --
+; So we shuffle them here.
+	nop							{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+	nop							{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+
+; Store the four transformed vertex positions.
+	nop							{o6 2}	stqx	opos0, pPos00, outOff
+	nop							{o6 2}	stqx	opos1, pPos10, outOff
+	nop							{o6 2}	stqx	opos3, pPos30, outOff
+	nop							{o6 2}	stqx	opos2, pPos20, outOff
+
+;==============================================================================================================================
+; Vertex Normal Transformation
+;
+;==============================================================================================================================
+; Load four vertex normals.
+	nop							{o6 1}	lqx	norm0, pNormal00, inOff
+	nop							{o6 1}	lqx	norm1, pNormal10, inOff
+	nop							{o6 1}	lqx	norm2, pNormal20, inOff
+	nop							{o6 1}	lqx	norm3, pNormal30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex normals start as:
+;	nx0 ny0 nz0 ---
+;	nx1 ny1 nz1 ---
+;	nx2 ny2 nz2 ---
+;	nx3 ny3 nz3 ---
+; But we need them as:
+;	nx0 nx1 nx2 nx3
+;	ny0 ny1 ny2 ny3
+;	nz0 nz1 nz2 nz3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+	nop							{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+	nop							{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+	nop							{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd			{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd				lnop
+	nop								lnop
+
+; Transform the four vertex normals using the cofactor matrices.
+{e6 1}	fm	nx2, nz, cofm_02						lnop
+{e6 1}	fm	ny2, nz, cofm_12						lnop
+{e6 1}	fm	nz2, nz, cofm_22						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nx2, nx, cofm_00, nx2					lnop
+{e6 1}	fma	ny2, nx, cofm_10, ny2					lnop
+{e6 1}	fma	nz2, nx, cofm_20, nz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nx4, ny, cofm_01, nx2					lnop
+{e6 1}	fma	ny4, ny, cofm_11, ny2					lnop
+{e6 1}	fma	nz4, ny, cofm_21, nz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Since the cofactor matrices may not be orthonormal, we need to renormalize the vertex normals.
+; Although, the vertex shader program will probably normalize the normals there, the normals may
+; need to be compressed into a normalized format to be passed along to the GPU, so we need to
+; renormalize them here anyway so that they are in range.
+; N = N / sqrt(nx * nx + ny * ny + nz * nz)
+{e6 1}	fm	nrmag, nx4, nx4						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	nrmag, ny4, ny4, nrmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fma	nrmag, nz4, nz4, nrmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 2}	frsqest	nest, nrmag
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e7 2}	fi	nrmag2, nrmag, nest					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fm	nx5, nx4, nrmag2						lnop
+{e6 2}	fm	ny5, ny4, nrmag2						lnop
+{e6 2}	fm	nz5, nz4, nrmag2						lnop
+
+; The four transformed vertex normals are in the following format:
+;	nx0 nx1 nx2 nx3
+;	ny0 ny1 ny2 ny3
+;	nz0 nz1 nz2 nz3
+; But we need them back as:
+;	nx0 ny0 nz0 ---
+;	nx1 ny1 nz1 ---
+;	nx2 ny2 nz2 ---
+;	nx3 ny3 nz3 ---
+; So we shuffle them here.
+	nop							{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+	nop							{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+
+; In case the original vertex normals have a flip factor stored with them in the fourth field, we need
+; to restore that here.
+{e2 2}	selb	onorm0, onorm0, norm0, sel_ABCd				lnop
+{e2 2}	selb	onorm1, onorm1, norm1, sel_ABCd				lnop
+{e2 2}	selb	onorm3, onorm3, norm3, sel_ABCd				lnop
+{e2 2}	selb	onorm2, onorm2, norm2, sel_ABCd				lnop
+
+; Store the four transformed vertex normals.
+	nop							{o6 2}	stqx	onorm0, pNormal00, outOff
+	nop							{o6 2}	stqx	onorm1, pNormal10, outOff
+	nop							{o6 2}	stqx	onorm2, pNormal20, outOff
+	nop							{o6 2}	stqx	onorm3, pNormal30, outOff
+
+;==============================================================================================================================
+; Vertex Tangent Transformation
+;
+;==============================================================================================================================
+; Load four vertex tangents.
+	nop							{o6 1}	lqx	tan0, pTangent00, inOff
+	nop							{o6 1}	lqx	tan1, pTangent10, inOff
+	nop							{o6 1}	lqx	tan2, pTangent20, inOff
+	nop							{o6 1}	lqx	tan3, pTangent30, inOff
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The vertex tangents start as:
+;	tx0 ty0 tz0 ---
+;	tx1 ty1 tz1 ---
+;	tx2 ty2 tz2 ---
+;	tx3 ty3 tz3 ---
+; But we need them as:
+;	tx0 tx1 tx2 tx3
+;	ty0 ty1 ty2 ty3
+;	tz0 tz1 tz2 tz3
+; So we shuffle them into those positions.
+	nop							{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+	nop							{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+	nop							{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+	nop							{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+	nop								lnop
+	nop								lnop
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd			{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd				lnop
+	nop								lnop
+
+; Transform the four vertex tangents using the matrices.
+{e6 1}	fm	tx2, tz, mat_02						lnop
+{e6 1}	fm	ty2, tz, mat_12						lnop
+{e6 1}	fm	tz2, tz, mat_22						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	tx2, tx, mat_00, tx2					lnop
+{e6 1}	fma	ty2, tx, mat_10, ty2					lnop
+{e6 1}	fma	tz2, tx, mat_20, tz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	tx4, ty, mat_01, tx2					lnop
+{e6 1}	fma	ty4, ty, mat_11, ty2					lnop
+{e6 1}	fma	tz4, ty, mat_21, tz2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Since the matrices may not be orthonormal, we need to renormalize the vertex tangents.
+; Although, the vertex shader program will probably normalize the tangents there, the tangents may
+; need to be compressed into a normalized format to be passed along to the GPU, so we need to
+; renormalize them here anyway so that they are in range.
+; T = T / sqrt(tx * tx + ty * ty + tz * tz)
+{e6 1}	fm	trmag, tx4, tx4						lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 1}	fma	trmag, ty4, ty4, trmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fma	trmag, tz4, tz4, trmag					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 2}	frsqest	test, trmag
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e7 2}	fi	trmag2, trmag, test					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e6 2}	fm	tx5, tx4, trmag2						lnop
+{e6 2}	fm	ty5, ty4, trmag2						lnop
+{e6 2}	fm	tz5, tz4, trmag2						lnop
+
+; The four transformed vertex tangents are in the following format:
+;	tx0 tx1 tx2 tx3
+;	ty0 ty1 ty2 ty3
+;	tz0 tz1 tz2 tz3
+; But we need them back as:
+;	tx0 ty0 tz0 ---
+;	tx1 ty1 tz1 ---
+;	tx2 ty2 tz2 ---
+;	tx3 ty3 tz3 ---
+; So we shuffle them here.
+	nop							{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+	nop							{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+	nop								lnop
+	nop								lnop
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+
+; In case the original vertex tangents have a flip factor stored with them in the fourth field, we need
+; to restore that here.
+{e2 2}	selb	otan0, otan0, tan0, sel_ABCd				lnop
+{e2 2}	selb	otan1, otan1, tan1, sel_ABCd				lnop
+{e2 2}	selb	otan3, otan3, tan3, sel_ABCd				lnop
+{e2 2}	selb	otan2, otan2, tan2, sel_ABCd				lnop
+
+; Store the four transformed vertex tangents.
+	nop							{o6 2}	stqx	otan0, pTangent00, outOff
+	nop							{o6 2}	stqx	otan1, pTangent10, outOff
+	nop							{o6 2}	stqx	otan2, pTangent20, outOff
+	nop							{o6 2}	stqx	otan3, pTangent30, outOff
+
+
+;==============================================================================================================================
+; Pointer Increments and Control Byte Flow Control
+;
+;==============================================================================================================================
+; Now that all of the stores have occured, we need increment the output pointer.  Since the loops will
+; eventually be rolled up, we will need a delay for incrementing the output pointer.  This is done by
+; shuffling the output increment value down a register over the course of several iterations.  The value
+; in the preferred word starts at 0, but after several interations becomes 0x40, the correct increment value.
+	nop							{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 1}	ai	vtxCount, vtxCount, -1					lnop
+	nop								lnop
+	nop								lnop
+{e2 2}	a	outOff, outOff, outInc					lnop
+
+; Also, we need to increment the input pointer.
+{e2 1}	ai	inOff, inOff, 0x40					lnop
+
+; Also, we need to increment the matrix pointer.
+{e2 1}	ai	pMatrix, pMatrix, 0xc0					lnop
+
+; Next, we calculate the jump target.
+{e2 1}	ceqi	test, vtxCount, 0						lnop
+	nop								lnop
+{e2 1}	selb	jumpAddr, jumpSkinLoop, $lr, test				lnop
+	nop								lnop
+
+; Lastly, we hint the jump target and then finally jump there.
+; The possible branch targets can be seen in brackets after the jump instruction.
+	nop							{o  1}	hbr	skinChild_branch, jumpAddr
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+						skinChild_branch:	{o? 1}	bi	jumpAddr	[skinChildExit skinChildLoop]
+skinChildExit:
+	nop								bi $lr
+
+
+.endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.start
+
+.define TEST 0
+
+;in
+; $3 vertex index
+; $4 ptr to matrices
+; $5 ptr to weights
+; $6 ptr to same
+; $7 ptr to diff
+; $8 ptr to vertex offset table
+
+.data
+.align 4
+s_AAAA:
+.dshuf "AAAA"
+s_AaBC:
+.dshuf "AaBC"
+s_ABaC:
+.dshuf "ABaC"
+s_BCDD:
+.dshuf "BCDD"
+
+s_ACac:
+.dshuf "ACac"
+s_BDbd:
+.dshuf "BDbd"
+s_AaBb:
+.dshuf "AaBb"
+s_BbAa:
+.dshuf "BbAa"
+s_CcCc:
+.dshuf "CcCc"
+s_cdAB:
+.dshuf "cdAB"
+s_DAad:
+.dshuf "DAad"
+s_BCbc:
+.dshuf "BCbc"
+s_dAD0:
+.dshuf "dAD0"
+s_BcDa:
+.dshuf "BcDa"
+;s_BCDD:
+;.dshuf "BCDD"
+sel_ABcd:
+.dw	0x00000000, 0x00000000, 0xffffffff, 0xffffffff
+sel_AbcD:
+.dw	0x00000000, 0xffffffff, 0xffffffff, 0x00000000
+sel_aBcD:
+.dw	0xffffffff, 0x00000000, 0xffffffff, 0x00000000
+sel_ABCd:
+.dw	0x00000000, 0x00000000, 0x00000000, 0xffffffff
+m_one:
+.df	1.0, 1.0, 1.0, 1.0
+
+m_JumpTbl2_p:	.dw jump2, jump3, jump4, jumpn
+m_InstTbl1_p:	.dw MakeOffsetTable_end, MakeOffsetTable_diff_1, MakeOffsetTable_same_n, MakeOffsetTable_diff_n
+m_InstTbl2_p:	.dw MakeOffsetTable_next, MakeOffsetTable_same_1, MakeOffsetTable_end, MakeOffsetTable_end
+m_diffJump_p:	.dw diff_loop_exit, diff_loop, 0, 0
+m_sameJump_p:	.dw same_loop_exit, same_loop, 0, 0
+m_loopnJump_p:	.dw exit_loop_n, loop_n, 0, 0
+
+.text
+
+.align 7
+
+;24/24, 28/14, 34/11.3, 42/10.5 14.96 cycle average per matrix
+
+.global LookupVertMatrix
+
+LookupVertMatrix:
+
+.reg vertex
+.reg vtxOff, weightOff, vtxShift
+.reg _2, _10, _18, _26
+.reg pStream, _pStream
+.reg straddle
+.reg jumpTbl
+.reg jumpAddr
+.reg mat0_0_2
+.reg mat0_1_2
+.reg mat0_2_2
+.reg mat0_0
+.reg mat0_1
+.reg mat0_2
+.reg mat1_0
+.reg mat1_1
+.reg mat1_2
+.reg mat2_0
+.reg mat2_1
+.reg mat2_2
+.reg mat3_0
+.reg mat3_1
+.reg mat3_2
+.reg weight_0, weight_1, weight_2, weight_3
+.reg weights0, weights1, weights2, weights3
+.reg s_AAAA
+.reg m_exit, m_loop
+.reg mtx0, mtx1, mtx2, mtx3
+.reg test, _8000
+.reg pMatrices10
+.reg pMatrices20
+.reg loopnJump, loopAddr, _loopAddr
+.reg pWeights
+
+; input paramters
+.reg pVtxOffTbl	3	; pointer to table generated by MakeOffsetTable
+.reg pMatrices00	4	; pointer to matrices
+.reg pVertex	5	; pointer to vertex index stream (vertices to have matrices built up)
+.reg pBlend	6	; pointer to output matrix stream
+
+	{nop}							{o6 1}	lqd	vertex, 0(pVertex)
+	{nop}							{o6 1}	lqa	loopnJump, m_loopnJump_p
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqby	vertex, vertex, pVertex
+{e2 1}	ai	pVertex, pVertex, 2					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e4 1}	rotmi	vertex, vertex, -12					{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 1}	il	_2, 2							{lnop}
+{e2 1}	ai	pMatrices10, pMatrices00, 0x10			{o6 1}	lqx	pStream, pVtxOffTbl, vertex
+{e2 1}	ai	pMatrices20, pMatrices00, 0x20				lqa	s_AAAA, s_AAAA
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 1}	ila	_8000, 0x8000					{o4 1}	rotqbyi	jumpAddr, pStream, 8
+{e2 1}	rotmi	straddle, pStream, -28				{o4 1}	rotqbyi	pWeights, pStream, 4
+	{nop}							{o6 2}	lqd	vertex, 0(pVertex)
+	{nop}								hbr	n_bra, jumpAddr
+	nop							{o6 1}	lqx	mtx0, pStream, _2
+	a	_10, _2, straddle					{o6 1}	lqd	weights0, 0x00(pWeights)
+	nop							{o6 1}	lqd	weights1, 0x10(pWeights)
+	a	_18, _10, straddle				{o6 1}	lqx	mtx1, pStream, _10
+	nop							{o4 2}	rotqby	vertex, vertex, pVertex
+{e2 2}	ai	pVertex, pVertex, 2				{o6 1}	lqx	mtx2, pStream, _18
+	{nop}							{o6 1}	lqd	weights2, 0x20(pWeights)
+	{nop}							{o4 1}	rotqby	mtx0, mtx0, pStream
+{e4 1}	rotmi	vertex, vertex, -12				{o4 1}	rotqby	weights0, weights0, pWeights
+{e2 1}	a	pStream, pStream, straddle				{o4 1}	rotqby	weights1, weights1, pWeights
+	nop							{o4 1}	rotqby	mtx1, mtx1, pStream
+{e2 1}	a	pStream, pStream, straddle				{o6 1}	lqx	mat0_0, pMatrices00, mtx0
+	{nop}							{o6 2}	lqx	_pStream, pVtxOffTbl, vertex
+	{nop}							{o4 1}	shufb	weight_0, weights0, weights0, s_AAAA
+	{nop}							{o6 1}	lqx	mat0_1, pMatrices10, mtx0
+	{nop}							{o6 1}	lqx	mat0_2, pMatrices20, mtx0
+	nop						n_bra:	{o? 1}	bi	jumpAddr	[jump1 jump2 jump3 jump4 jumpn]
+
+
+jump1:
+{e2 2}	rotmi	straddle, _pStream, -28				{o4 2}	rotqbyi	jumpAddr, _pStream, 8
+{e2 2}	ori	pStream, _pStream, 0				{o4 2}	rotqbyi	pWeights, _pStream, 4
+	{nop}							{o6 3}	lqd	vertex, 0(pVertex)
+	{nop}							{o6 2}	lqx	mtx0, pStream, _2
+{e2 2}	a	_10, _2, straddle						hbr	n_bra1, jumpAddr
+	nop							{o6 2}	lqd	weights0, 0x00(pWeights)
+{e2 2}	a	_18, _10, straddle				{o6 2}	lqd	weights1, 0x10(pWeights)
+	{nop}							{o6 2}	lqx	mtx1, pStream, _10
+	{nop}							{o4 3}	rotqby	vertex, vertex, pVertex
+{e2 3}	ai	pVertex, pVertex, 2				{o6 2}	lqx	mtx2, pStream, _18
+	{nop}							{o6 2}	lqd	weights2, 0x20(pWeights)
+	{nop}							{o4 2}	rotqby	mtx0, mtx0, pStream
+{e2 2}	a	pStream, pStream, straddle				{o4 2}	rotqby	weights0, weights0, pWeights
+{e4 3}	rotmi	vertex, vertex, -12				{o4 2}	rotqby	weights1, weights1, pWeights
+	{nop}							{o4 2}	rotqby	mtx1, mtx1, pStream
+	{nop}							{o6 1}	stqd	mat0_0, 0x00(pBlend)
+	{nop}							{o6 1}	stqd	mat0_1, 0x10(pBlend)
+	{nop}							{o6 3}	lqx	_pStream, pVtxOffTbl, vertex
+	nop							{o6 1}	stqd	mat0_2, 0x20(pBlend)
+{e2 1}	ceq	test, vertex, _8000				{o6 2}	lqx	mat0_0, pMatrices00, mtx0
+{e2 2}	a	pStream, pStream, straddle				{o4 2}	shufb	weight_0, weights0, weights0, s_AAAA
+{e2 1}	selb	jumpAddr, jumpAddr, $lr, test			{o6 2}	lqx	mat0_1, pMatrices10, mtx0
+	nop							{o6 2}	lqx	mat0_2, pMatrices20, mtx0
+{e2 2}	ai	pBlend, pBlend, 0x30			n_bra1:	{o? 1}	bi	jumpAddr	[exit jump1 jump2 jump3 jump4 jumpn]
+
+
+
+
+jump2:
+{e2 2}	ori	pStream, _pStream, 0				{o4 2}	rotqbyi	jumpAddr, _pStream, 8
+{e2 2}	rotmi	straddle, _pStream, -28				{o4 2}	rotqbyi	pWeights, _pStream, 4
+	nop							{o6 3}	lqd	vertex, 0(pVertex)
+{e6 1}	fm	mat0_0, mat0_0, weight_0				{o6 1}	lqx	mat1_0, pMatrices00, mtx1
+{e2 2}	a	_10, _2, straddle						hbr	n_bra2, jumpAddr
+{e2 2}	a	_18, _10, straddle				{o4 1}	shufb	weight_1, weights1, weights1, s_AAAA
+{e6 1}	fm	mat0_1, mat0_1, weight_0				{o6 1}	lqx	mat1_1, pMatrices10, mtx1
+{e6 1}	fm	mat0_2, mat0_2, weight_0				{o6 1}	lqx	mat1_2, pMatrices20, mtx1
+	nop							{o4 3}	rotqby	vertex, vertex, pVertex
+{e2 3}	ai	pVertex, pVertex, 2				{o6 2}	lqx	mtx0, pStream, _2
+	nop							{o6 2}	lqd	weights0, 0x00(pWeights)
+{e6 1}	fma	mat0_0, mat1_0, weight_1, mat0_0			{o6 2}	lqd	weights1, 0x10(pWeights)
+{e4 3}	rotmi	vertex, vertex, -12				{o6 2}	lqx	mtx1, pStream, _10
+{e6 1}	fma	mat0_1, mat1_1, weight_1, mat0_1			{o6 2}	lqx	mtx2, pStream, _18
+{e6 1}	fma	mat0_2, mat1_2, weight_1, mat0_2			{o6 2}	lqd	weights2, 0x20(pWeights)
+	{nop}							{o4 2}	rotqby	mtx0, mtx0, pStream
+	{nop}							{o6 3}	lqx	_pStream, pVtxOffTbl, vertex
+{e2 2}	a	pStream, pStream, straddle				{o4 2}	rotqby	weights0, weights0, pWeights
+	nop							{o4 2}	rotqby	weights1, weights1, pWeights
+	{nop}							{o4 2}	rotqby	mtx1, mtx1, pStream
+	{nop}							{o6 1}	stqd	mat0_0, 0x00(pBlend)
+	{nop}							{o6 1}	stqd	mat0_1, 0x10(pBlend)
+	{nop}							{o6 1}	stqd	mat0_2, 0x20(pBlend)
+{e2 1}	ceq	test, vertex, _8000				{o6 2}	lqx	mat0_0, pMatrices00, mtx0
+{e2 2}	a	pStream, pStream, straddle				{o4 2}	shufb	weight_0, weights0, weights0, s_AAAA
+{e2 1}	selb	jumpAddr, jumpAddr, $lr, test			{o6 2}	lqx	mat0_1, pMatrices10, mtx0
+	nop							{o6 2}	lqx	mat0_2, pMatrices20, mtx0
+{e2 2}	ai	pBlend, pBlend, 0x30			n_bra2:	{o? 1}	bi	jumpAddr [exit jump1 jump2 jump3 jump4 jumpn]
+
+
+
+
+jump3:
+	{nop}							{o4 1}	rotqby	mtx2, mtx2, pStream
+	{nop}							{o6 3}	lqd	vertex, 0(pVertex)
+{e6 1}	fm	mat0_0, mat0_0, weight_0				{o6 1}	lqx	mat1_0, pMatrices00, mtx1
+{e6 1}	fm	mat0_1, mat0_1, weight_0				{o6 1}	lqx	mat1_1, pMatrices10, mtx1
+{e6 1}	fm	mat0_2, mat0_2, weight_0				{o6 1}	lqx	mat1_2, pMatrices20, mtx1
+{e2 3}	ai	pVertex, pVertex, 2				{o4 1}	shufb	weight_1, weights1, weights1, s_AAAA
+	{nop}							{o4 3}	rotqby	vertex, vertex, pVertex
+	{nop}							{o4 1}	rotqby	weights2, weights2, pWeights
+{e2 2}	ori	pStream, _pStream, 0				{o4 2}	rotqbyi	jumpAddr, _pStream, 8
+{e2 2}	rotmi	straddle, _pStream, -28				{o4 2}	rotqbyi	pWeights, _pStream, 4
+	nop							{o6 2}	lqx	mtx0, pStream, _2
+{e4 3}	rotmi	vertex, vertex, -12					hbr	n_bra3, jumpAddr
+	nop							{o6 1}	lqx	mat2_0, pMatrices00, mtx2
+{e6 1}	fma	mat0_0, mat1_0, weight_1, mat0_0			{o6 1}	lqx	mat2_1, pMatrices10, mtx2
+{e6 1}	fma	mat0_1, mat1_1, weight_1, mat0_1			{o6 1}	lqx	mat2_2, pMatrices20, mtx2
+{e2 2}	a	_10, _2, straddle					{o6 3}	lqx	_pStream, pVtxOffTbl, vertex
+{e6 1}	fma	mat0_2, mat1_2, weight_1, mat0_2			{o4 1}	shufb	weight_2, weights2, weights2, s_AAAA
+	nop							{o6 2}	lqd	weights0, 0x00(pWeights)
+{e2 2}	a	_18, _10, straddle				{o6 2}	lqd	weights1, 0x10(pWeights)
+	nop							{o6 2}	lqx	mtx1, pStream, _10
+{e6 1}	fma	mat0_0, mat2_0, weight_2, mat0_0			{o6 2}	lqx	mtx2, pStream, _18
+{e6 1}	fma	mat0_1, mat2_1, weight_2, mat0_1			{o6 2}	lqd	weights2, 0x20(pWeights)
+{e6 1}	fma	mat0_2, mat2_2, weight_2, mat0_2			{o4 2}	rotqby	mtx0, mtx0, pStream
+{e2 2}	a	pStream, pStream, straddle				{o4 2}	rotqby	weights0, weights0, pWeights
+	nop							{o4 2}	rotqby	weights1, weights1, pWeights
+	{nop}							{o4 2}	rotqby	mtx1, mtx1, pStream
+	{nop}							{o6 1}	stqd	mat0_0, 0x00(pBlend)
+	{nop}							{o6 1}	stqd	mat0_1, 0x10(pBlend)
+	{nop}							{o6 1}	stqd	mat0_2, 0x20(pBlend)
+{e2 1}	ceq	test, vertex, _8000				{o6 2}	lqx	mat0_0, pMatrices00, mtx0
+{e2 2}	a	pStream, pStream, straddle				{o4 2}	shufb	weight_0, weights0, weights0, s_AAAA
+{e2 1}	selb	jumpAddr, jumpAddr, $lr, test			{o6 2}	lqx	mat0_1, pMatrices10, mtx0
+	nop							{o6 2}	lqx	mat0_2, pMatrices20, mtx0
+{e2 2}	ai	pBlend, pBlend, 0x30			n_bra3:	{o? 1}	bi	jumpAddr [exit jump1 jump2 jump3 jump4 jumpn]
+
+
+
+
+jump4:
+	nop							{o6 3}	lqd	vertex, 0(pVertex)
+{e6 1}	fm	mat0_0, mat0_0, weight_0				{o4 2}	rotqby	mtx2, mtx2, pStream
+{e2 1}	a	pStream, pStream, straddle				{o6 1}	lqx	mat1_0, pMatrices00, mtx1
+{e6 1}	fm	mat0_1, mat0_1, weight_0				{o6 1}	lqx	mat1_1, pMatrices10, mtx1
+{e6 1}	fm	mat0_2, mat0_2, weight_0				{o6 1}	lqx	mat1_2, pMatrices20, mtx1
+	{nop}							{o6 1}	lqd	weights3, 0x30(pWeights)
+	{nop}							{o4 3}	rotqby	vertex, vertex, pVertex
+	{nop}							{o6 1}	lqx	mtx3, pStream, _2	{26 - 24 (3 straddles of 8)}
+	{nop}							{o4 1}	shufb	weight_1, weights1, weights1, s_AAAA
+	nop							{o4 1}	rotqby	weights2, weights2, pWeights
+{e4 3}	rotmi	vertex, vertex, -12				{o6 1}	lqx	mat2_0, pMatrices00, mtx2
+{e2 3}	ai	pVertex, pVertex, 2				{o6 1}	lqx	mat2_1, pMatrices10, mtx2
+{e6 1}	fma	mat0_0, mat1_0, weight_1, mat0_0			{o6 1}	lqx	mat2_2, pMatrices20, mtx2
+{e6 1}	fma	mat0_1, mat1_1, weight_1, mat0_1			{o4 1}	rotqby	mtx3, mtx3, pStream
+{e6 1}	fma	mat0_2, mat1_2, weight_1, mat0_2			{o4 1}	shufb	weight_2, weights2, weights2, s_AAAA
+	nop							{o4 1}	rotqby	weights3, weights3, pWeights
+{e2 2}	rotmi	straddle, _pStream, -28				{o4 2}	rotqbyi	jumpAddr, _pStream, 8
+{e2 2}	ori	pStream, _pStream, 0				{o4 2}	rotqbyi	pWeights, _pStream, 4
+	{nop}							{o6 3}	lqx	_pStream, pVtxOffTbl, vertex
+	{nop}							{o6 2}	lqx	mtx0, pStream, _2
+{e2 2}	a	_10, _2, straddle					{o6 1}	lqx	mat3_0, pMatrices00, mtx3
+	nop								hbr	n_bra4, jumpAddr
+{e6 1}	fma	mat0_0, mat2_0, weight_2, mat0_0			{o6 1}	lqx	mat3_1, pMatrices10, mtx3
+{e6 1}	fma	mat0_1, mat2_1, weight_2, mat0_1			{o6 1}	lqx	mat3_2, pMatrices20, mtx3
+{e6 1}	fma	mat0_2, mat2_2, weight_2, mat0_2			{o4 1}	shufb	weight_3, weights3, weights3, s_AAAA
+{e2 2}	a	_18, _10, straddle				{o6 2}	lqd	weights0, 0x00(pWeights)
+	{nop}							{o6 2}	lqd	weights1, 0x10(pWeights)
+	{nop}							{o6 2}	lqx	mtx1, pStream, _10
+{e6 1}	fma	mat0_0, mat3_0, weight_3, mat0_0			{o6 2}	lqx	mtx2, pStream, _18
+{e6 1}	fma	mat0_1, mat3_1, weight_3, mat0_1			{o6 2}	lqd	weights2, 0x20(pWeights)
+{e6 1}	fma	mat0_2, mat3_2, weight_3, mat0_2			{o4 2}	rotqby	mtx0, mtx0, pStream
+{e2 2}	a	pStream, pStream, straddle				{o4 2}	rotqby	weights0, weights0, pWeights
+	{nop}							{o4 2}	rotqby	weights1, weights1, pWeights
+	{nop}							{o4 2}	rotqby	mtx1, mtx1, pStream
+	{nop}							{o6 1}	stqd	mat0_0, 0x00(pBlend)
+	{nop}							{o6 1}	stqd	mat0_1, 0x10(pBlend)
+{e2 1}	ceq	test, vertex, _8000				{o6 1}	stqd	mat0_2, 0x20(pBlend)
+{e2 2}	a	pStream, pStream, straddle				{o6 2}	lqx	mat0_0, pMatrices00, mtx0
+	nop							{o4 2}	shufb	weight_0, weights0, weights0, s_AAAA
+{e2 1}	selb	jumpAddr, jumpAddr, $lr, test			{o6 2}	lqx	mat0_1, pMatrices10, mtx0
+	nop							{o6 2}	lqx	mat0_2, pMatrices20, mtx0
+{e2 2}	ai	pBlend, pBlend, 0x30			n_bra4:	{o? 1}	bi	jumpAddr [exit jump1 jump2 jump3 jump4 jumpn]
+
+
+
+
+jumpn:
+	nop							{o4 2}	rotqby	_loopAddr, loopnJump, mtx1
+{e6 1}	fm	mat0_0, mat0_0, weight_0					{lnop}
+{e6 1}	fm	mat0_1, mat0_1, weight_0					{lnop}
+{e6 1}	fm	mat0_2, mat0_2, weight_0				{o4 1}	shufb	weight_1, weights1, weights1, s_AAAA
+loop_n:
+	ori	loopAddr, _loopAddr, 0					hbr	n_loop, _loopAddr
+	{nop}							{o6 1}	lqx	mat1_0, pMatrices00, mtx1
+	{nop}							{o6 1}	lqx	mat1_1, pMatrices10, mtx1
+	{nop}							{o6 1}	lqx	mat1_2, pMatrices20, mtx1
+	{nop}							{o6 2}	lqx	mtx1, pStream, _10
+	{nop}								{lnop}
+	nop							{o6 2}	lqd	weights1, 0x10(pWeights)
+	{nop}								{lnop}
+{e6 1}	fma	mat0_0, mat1_0, weight_1, mat0_0				{lnop}
+{e6 1}	fma	mat0_1, mat1_1, weight_1, mat0_1				{lnop}
+{e6 1}	fma	mat0_2, mat1_2, weight_1, mat0_2			{o4 2}	rotqby	mtx1, mtx1, pStream
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	rotqby	weights1, weights1, pWeights
+	{nop}							{o4 2}	rotqby	_loopAddr, loopnJump, mtx1
+{e2 2}	a	pStream, pStream, straddle				{o4 1}	shufb	weight_1, weights1, weights1, s_AAAA
+{e2 2}	ai	pWeights, pWeights, 0x10			n_loop:		bi	loopAddr [exit_loop_n loop_n]
+exit_loop_n:
+{e2 2}	ori	pStream, _pStream, 0				{o4 2}	rotqbyi	jumpAddr, _pStream, 8
+{e2 2}	rotmi	straddle, _pStream, -28				{o4 2}	rotqbyi	pWeights, _pStream, 4
+	{nop}							{o6 1}	lqd	vertex, 0(pVertex)
+	{nop}							{o6 1}	lqx	mtx0, pStream, _2
+	nop							{o6 1}	lqd	weights0, 0x00(pWeights)
+{e2 2}	a	_10, _2, straddle						hbr	n_bran, jumpAddr
+	nop							{o6 1}	lqd	weights1, 0x10(pWeights)
+{e2 2}	a	_18, _10, straddle				{o6 1}	lqx	mtx1, pStream, _10
+	{nop}							{o6 1}	lqx	mtx2, pStream, _18
+	{nop}							{o4 1}	rotqby	vertex, vertex, pVertex
+{e2 1}	ai	pVertex, pVertex, 2				{o6 1}	lqd	weights2, 0x20(pWeights)
+	nop							{o4 1}	rotqby	mtx0, mtx0, pStream
+{e2 1}	a	pStream, pStream, straddle				{o4 1}	rotqby	weights0, weights0, pWeights
+{e4 1}	rotmai	vertex, vertex, -12				{o4 1}	rotqby	weights1, weights1, pWeights
+	nop							{o4 1}	rotqby	mtx1, mtx1, pStream
+{e2 1}	a	pStream, pStream, straddle				{o6 1}	stqd	mat0_0, 0x00(pBlend)
+	{nop}							{o4 1}	shufb	weight_0, weights0, weights0, s_AAAA
+	{nop}							{o6 1}	lqx	_pStream, pVtxOffTbl, vertex
+	{nop}							{o6 1}	stqd	mat0_1, 0x10(pBlend)
+	{nop}							{o6 1}	stqd	mat0_2, 0x20(pBlend)
+{e2 1}	ceq	test, vertex, _8000				{o6 1}	lqx	mat0_0, pMatrices00, mtx0
+	nop							{o6 1}	lqx	mat0_1, pMatrices10, mtx0
+{e2 1}	selb	jumpAddr, jumpAddr, $lr, test			{o6 1}	lqx	mat0_2, pMatrices20, mtx0
+	nop								{lnop}
+{e2 2}	ai	pBlend, pBlend, 0x30			n_bran:	{o? 1}	bi	jumpAddr [exit jump1 jump2 jump3 jump4 jumpn]
+
+exit:	{nop}							{o? 1}	bi	$lr
+
+
+
+
+
+
+
+.align 7
+
+.global MakeOffsetTable
+
+MakeOffsetTable:
+
+.reg inst1
+.reg inst2
+.reg jumpTbl
+.reg jumpAddr, _jumpAddr
+.reg jump1Addr
+.reg diffJump, sameJump
+.reg sameJump
+.reg loopAddr
+.reg codeAddr
+.reg _codeAddr
+.reg codeAddr_p
+.reg _3, _2
+.reg control, _control
+.reg table1
+.reg table2
+.reg table3
+.reg table4
+.reg addr1
+.reg addr2
+.reg addr3
+.reg addr4
+.reg addr4
+.reg m_AaBC
+.reg m_ABaC
+.reg m_BCDD
+.reg pWeight1
+.reg pWeight2
+.reg pWeight3
+.reg pWeight4
+.reg mtx
+.reg temp1, temp2
+
+; input paramters
+.reg pVtxOffTbl	3	; pointer to ouput table to be generated
+.reg pSame	4	; pointer to same stream data
+.reg pDiff	5	; pointer to diff stream data
+.reg pControl	6	; pointer to control data 
+.reg pWeight	7	; pointer to weight data
+
+.cset table1
+.cset table2
+.cset table3
+.cset table4
+
+{e2 1}	ai	pControl, pControl, -3				{o6 1}	lqa	inst1, m_InstTbl1_p
+{e2 1}	il	_3, 3						{o6 1}	lqa	inst2, m_InstTbl2_p
+{e2 1}	ai	pSame, pSame, -2					{o6 1}	lqa	codeAddr_p, m_JumpTbl2_p
+{e2 1}	ai	pDiff, pDiff, -2					{o6 1}	lqx	control, pControl, _3
+{e2 1}	il	_2, 2						{o6 1}	lqa	m_AaBC, s_AaBC
+{e2 1}	ai	pWeight1, pWeight, 0x0					lnop
+{e2 1}	ai	pWeight2, pWeight, 0x4				{o4 1}	rotqbyi	inst1, inst1, 2
+{e2 1}	ai	pWeight3, pWeight, 0x8				{o6 1}	lqa	sameJump, m_sameJump_p
+{e2 1}	ai	pWeight4, pWeight, 0xc				{o6 1}	lqa	diffJump, m_diffJump_p
+{e2 1}	ilhu	temp1, 0x2000					{o4 1}	rotqby	control, control, pControl
+{e2 1}	ai	pControl, pControl, 1				{o6 1}	lqa	m_ABaC, s_ABaC
+{e2 1}	or	jumpTbl, inst1, inst2				{o6 1}	lqa	m_BCDD, s_BCDD
+{e2 1}	ila	jump1Addr, jump1					{o6 2}	lqx	_control, pControl, _3
+{e2 1}	ilhu	temp2, 0x8000					{o4 1}	rotqby	jumpAddr, jumpTbl, control
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o  1}	hbr	n_branchs, jumpAddr
+	{nop}							{o4 2}	rotqby	_control, _control, pControl
+{e2 2}	ai	pControl, pControl, 1					lnop
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 1}	or	pSame, pSame, temp1				{o4 2}	rotqby	_jumpAddr, jumpTbl, _control
+{e2 1}	or	pDiff, pDiff, temp2		n_branchs:	{o? 1}	bi	jumpAddr	[MakeOffsetTable_same_1 MakeOffsetTable_diff_1 MakeOffsetTable_same_n MakeOffsetTable_diff_n MakeOffsetTable_next MakeOffsetTable_end]
+
+
+MakeOffsetTable_same_1:
+	{nop}							{o  1}	hbr	n_branch1, _jumpAddr
+	{nop}							{o6 2}	lqx	control, pControl, _3
+	{nop}							{o4 1}	shufb	table1, pSame, pWeight1, m_AaBC
+	{nop}							{o4 1}	shufb	table2, pSame, pWeight2, m_AaBC
+	{nop}							{o4 1}	shufb	table3, pSame, pWeight3, m_AaBC
+	{nop}							{o4 1}	shufb	table4, pSame, pWeight4, m_AaBC
+	{nop}							{o4 1}	shufb	table1, table1, jump1Addr, m_ABaC
+	{nop}							{o4 2}	rotqby	control, control, pControl
+{e2 2}	ai	pControl, pControl, 1				{o4 1}	shufb	table2, table2, jump1Addr, m_ABaC
+{e2 1}	ori	jumpAddr, _jumpAddr, 0				{o4 1}	shufb	table3, table3, jump1Addr, m_ABaC
+{e2 1}	ai	pSame, pSame, 0x02				{o4 1}	shufb	table4, table4, jump1Addr, m_ABaC
+	nop							{o4 2}	rotqby	_jumpAddr, jumpTbl, control
+{e2 1}	ai	pWeight1, pWeight1, 0x10				{o6 1}	stqd	table1, 0x00(pVtxOffTbl)
+{e2 1}	ai	pWeight2, pWeight2, 0x10				{o6 1}	stqd	table2, 0x10(pVtxOffTbl)
+{e2 1}	ai	pWeight3, pWeight3, 0x10				{o6 1}	stqd	table3, 0x20(pVtxOffTbl)
+{e2 1}	ai	pWeight4, pWeight4, 0x10				{o6 1}	stqd	table4, 0x30(pVtxOffTbl)
+{e2 1}	ai	pVtxOffTbl, pVtxOffTbl, 0x40	n_branch1:	{o? 1}	bi	jumpAddr	[MakeOffsetTable_same_1 MakeOffsetTable_diff_1 MakeOffsetTable_same_n MakeOffsetTable_diff_n MakeOffsetTable_next MakeOffsetTable_end]
+
+
+MakeOffsetTable_diff_1:
+{e2 1}	ai	addr1, pDiff, 0x2					{o  1}	hbr	n_branch2, _jumpAddr
+{e2 1}	ai	addr2, pDiff, 0x0					{o6 2}	lqx	control, pControl, _3
+{e2 1}	ai	addr3, pDiff, 0x6					{o4 1}	shufb	table1, addr1, pWeight1, m_AaBC
+{e2 1}	ai	addr4, pDiff, 0x4					{o4 1}	shufb	table2, addr2, pWeight2, m_AaBC
+	{nop}							{o4 1}	shufb	table3, addr3, pWeight3, m_AaBC
+	{nop}							{o4 1}	shufb	table4, addr4, pWeight4, m_AaBC
+	{nop}							{o4 1}	shufb	table1, table1, jump1Addr, m_ABaC
+	{nop}							{o4 2}	rotqby	control, control, pControl
+{e2 2}	ai	pControl, pControl, 1				{o4 1}	shufb	table2, table2, jump1Addr, m_ABaC
+{e2 1}	ori	jumpAddr, _jumpAddr, 0				{o4 1}	shufb	table3, table3, jump1Addr, m_ABaC
+{e2 1}	ai	pDiff, pDiff, 0x08				{o4 1}	shufb	table4, table4, jump1Addr, m_ABaC
+	nop							{o4 2}	rotqby	_jumpAddr, jumpTbl, control
+{e2 1}	ai	pWeight1, pWeight1, 0x10				{o6 1}	stqd	table1, 0x00(pVtxOffTbl)
+{e2 1}	ai	pWeight2, pWeight2, 0x10				{o6 1}	stqd	table2, 0x10(pVtxOffTbl)
+{e2 1}	ai	pWeight3, pWeight3, 0x10				{o6 1}	stqd	table3, 0x20(pVtxOffTbl)
+{e2 1}	ai	pWeight4, pWeight4, 0x10				{o6 1}	stqd	table4, 0x30(pVtxOffTbl)
+{e2 1}	ai	pVtxOffTbl, pVtxOffTbl, 0x40	n_branch2:	{o? 1}	bi	jumpAddr	[MakeOffsetTable_same_1 MakeOffsetTable_diff_1 MakeOffsetTable_same_n MakeOffsetTable_diff_n MakeOffsetTable_next MakeOffsetTable_end]
+
+
+MakeOffsetTable_same_n:
+{e2 1}	ai	addr2, pSame, 0x0					{o4 1}	rotqbyi	pWeight, pWeight1, 0
+{e2 1}	ai	pSame, pSame, 0x04					{lnop}
+{e2 1}	ori	_codeAddr, codeAddr_p, 0					{lnop}
+same_loop:
+	{nop}								hbra	branch_same, same_loop
+	{nop}							{o6 1}	lqx	mtx, pSame, _2
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqby	mtx, mtx, pSame
+{e2 1}	ai	pSame, pSame, 0x02					{lnop}
+{e2 1}	ori	codeAddr, _codeAddr, 0					{lnop}
+{e2 1}	ai	pWeight, pWeight, 0x10					{lnop}
+	{nop}							{o4 1}	rotqby	loopAddr, sameJump, mtx
+	{nop}							{o4 1}	shufb	_codeAddr, _codeAddr, _codeAddr, m_BCDD
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}					branch_same:	{o? 1}	bi	loopAddr [same_loop same_loop_exit]
+same_loop_exit:
+	{nop}								hbr	n_branch3, _jumpAddr
+{e2 1}	ori	jumpAddr, _jumpAddr, 0				{o6 2}	lqx	control, pControl, _3
+	{nop}							{o4 1}	shufb	table1, addr2, pWeight1, m_AaBC
+	{nop}							{o4 1}	shufb	table2, addr2, pWeight2, m_AaBC
+	{nop}							{o4 1}	shufb	table3, addr2, pWeight3, m_AaBC
+	{nop}							{o4 1}	shufb	table4, addr2, pWeight4, m_AaBC
+	{nop}							{o4 1}	shufb	table1, table1, codeAddr, m_ABaC
+	{nop}							{o4 2}	rotqby	control, control, pControl
+	{nop}							{o4 1}	shufb	table2, table2, codeAddr, m_ABaC
+	{nop}							{o4 1}	shufb	table3, table3, codeAddr, m_ABaC
+{e2 1}	ai	pSame, pSame, -0x02				{o4 1}	shufb	table4, table4, codeAddr, m_ABaC
+{e2 2}	ai	pControl, pControl, 1				{o4 2}	rotqby	_jumpAddr, jumpTbl, control
+{e2 1}	ai	pWeight1, pWeight, 0x10				{o6 1}	stqd	table1, 0x00(pVtxOffTbl)
+{e2 1}	ai	pWeight2, pWeight, 0x10				{o6 1}	stqd	table2, 0x10(pVtxOffTbl)
+{e2 1}	ai	pWeight3, pWeight, 0x10				{o6 1}	stqd	table3, 0x20(pVtxOffTbl)
+{e2 1}	ai	pWeight4, pWeight, 0x10				{o6 1}	stqd	table4, 0x30(pVtxOffTbl)
+{e2 1}	ai	pVtxOffTbl, pVtxOffTbl, 0x40	n_branch3:	{o? 1}	bi	jumpAddr	[MakeOffsetTable_same_1 MakeOffsetTable_diff_1 MakeOffsetTable_same_n MakeOffsetTable_diff_n MakeOffsetTable_next MakeOffsetTable_end]
+
+
+MakeOffsetTable_diff_n:
+{e2 1}	ai	addr2, pDiff, 0x0					{o4 1}	rotqbyi	pWeight, pWeight1, 0
+{e2 1}	ai	pDiff, pDiff, 0x10					{lnop}
+{e2 1}	ori	_codeAddr, codeAddr_p, 0					{lnop}
+diff_loop:
+	{nop}								hbra	branch_diff, diff_loop
+	{nop}							{o6 1}	lqx	mtx, pDiff, _2
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 1}	rotqby	mtx, mtx, pDiff
+{e2 1}	ai	pDiff, pDiff, 0x08					{lnop}
+{e2 1}	ori	codeAddr, _codeAddr, 0					{lnop}
+{e2 1}	ai	pWeight, pWeight, 0x10					{lnop}
+	{nop}							{o4 1}	rotqby	loopAddr, diffJump, mtx
+	{nop}							{o4 1}	shufb	_codeAddr, _codeAddr, _codeAddr, m_BCDD
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop					branch_diff:	{o? 1}	bi	loopAddr [diff_loop diff_loop_exit]
+diff_loop_exit:
+{e2 1}	ai	addr1, addr2, 0x2						hbr	n_branch4, _jumpAddr
+{e2 1}	ai	addr3, addr2, 0x6					{o6 2}	lqx	control, pControl, _3
+{e2 1}	ai	addr4, addr2, 0x4					{o4 1}	shufb	table1, addr1, pWeight1, m_AaBC
+{e2 1}	ori	jumpAddr, _jumpAddr, 0				{o4 1}	shufb	table2, addr2, pWeight2, m_AaBC
+	{nop}							{o4 1}	shufb	table3, addr3, pWeight3, m_AaBC
+	{nop}							{o4 1}	shufb	table4, addr4, pWeight4, m_AaBC
+	{nop}							{o4 1}	shufb	table1, table1, codeAddr, m_ABaC
+	{nop}							{o4 2}	rotqby	control, control, pControl
+	{nop}							{o4 1}	shufb	table2, table2, codeAddr, m_ABaC
+	{nop}							{o4 1}	shufb	table3, table3, codeAddr, m_ABaC
+{e2 1}	ai	pDiff, pDiff, -0x08				{o4 1}	shufb	table4, table4, codeAddr, m_ABaC
+{e2 2}	ai	pControl, pControl, 1				{o4 2}	rotqby	_jumpAddr, jumpTbl, control
+{e2 1}	ai	pWeight1, pWeight, 0x10				{o6 1}	stqd	table1, 0x00(pVtxOffTbl)
+{e2 1}	ai	pWeight2, pWeight, 0x14				{o6 1}	stqd	table2, 0x10(pVtxOffTbl)
+{e2 1}	ai	pWeight3, pWeight, 0x18				{o6 1}	stqd	table3, 0x20(pVtxOffTbl)
+{e2 1}	ai	pWeight4, pWeight, 0x1c				{o6 1}	stqd	table4, 0x30(pVtxOffTbl)
+{e2 1}	ai	pVtxOffTbl, pVtxOffTbl, 0x40	n_branch4:	{o? 1}	bi	jumpAddr	[MakeOffsetTable_same_1 MakeOffsetTable_diff_1 MakeOffsetTable_same_n MakeOffsetTable_diff_n MakeOffsetTable_next MakeOffsetTable_end]
+
+
+MakeOffsetTable_next:
+	{nop}							{o  1}	hbr	n_branch5, _jumpAddr
+	{nop}							{o6 2}	lqx	control, pControl, _3
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o4 2}	rotqby	control, control, pControl
+	{nop}							{o6 1}	stqd	table1, 0x00(pVtxOffTbl)
+	{nop}							{o6 1}	stqd	table2, 0x10(pVtxOffTbl)
+	{nop}							{o6 1}	stqd	table3, 0x20(pVtxOffTbl)
+	nop							{o4 2}	rotqby	_jumpAddr, jumpTbl, control
+{e2 1}	ori	jumpAddr, _jumpAddr, 0				{o6 1}	stqd	table4, 0x30(pVtxOffTbl)
+{e2 2}	ai	pControl, pControl, 1					lnop
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2 1}	ai	pVtxOffTbl, pVtxOffTbl, 0x40	n_branch5:	{o? 1}	bi	jumpAddr	[MakeOffsetTable_same_1 MakeOffsetTable_diff_1 MakeOffsetTable_same_n MakeOffsetTable_diff_n MakeOffsetTable_next MakeOffsetTable_end]
+
+MakeOffsetTable_end:						{o? 1}	bi	$lr
+
+
+
+.end
+.start
+.text
+
+
+
+
+.align 7
+
+.global SkinDisplaceParent
+
+SkinDisplaceParent:
+
+.reg mat0_0
+.reg mat0_1
+.reg mat0_2
+.reg mat1_0
+.reg mat1_1
+.reg mat1_2
+.reg mat2_0
+.reg mat2_1
+.reg mat2_2
+.reg mat3_0
+.reg mat3_1
+.reg mat3_2
+.reg mat_00
+.reg mat_01
+.reg mat_02
+.reg mat_03
+.reg mat_10
+.reg mat_11
+.reg mat_12
+.reg mat_13
+.reg mat_20
+.reg mat_21
+.reg mat_22
+.reg mat_23
+.reg shuftemp1, shuftemp2, shuftemp3, shuftemp4, shuftemp5, shuftemp6
+.reg shuftemp7, shuftemp8, shuftemp9, shuftemp10, shuftemp11, shuftemp12
+.reg s_ACac, s_BDbd, s_AaBb, s_BbAa, s_CcCc, s_cdAB, s_DAad, s_BCbc, s_dAD0, s_BcDa, s_BCDD
+.reg sel_ABcd, sel_AbcD, sel_aBcD, sel_ABCd
+.reg cofm_00
+.reg cofm_01
+.reg cofm_02
+.reg cofm_10
+.reg cofm_11
+.reg cofm_12
+.reg cofm_20
+.reg cofm_21
+.reg cofm_22
+.reg tx, ty, tz, tx2, ty2, tz2, tx4, ty4, tz4, tx5, ty5, tz5
+.reg nx, ny, nz, nx2, ny2, nz2, nx4, ny4, nz4, nx5, ny5, nz5, nrmag, nest, nrmag2, no_temp1, no_temp2, ni_temp1, ni_temp2, ni_temp3, ni_temp4
+.reg pNormal10, pNormal20, pNormal30, onorm0, onorm1, onorm2, onorm3, norm0, norm1, norm2, norm3
+.reg ti_temp1, ti_temp2, ti_temp3, ti_temp4, otan0, otan1, otan2, otan3
+.reg tan0, tan1, tan2, tan3, pTangent10, pTangent20, pTangent30
+.reg pos0, pos1, pos2, pos3, pPos10, pPos20, pPos30, opos0, opos1, opos2, opos3
+.reg inOff, pi_temp1, pi_temp2, pi_temp3, pi_temp4, px, py, pz, px2, py2, pz2, px3, py3, pz3
+.reg trmag, trmag2, to_temp1, to_temp2, outInc, outOff, po_temp1, po_temp2, tmp
+.reg _tan0, _tan1, _tan2, _tan3, _norm0, _norm1, _norm2, _norm3
+.reg disp0, disp1, disp2, disp3, pDisp10, pDisp20, pDisp30
+.reg test, jumpAddr
+.reg jumpSkinLoop, jumpSkinExit
+
+.reg vtxCount	3
+.reg pPos00	4
+.reg pNormal00	5
+.reg pTangent00	6
+.reg pDisp00	7
+.reg pMatrix00	8
+.reg weight2	9
+
+{e2}	il	tmp, -800						lqa	s_ACac, s_ACac
+{e2}	ai	$2, $sp, 0						lqa	s_BDbd, s_BDbd
+{e2}	a	$sp, $sp, tmp						lqa	sel_ABcd, sel_ABcd
+	ai	vtxCount, vtxCount, 11					lqa	s_AaBb, s_AaBb
+	il	outInc, 0x40					{o6}	stqd	$2,   0x000($sp)
+	rotmi	vtxCount, vtxCount, -2				{o6}	stqd	$lr,  0x010($sp)
+	il	inOff, 0						{o6}	stqd	$80,  0x020($sp)
+	il	outOff, 0					{o6}	stqd	$81,  0x030($sp)
+	ila	jumpSkinLoop, skinLoop				{o6}	stqd	$82,  0x040($sp)
+	ila	jumpSkinExit, skinExit				{o6}	stqd	$83,  0x050($sp)
+	and	outInc, outInc, sel_ABcd				{o6}	stqd	$84,  0x060($sp)
+	{nop}							{o6}	stqd	$85,  0x070($sp)
+	{nop}							{o6}	stqd	$86,  0x080($sp)
+	{nop}								lnop{hbrp}
+	{nop}							{o6}	stqd	$87,  0x090($sp)
+	{nop}							{o6}	stqd	$88,  0x0A0($sp)
+	{nop}							{o6}	stqd	$89,  0x0B0($sp)
+	{nop}							{o6}	stqd	$90,  0x0C0($sp)
+	{nop}							{o6}	stqd	$91,  0x0D0($sp)
+	{nop}							{o6}	stqd	$92,  0x0E0($sp)
+	{nop}								lnop{hbrp}
+	{nop}							{o6}	stqd	$93,  0x0F0($sp)
+	{nop}							{o6}	stqd	$94,  0x100($sp)
+	{nop}							{o6}	stqd	$95,  0x110($sp)
+	{nop}							{o6}	stqd	$96,  0x120($sp)
+	{nop}							{o6}	stqd	$97,  0x130($sp)
+	{nop}							{o6}	stqd	$98,  0x140($sp)
+	{nop}							{o6}	stqd	$99,  0x150($sp)
+	{nop}							{o6}	stqd	$100, 0x160($sp)
+	{nop}							{o6}	stqd	$101, 0x170($sp)
+	{nop}							{o6}	stqd	$102, 0x180($sp)
+	{nop}							{o6}	stqd	$103, 0x190($sp)
+	{nop}							{o6}	stqd	$104, 0x1a0($sp)
+	{nop}							{o6}	stqd	$105, 0x1b0($sp)
+	{nop}							{o6}	stqd	$106, 0x1c0($sp)
+	{nop}							{o6}	stqd	$107, 0x1d0($sp)
+	{nop}							{o6}	stqd	$108, 0x1e0($sp)
+	{nop}							{o6}	stqd	$109, 0x1f0($sp)
+	{nop}							{o6}	stqd	$110, 0x200($sp)
+;	{nop}							{o6}	stqd	$111, 0x210($sp)
+	ai	pDisp10, pDisp00, 0x10					lqa	s_BbAa, s_BbAa
+	ai	pDisp20, pDisp00, 0x20					lqa	s_CcCc, s_CcCc
+	ai	pDisp30, pDisp00, 0x30					lqa	s_cdAB, s_cdAB
+	ai	pPos10, pPos00, 0x10					lnop{hbrp}
+	ai	pPos20, pPos00, 0x20					lqa	s_DAad, s_DAad
+	ai	pPos30, pPos00, 0x30					lqa	s_BCbc, s_BCbc
+	ai	pNormal10, pNormal00, 0x10					lqa	s_dAD0, s_dAD0
+	ai	pNormal20, pNormal00, 0x20					lqa	s_BcDa, s_BcDa
+	ai	pNormal30, pNormal00, 0x30					lnop{hbrp}
+	ai	pTangent10, pTangent00, 0x10				lqa	s_BCDD, s_BCDD
+	ai	pTangent20, pTangent00, 0x20				lqa	sel_AbcD, sel_AbcD
+	ai	pTangent30, pTangent00, 0x30				lqa	sel_ABCd, sel_ABCd
+	nop								lqa	sel_aBcD, sel_aBcD
+
+.cset tx4, ty4, tz4, nx4, ny4, nz4, px3, py3, pz3
+.cset nrmag, norm0, norm1, norm2, norm3, tan0, tan1, tan2, tan3, trmag
+.cset mat0_0, mat0_1, mat0_2, mat1_0, mat1_1, mat1_2, mat2_0, mat2_1, mat2_2, mat3_0, mat3_1, mat3_2
+.cset pos0, pos1, pos2, pos3, shuftemp1, shuftemp2, shuftemp3, shuftemp4, shuftemp5
+.cset disp0, disp1, disp2, disp3
+
+skinLoop:
+{e6 2n}	fma	nrmag, nz4, nz4, nrmag				{o4 1}	shufb	shuftemp6, mat2_1, mat3_1, s_ACac
+{e2 1t}	ori	_tan0, tan0, 0					{o4 1}	shufb	shuftemp7, mat0_1, mat1_1, s_BDbd
+{e2 1}	ai	vtxCount, vtxCount, -1				{o4 1}	shufb	shuftemp8, mat2_1, mat3_1, s_BDbd
+{e6 2t}	fma	trmag, tz4, tz4, trmag				{o4 1}	shufb	shuftemp9, mat0_0, mat1_0, s_BDbd
+{e2 1}	ceqi	test, vtxCount, 0					{o4 1}	shufb	shuftemp10, mat2_0, mat3_0, s_BDbd
+{e2 1t}	ori	_tan1, tan1, 0					{o4 1}	shufb	shuftemp11, mat0_2, mat1_2, s_BDbd
+{e2 1}	selb	jumpAddr, jumpSkinLoop, jumpSkinExit, test		{o4 2n}	frsqest	nest, nrmag
+{e2 1t}	ori	_tan2, tan2, 0					{o4 1}	shufb	shuftemp12, mat2_2, mat3_2, s_BDbd
+{e2 1t}	ori	_tan3, tan3, 0					{o4 1}	shufb	mat_22, shuftemp3, shuftemp4, s_BDbd
+{e2 1n}	ori	_norm0, norm0, 0					{o4 2t}	frsqest	test, trmag
+{e7 2n}	fi	nrmag2, nrmag, nest				{o4 1}	shufb	mat_11, shuftemp7, shuftemp8, s_ACac
+{e2 1n}	ori	_norm1, norm1, 0					{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BDbd
+{e6 1}	fma	pos0, disp0, weight2, pos0				{o4 1}	shufb	mat_20, shuftemp3, shuftemp4, s_ACac
+{e7 2t}	fi	trmag2, trmag, test				{o4 1}	shufb	mat_10, shuftemp5, shuftemp6, s_ACac
+{e2 1n}	ori	_norm2, norm2, 0					{o4 1}	shufb	mat_01, shuftemp9, shuftemp10, s_ACac
+{e6 1}	fm	cofm_00, mat_11, mat_22				{o4 1}	shufb	mat_02, shuftemp1, shuftemp2, s_BDbd
+{e6 1}	fm	cofm_01, mat_12, mat_20				{o4 1}	shufb	mat_13, shuftemp7, shuftemp8, s_BDbd
+{e6 2n}	fm	nz5, nz4, nrmag2					{o4 1}	shufb	mat_03, shuftemp9, shuftemp10, s_BDbd
+{e6 2n}	fm	ny5, ny4, nrmag2					{o4 1}	shufb	mat_21, shuftemp11, shuftemp12, s_ACac
+{e6 2n}	fm	nx5, nx4, nrmag2					{o4 1}	shufb	mat_00, shuftemp1, shuftemp2, s_ACac
+{e6 2t}	fm	tz5, tz4, trmag2					{o4 1}	shufb	mat_23, shuftemp11, shuftemp12, s_BDbd
+{e6 2t}	fm	ty5, ty4, trmag2					{06 0}	lqd	mat0_0, 0x00(pMatrix00)
+{e6 2t}	fm	tx5, tx4, trmag2					{06 0}	lqd	mat1_0, 0x30(pMatrix00)
+{e6 1}	fm	cofm_02, mat_11, mat_20				{06 0}	lqd	mat2_0, 0x60(pMatrix00)
+{e6 1}	fm	cofm_10, mat_01, mat_22				{06 0}	lqd	mat3_0, 0x90(pMatrix00)
+{e6 1}	fm	cofm_11, mat_02, mat_20					lnop
+{e6 1}	fma	pos1, disp1, weight2, pos1				{o6 0p}	lqx	disp0, pDisp00, inOff
+{e6 1}	fma	pos2, disp2, weight2, pos2				{o6 0p}	lqx	disp1, pDisp10, inOff
+{e6 1}	fma	pos3, disp3, weight2, pos3				{o6 0p}	lqx	disp2, pDisp20, inOff
+{e2 1n}	ori	_norm3, norm3, 0					{o6 0p}	lqx	disp3, pDisp30, inOff
+{e6 1}	fm	cofm_12, mat_01, mat_20				{06 0}	lqd	mat0_2, 0x20(pMatrix00)
+{e6 1}	fm	cofm_20, mat_02, mat_11				{06 0}	lqd	mat1_2, 0x50(pMatrix00)
+{e6 1}	fm	cofm_21, mat_00, mat_12				{06 0}	lqd	mat2_2, 0x80(pMatrix00)
+{e6 1}	fm	cofm_22, mat_00, mat_11				{06 0}	lqd	mat3_2, 0xb0(pMatrix00)
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00			{06 0}	lqd	mat0_1, 0x10(pMatrix00)
+{e6 1}	fnms	cofm_01, mat_10, mat_22, cofm_01			{o4 1n}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e6 1}	fms	cofm_02, mat_10, mat_21, cofm_02			{o4 1n}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10			{o4 1n}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e6 1}	fms	cofm_11, mat_00, mat_22, cofm_11			{o4 1n}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12			{o4 1t}	shufb	ti_temp1, tan0, tan1, s_AaBb
+{e6 1}	fnms	cofm_20, mat_01, mat_12, cofm_20			{o4 1t}	shufb	ti_temp2, tan2, tan3, s_BbAa
+{e6 1}	fms	cofm_21, mat_02, mat_10, cofm_21			{o4 1t}	shufb	ti_temp3, tan0, tan1, s_CcCc
+{e6 1}	fnms	cofm_22, mat_01, mat_10, cofm_22			{o4 1t}	shufb	ti_temp4, tan2, tan3, s_CcCc
+{e2 1n}	selb	nx, ni_temp1, ni_temp2, sel_ABcd			{o4 1n}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e2 1n}	selb	nz, ni_temp3, ni_temp4, sel_ABcd			{o4 1t}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e2 1t}	selb	tx, ti_temp1, ti_temp2, sel_ABcd			{o4 1p}	shufb	pi_temp1, pos0, pos1, s_AaBb
+{e2 1t}	selb	tz, ti_temp3, ti_temp4, sel_ABcd			{o4 1p}	shufb	pi_temp2, pos2, pos3, s_BbAa
+{e6 1n}	fm	nx2, nz, cofm_02					{o4 1p}	shufb	pi_temp3, pos0, pos1, s_CcCc
+{e6 1n}	fm	ny2, nz, cofm_12					{o4 1p}	shufb	pi_temp4, pos2, pos3, s_CcCc
+{e6 1n}	fm	nz2, nz, cofm_22					{06 0}	lqd	mat1_1, 0x40(pMatrix00)
+{e6 1t}	fm	tx2, tz, mat_02					{06 0}	lqd	mat2_1, 0x70(pMatrix00)
+{e2 1p}	selb	px, pi_temp1, pi_temp2, sel_ABcd			{o4 1p}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e2 1p}	selb	pz, pi_temp3, pi_temp4, sel_ABcd			{06 0}	lqd	mat3_1, 0xa0(pMatrix00)
+{e6 1t}	fm	ty2, tz, mat_12					{o6 0n}	lqx	norm0, pNormal00, inOff
+{e6 1t}	fm	tz2, tz, mat_22					{o6 0n}	lqx	norm1, pNormal10, inOff
+{e6 1n}	fma	nx2, nx, cofm_00, nx2				{o6 0n}	lqx	norm2, pNormal20, inOff
+{e6 1n}	fma	ny2, nx, cofm_10, ny2				{o6 0n}	lqx	norm3, pNormal30, inOff
+{e6 1n}	fma	nz2, nx, cofm_20, nz2				{o6 0t}	lqx	tan0, pTangent00, inOff
+{e6 1t}	fma	tx2, tx, mat_00, tx2				{o6 0t}	lqx	tan1, pTangent10, inOff
+{e6 1t}	fma	ty2, tx, mat_10, ty2				{o6 0t}	lqx	tan2, pTangent20, inOff
+{e6 1t}	fma	tz2, tx, mat_20, tz2				{o  1}	hbr	skin_branch, jumpAddr
+{e6 1n}	fma	nx4, ny, cofm_01, nx2				{o6 0t}	lqx	tan3, pTangent30, inOff
+{e6 1n}	fma	ny4, ny, cofm_11, ny2				{o6 0p}	lqx	pos0, pPos00, inOff
+{e6 1n}	fma	nz4, ny, cofm_21, nz2				{o6 0p}	lqx	pos1, pPos10, inOff
+{e6 1t}	fma	tx4, ty, mat_01, tx2				{o6 0p}	lqx	pos2, pPos20, inOff
+{e6 1t}	fma	ty4, ty, mat_11, ty2				{o6 0p}	lqx	pos3, pPos30, inOff
+{e6 1t}	fma	tz4, ty, mat_21, tz2				{o4 2p}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 1n}	fm	nrmag, nx4, nx4					{o4 2p}	shufb	po_temp2, px3, pz3, s_BCbc
+{e6 1p}	fma	px2, px, mat_00, mat_03				{o4 2n}	shufb	no_temp1, ny5, nz5, s_DAad
+{e6 1p}	fma	py2, px, mat_10, mat_13				{o4 2n}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e6 1p}	fma	pz2, px, mat_20, mat_23				{o4 2t}	shufb	to_temp1, ty5, tz5, s_DAad
+{e6 1t}	fm	trmag, tx4, tx4					{o4 2t}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e2 2p}	selb	opos0, px3, po_temp1, sel_AbcD			{o4 2p}	shufb	opos3, po_temp1, px3, s_dAD0
+{e2 2p}	selb	opos1, py3, po_temp2, sel_aBcD			{o4 2p}	shufb	opos2, po_temp2, py3, s_BcDa
+{e2 2n}	selb	onorm0, nx5, no_temp1, sel_AbcD			{o4 2n}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e2 2n}	selb	onorm1, ny5, no_temp2, sel_aBcD			{o4 2n}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e2 2t}	selb	otan0, tx5, to_temp1, sel_AbcD			{o4 2t}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e2 2t}	selb	otan1, ty5, to_temp2, sel_aBcD			{o4 2t}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e2 2n}	selb	onorm0, onorm0, _norm0, sel_ABCd			{o6 2p}	stqx	opos0, pPos00, outOff
+{e2 2n}	selb	onorm1, onorm1, _norm1, sel_ABCd			{o6 2p}	stqx	opos1, pPos10, outOff
+{e2 2n}	selb	onorm3, onorm3, _norm3, sel_ABCd			{o6 2p}	stqx	opos3, pPos30, outOff
+{e2 2n}	selb	onorm2, onorm2, _norm2, sel_ABCd			{o6 2p}	stqx	opos2, pPos20, outOff
+{e2 2t}	selb	otan0, otan0, _tan0, sel_ABCd			{o6 2n}	stqx	onorm0, pNormal00, outOff
+{e2 2t}	selb	otan1, otan1, _tan1, sel_ABCd			{o6 2n}	stqx	onorm1, pNormal10, outOff
+{e2 2t}	selb	otan3, otan3, _tan3, sel_ABCd			{o6 2n}	stqx	onorm2, pNormal20, outOff
+{e2 2t}	selb	otan2, otan2, _tan2, sel_ABCd			{o6 2n}	stqx	onorm3, pNormal30, outOff
+{e6 1p}	fma	px2, pz, mat_02, px2				{o6 2t}	stqx	otan0, pTangent00, outOff
+{e6 1p}	fma	py2, pz, mat_12, py2				{o6 2t}	stqx	otan1, pTangent10, outOff
+{e6 1p}	fma	pz2, pz, mat_22, pz2				{o6 2t}	stqx	otan2, pTangent20, outOff
+{e6 1n}	fma	nrmag, ny4, ny4, nrmag				{o6 2t}	stqx	otan3, pTangent30, outOff	
+{e6 1t}	fma	trmag, ty4, ty4, trmag				{o4 0}	shufb	shuftemp1, mat0_0, mat1_0, s_ACac
+{e2 1}	ai	pMatrix00, pMatrix00, 0xc0				{o4 0}	shufb	shuftemp2, mat2_0, mat3_0, s_ACac
+{e6 1p}	fma	px3, py, mat_01, px2				{o4 0}	shufb	shuftemp3, mat0_2, mat1_2, s_ACac
+{e6 1p}	fma	py3, py, mat_11, py2				{o4 0}	shufb	shuftemp4, mat2_2, mat3_2, s_ACac
+{e6 1p}	fma	pz3, py, mat_21, pz2				{o4 0}	shufb	shuftemp5, mat0_1, mat1_1, s_ACac
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 1}	ai	inOff, inOff, 0x40		skin_branch:	{o? 1}	bi	jumpAddr	[skinExit skinLoop]
+skinExit:
+	{nop}							{o}	hbr	skinCommonExit_branch, $lr
+	{nop}							{o6}	lqd	$lr,  0x010($sp)
+	{nop}							{o6}	lqd	$80,  0x020($sp)
+	{nop}							{o6}	lqd	$81,  0x030($sp)
+	{nop}							{o6}	lqd	$82,  0x040($sp)
+	{nop}							{o6}	lqd	$83,  0x050($sp)
+	{nop}							{o6}	lqd	$84,  0x060($sp)
+	{nop}							{o6}	lqd	$85,  0x070($sp)
+	{nop}							{o6}	lqd	$86,  0x080($sp)
+	{nop}							{o6}	lqd	$87,  0x090($sp)
+	{nop}							{o6}	lqd	$88,  0x0A0($sp)
+	{nop}							{o6}	lqd	$89,  0x0B0($sp)
+	{nop}							{o6}	lqd	$90,  0x0C0($sp)
+	{nop}							{o6}	lqd	$91,  0x0D0($sp)
+	{nop}							{o6}	lqd	$92,  0x0E0($sp)
+	{nop}							{o6}	lqd	$93,  0x0F0($sp)
+	{nop}							{o6}	lqd	$94,  0x100($sp)
+	{nop}							{o6}	lqd	$95,  0x110($sp)
+	{nop}							{o6}	lqd	$96,  0x120($sp)
+	{nop}							{o6}	lqd	$97,  0x130($sp)
+	{nop}							{o6}	lqd	$98,  0x140($sp)
+	{nop}							{o6}	lqd	$99,  0x150($sp)
+	{nop}							{o6}	lqd	$100, 0x160($sp)
+	{nop}							{o6}	lqd	$101, 0x170($sp)
+	{nop}							{o6}	lqd	$102, 0x180($sp)
+	{nop}							{o6}	lqd	$103, 0x190($sp)
+	{nop}							{o6}	lqd	$104, 0x1a0($sp)
+	{nop}							{o6}	lqd	$105, 0x1b0($sp)
+	{nop}							{o6}	lqd	$106, 0x1c0($sp)
+	{nop}							{o6}	lqd	$107, 0x1d0($sp)
+	{nop}							{o6}	lqd	$108, 0x1e0($sp)
+	{nop}							{o6}	lqd	$109, 0x1f0($sp)
+	{nop}							{o6}	lqd	$110, 0x200($sp)
+;	{nop}							{o6}	lqd	$111, 0x210($sp)
+	{nop}							{o6}	lqd	$sp,  0x000($sp)
+	{nop}				skinCommonExit_branch:	{o?}	bi	$lr
+
+
+
+
+.end
+.start
+.text
+
+
+
+;117 - 112
+
+
+.align 7
+
+.global SkinDisplaceChild
+
+SkinDisplaceChild:
+
+.reg mat0_0
+.reg mat0_1
+.reg mat0_2
+.reg mat1_0
+.reg mat1_1
+.reg mat1_2
+.reg mat2_0
+.reg mat2_1
+.reg mat2_2
+.reg mat3_0
+.reg mat3_1
+.reg mat3_2
+.reg mat_00
+.reg mat_01
+.reg mat_02
+.reg mat_03
+.reg mat_10
+.reg mat_11
+.reg mat_12
+.reg mat_13
+.reg mat_20
+.reg mat_21
+.reg mat_22
+.reg mat_23
+.reg shuftemp1, shuftemp2, shuftemp3, shuftemp4, shuftemp5, shuftemp6
+.reg shuftemp7, shuftemp8, shuftemp9, shuftemp10, shuftemp11, shuftemp12
+.reg s_ACac, s_BDbd, s_AaBb, s_BbAa, s_CcCc, s_cdAB, s_DAad, s_BCbc, s_dAD0, s_BcDa, s_BCDD
+.reg sel_ABcd, sel_AbcD, sel_aBcD, sel_ABCd
+.reg cofm_00
+.reg cofm_01
+.reg cofm_02
+.reg cofm_10
+.reg cofm_11
+.reg cofm_12
+.reg cofm_20
+.reg cofm_21
+.reg cofm_22
+.reg tx, ty, tz, tx2, ty2, tz2, tx4, ty4, tz4, tx5, ty5, tz5
+.reg nx, ny, nz, nx2, ny2, nz2, nx4, ny4, nz4, nx5, ny5, nz5, nrmag, nest, nrmag2, no_temp1, no_temp2, ni_temp1, ni_temp2, ni_temp3, ni_temp4
+.reg pNormal10, pNormal20, pNormal30, onorm0, onorm1, onorm2, onorm3, norm0, norm1, norm2, norm3
+.reg ti_temp1, ti_temp2, ti_temp3, ti_temp4, otan0, otan1, otan2, otan3
+.reg tan0, tan1, tan2, tan3, pTangent10, pTangent20, pTangent30
+.reg pos0, pos1, pos2, pos3, pPos10, pPos20, pPos30, opos0, opos1, opos2, opos3
+.reg pmat00, pmat01, pmat02, pmat03, pmat10, pmat11, pmat12, pmat13, pmat20, pmat21, pmat22, pmat23, pmat30, pmat31, pmat32, pmat33
+.reg pmat40, pmat41, pmat42, pmat43, pmat50, pmat51, pmat52, pmat53, pmat60, pmat61, pmat62, pmat63, pmat70, pmat71, pmat72, pmat73
+.reg inOff, pi_temp1, pi_temp2, pi_temp3, pi_temp4, px, py, pz, px2, py2, pz2, px3, py3, pz3
+.reg trmag, trmag2, to_temp1, to_temp2, outInc, outOff, po_temp1, po_temp2, tmp
+.reg _tan0, _tan1, _tan2, _tan3, _norm0, _norm1, _norm2, _norm3
+.reg disp0, disp1, disp2, disp3, pDisp10, pDisp20, pDisp30
+.reg parent, parent0, parent1, parent2, parent3, parent4, parent5, parent6, parent7
+.reg pMatrix10, pMatrix20, weight1, one
+.reg jumpSkinChildLoop, jumpSkinChildExit
+.reg test, jumpAddr
+
+.reg vtxCount	3
+.reg pPos00	4
+.reg pNormal00	5
+.reg pTangent00	6
+.reg pDisp00	7
+.reg pMatrix00	8
+.reg weight2	9
+.reg pParents	10
+.reg weight0	11
+
+{e2}	il	tmp, -800					{o6}	lqa	s_ACac, s_ACac
+{e2}	ai	$2, $sp, 0					{o6}	lqa	s_BDbd, s_BDbd
+{e2}	a	$sp, $sp, tmp					{o6}	lqa	sel_ABcd, sel_ABcd
+{e2}	ai	vtxCount, vtxCount, 11				{o6}	lqa	s_AaBb, s_AaBb
+{e2}	il	outInc, 0x40					{o6}	stqd	$2,   0x000($sp)
+	nop								hbrp
+{e2}	rotmi	vtxCount, vtxCount, -2				{o6}	stqd	$lr,  0x010($sp)
+{e2}	il	inOff, 0						{o6}	stqd	$80,  0x020($sp)
+{e2}	il	outOff, 0					{o6}	stqd	$81,  0x030($sp)
+{e2}	ila	jumpSkinChildLoop, skinChildLoop			{o6}	stqd	$82,  0x040($sp)
+{e2}	ila	jumpSkinChildExit, skinChildExit			{o6}	stqd	$83,  0x050($sp)
+{e2}	and	outInc, outInc, sel_ABcd				{o6}	stqd	$84,  0x060($sp)
+	ai	pMatrix10, pMatrix00, 0x10				{o6}	stqd	$85,  0x070($sp)
+	ai	pMatrix20, pMatrix00, 0x20				{o6}	stqd	$86,  0x080($sp)
+	nop								lqa	one, m_one
+	nop							{o6}	stqd	$87,  0x090($sp)
+	{nop}							{o6}	stqd	$88,  0x0A0($sp)
+	{nop}							{o6}	stqd	$89,  0x0B0($sp)
+	{nop}							{o6}	stqd	$90,  0x0C0($sp)
+	{nop}							{o6}	stqd	$91,  0x0D0($sp)
+	{nop}							{o6}	stqd	$92,  0x0E0($sp)
+	{nop}								lnop{hbrp}
+	{nop}							{o6}	stqd	$93,  0x0F0($sp)
+	{nop}							{o6}	stqd	$94,  0x100($sp)
+	{nop}							{o6}	stqd	$95,  0x110($sp)
+	{nop}							{o6}	stqd	$96,  0x120($sp)
+	{nop}							{o6}	stqd	$97,  0x130($sp)
+	{nop}							{o6}	stqd	$98,  0x140($sp)
+	{nop}							{o6}	stqd	$99,  0x150($sp)
+	{nop}							{o6}	stqd	$100, 0x160($sp)
+{e6}	fs	weight1, one, weight0				{o6}	stqd	$101, 0x170($sp)
+	{nop}							{o6}	stqd	$102, 0x180($sp)
+	{nop}							{o6}	stqd	$103, 0x190($sp)
+	{nop}							{o6}	stqd	$104, 0x1a0($sp)
+	{nop}							{o6}	stqd	$105, 0x1b0($sp)
+	{nop}							{o6}	stqd	$106, 0x1c0($sp)
+	{nop}							{o6}	stqd	$107, 0x1d0($sp)
+	{nop}							{o6}	stqd	$108, 0x1e0($sp)
+	{nop}							{o6}	stqd	$109, 0x1f0($sp)
+	{nop}							{o6}	stqd	$110, 0x200($sp)
+	{nop}							{o6}	stqd	$111, 0x210($sp)
+	{nop}							{o6}	stqd	$112, 0x220($sp)
+	{nop}							{o6}	stqd	$113, 0x230($sp)
+	{nop}							{o6}	stqd	$114, 0x240($sp)
+	{nop}							{o6}	stqd	$115, 0x250($sp)
+;	{nop}							{o6}	stqd	$116, 0x260($sp)
+;	{nop}							{o6}	stqd	$117, 0x270($sp)
+;	{nop}							{o6}	stqd	$118, 0x280($sp)
+;	{nop}							{o6}	stqd	$119, 0x290($sp)
+;	{nop}							{o6}	stqd	$120, 0x2a0($sp)
+;	{nop}							{o6}	stqd	$121, 0x2b0($sp)
+;	{nop}							{o6}	stqd	$122, 0x2c0($sp)
+;	{nop}							{o6}	stqd	$123, 0x2d0($sp)
+;	{nop}							{o6}	stqd	$124, 0x2e0($sp)
+;	{nop}							{o6}	stqd	$125, 0x2f0($sp)
+;	{nop}							{o6}	stqd	$126, 0x300($sp)
+;	{nop}							{o6}	stqd	$127, 0x310($sp)
+	ai	pDisp10, pDisp00, 0x10				{o6}	lqa	s_BbAa, s_BbAa
+	ai	pDisp20, pDisp00, 0x20				{o6}	lqa	s_CcCc, s_CcCc
+	ai	pDisp30, pDisp00, 0x30				{o6}	lqa	s_cdAB, s_cdAB
+{e2}	ai	pPos10, pPos00, 0x10					hbrp
+{e2}	ai	pPos20, pPos00, 0x20				{o6}	lqa	s_DAad, s_DAad
+{e2}	ai	pPos30, pPos00, 0x30				{o6}	lqa	s_BCbc, s_BCbc
+{e2}	ai	pNormal10, pNormal00, 0x10				{o6}	lqa	s_dAD0, s_dAD0
+{e2}	ai	pNormal20, pNormal00, 0x20				{o6}	lqa	s_BcDa, s_BcDa
+{e2}	ai	pNormal30, pNormal00, 0x30					lnop{hbrp}
+{e2}	ai	pTangent10, pTangent00, 0x10			{o6}	lqa	s_BCDD, s_BCDD
+{e2}	ai	pTangent20, pTangent00, 0x20			{o6}	lqa	sel_AbcD, sel_AbcD
+{e2}	ai	pTangent30, pTangent00, 0x30			{o6}	lqa	sel_ABCd, sel_ABCd
+	nop							{o6}	lqa	sel_aBcD, sel_aBcD
+
+.cset tx4, ty4, tz4, nx4, ny4, nz4, px3, py3, pz3
+.cset nrmag, norm0, norm1, norm2, norm3, tan0, tan1, tan2, tan3, trmag
+.cset mat0_0, mat0_1, mat0_2, mat1_0, mat1_1, mat1_2, mat2_0, mat2_1, mat2_2, mat3_0, mat3_1, mat3_2
+.cset pos0, pos1, pos2, pos3, shuftemp1, shuftemp2, shuftemp3, shuftemp4, shuftemp5
+.cset disp0, disp1, disp2, disp3
+
+skinChildLoop:
+{e2 1}	ai	vtxCount, vtxCount, -1				{o4 1}	shufb	shuftemp8, mat2_1, mat3_1, s_BDbd
+{e2 1}	ori	_tan0, tan0, 0					{o4 1}	shufb	shuftemp7, mat0_1, mat1_1, s_BDbd
+{e2 1}	ceqi	test, vtxCount, 0					{o4 1}	shufb	shuftemp4, mat2_2, mat3_2, s_ACac
+{e6 1}	fma	pos0, disp0, weight2, pos0				{o4 1}	shufb	shuftemp3, mat0_2, mat1_2, s_ACac
+{e2 1}	selb	jumpAddr, jumpSkinChildLoop, jumpSkinChildExit, test	{06 0}	lqd	parent, 0x00(pParents)
+{e2 1}	ori	_tan1, tan1, 0					{o4 1}	shufb	shuftemp6, mat2_1, mat3_1, s_ACac
+{e6 1}	fma	pos1, disp1, weight2, pos1				{o4 1}	shufb	shuftemp5, mat0_1, mat1_1, s_ACac
+{e6 2}	fma	nrmag, nz4, nz4, nrmag				{o4 1}	shufb	shuftemp9, mat0_0, mat1_0, s_BDbd
+{e6 1}	fma	pos2, disp2, weight2, pos2				{o4 1}	shufb	shuftemp10, mat2_0, mat3_0, s_BDbd
+{e6 1}	fma	pos3, disp3, weight2, pos3				{o4 1}	shufb	mat_11, shuftemp7, shuftemp8, s_ACac
+{e6 2}	fma	trmag, tz4, tz4, trmag				{o4 1}	shufb	mat_22, shuftemp3, shuftemp4, s_BDbd
+{e4 0}	shlhi	parent1, parent, 5				{o4 1}	shufb	mat_20, shuftemp3, shuftemp4, s_ACac
+{e4 0}	shlhi	parent, parent, 4					{o4 1}	shufb	mat_12, shuftemp5, shuftemp6, s_BDbd
+{e2 1}	ai	pParents, pParents, 0x10				{o4 1}	shufb	shuftemp2, mat2_0, mat3_0, s_ACac
+{e6 1}	fm	cofm_00, mat_11, mat_22				{o4 1}	shufb	mat_01, shuftemp9, shuftemp10, s_ACac
+{e6 1}	fm	cofm_02, mat_11, mat_20				{o4 2}	frsqest	nest, nrmag
+{e2 0}	ah	parent1, parent, parent1				{o4 1}	shufb	shuftemp1, mat0_0, mat1_0, s_ACac
+{e6 1}	fm	cofm_01, mat_12, mat_20					hbrp
+{e4 0}	rotmi	parent0, parent1, -16				{o4 1}	shufb	pi_temp1, pos0, pos1, s_AaBb
+{e7 2}	fi	nrmag2, nrmag, nest				{o4 2}	frsqest	test, trmag
+{e2 1}	ori	_tan2, tan2, 0					{o4 1}	shufb	mat_02, shuftemp1, shuftemp2, s_BDbd
+{e6 1}	fm	cofm_10, mat_01, mat_22				{o4 1}	shufb	mat_00, shuftemp1, shuftemp2, s_ACac
+{e6 1}	fm	cofm_12, mat_01, mat_20				{o4 1}	shufb	pi_temp2, pos2, pos3, s_BbAa
+{e7 2}	fi	trmag2, trmag, test				{o4 1}	shufb	shuftemp11, mat0_2, mat1_2, s_BDbd
+{e2 1}	ori	_tan3, tan3, 0					{o4 1}	shufb	shuftemp12, mat2_2, mat3_2, s_BDbd
+{e6 1}	fm	cofm_11, mat_02, mat_20				{o4 1}	shufb	pi_temp3, pos0, pos1, s_CcCc
+{e6 1}	fm	cofm_20, mat_02, mat_11				{o4 1}	shufb	pi_temp4, pos2, pos3, s_CcCc
+{e6 1}	fm	cofm_21, mat_00, mat_12				{o4 1}	shufb	mat_10, shuftemp5, shuftemp6, s_ACac
+{e6 1}	fm	cofm_22, mat_00, mat_11				{o4 1}	shufb	mat_21, shuftemp11, shuftemp12, s_ACac
+{e6 2}	fm	nz5, nz4, nrmag2					{04 0}	shlqbyi	parent3, parent1, 4
+{e6 2}	fm	ny5, ny4, nrmag2					{04 0}	shlqbyi	parent5, parent1, 8
+{e6 2}	fm	nx5, nx4, nrmag2					{04 0}	shlqbyi	parent7, parent1, 12
+{e6 2}	fm	tz5, tz4, trmag2					{o4 1}	rotqbyi	_norm3, norm3, 0
+{e6 2}	fm	ty5, ty4, trmag2					{o4 1}	shufb	ni_temp1, norm0, norm1, s_AaBb
+{e6 2}	fm	tx5, tx4, trmag2					{o4 1}	shufb	ni_temp2, norm2, norm3, s_BbAa
+{e6 1}	fnms	cofm_00, mat_12, mat_21, cofm_00			{o4 1}	shufb	ni_temp3, norm0, norm1, s_CcCc
+{e6 1}	fnms	cofm_01, mat_10, mat_22, cofm_01			{o4 1}	rotqbyi	_norm0, norm0, 0
+{e6 1}	fms	cofm_02, mat_10, mat_21, cofm_02			{o4 1}	rotqbyi	_norm1, norm1, 0
+{e6 1}	fms	cofm_10, mat_02, mat_21, cofm_10			{o4 1}	rotqbyi	_norm2, norm2, 0
+{e6 1}	fms	cofm_11, mat_00, mat_22, cofm_11			{o4 1}	shufb	ni_temp4, norm2, norm3, s_CcCc
+{e4 0}	rotmi	parent2, parent3, -16				{06 0}	lqx	pmat11, pMatrix10, parent1
+{e4 0}	rotmi	parent4, parent5, -16				{06 0}	lqx	pmat12, pMatrix20, parent1
+{e4 0}	rotmi	parent6, parent7, -16				{o4 1}	shufb	mat_03, shuftemp9, shuftemp10, s_BDbd
+{e6 1}	fnms	cofm_12, mat_00, mat_21, cofm_12			{o4 1}	shufb	mat_13, shuftemp7, shuftemp8, s_BDbd
+{e6 1}	fnms	cofm_20, mat_01, mat_12, cofm_20			{o4 1}	shufb	mat_23, shuftemp11, shuftemp12, s_BDbd
+{e6 1}	fms	cofm_21, mat_02, mat_10, cofm_21			{o4 1}	shufb	ti_temp1, tan0, tan1, s_AaBb
+{e6 1}	fnms	cofm_22, mat_01, mat_10, cofm_22			{o4 1}	shufb	ti_temp2, tan2, tan3, s_BbAa
+{e2 1}	selb	px, pi_temp1, pi_temp2, sel_ABcd			{o4 1}	shufb	ti_temp3, tan0, tan1, s_CcCc
+{e2 1}	selb	pz, pi_temp3, pi_temp4, sel_ABcd			{o4 1}	shufb	ti_temp4, tan2, tan3, s_CcCc
+{e2 1}	selb	nx, ni_temp1, ni_temp2, sel_ABcd				lnop
+{e2 1}	selb	nz, ni_temp3, ni_temp4, sel_ABcd			{06 0}	lqx	pmat01, pMatrix10, parent0
+{e2 1}	selb	tx, ti_temp1, ti_temp2, sel_ABcd			{06 0}	lqx	pmat02, pMatrix20, parent0
+{e2 1}	selb	tz, ti_temp3, ti_temp4, sel_ABcd			{06 0}	lqx	pmat30, pMatrix00, parent3
+{e6 1}	fma	px2, px, mat_00, mat_03				{o4 2}	shufb	po_temp1, py3, pz3, s_DAad
+{e6 1}	fma	py2, px, mat_10, mat_13				{o4 2}	shufb	po_temp2, px3, pz3, s_BCbc
+{e6 1}	fma	pz2, px, mat_20, mat_23				{o4 2}	shufb	no_temp1, ny5, nz5, s_DAad
+{e6 1}	fm	nx2, nz, cofm_02					{o4 2}	shufb	no_temp2, nx5, nz5, s_BCbc
+{e6 1}	fm	ny2, nz, cofm_12					{o4 2}	shufb	to_temp1, ty5, tz5, s_DAad
+{e6 1}	fm	nz2, nz, cofm_22					{o4 2}	shufb	to_temp2, tx5, tz5, s_BCbc
+{e6 1}	fm	tx2, tz, mat_02					{o4 2}	shufb	opos3, po_temp1, px3, s_dAD0
+{e6 1}	fm	ty2, tz, mat_12					{o4 2}	shufb	opos2, po_temp2, py3, s_BcDa
+{e6 1}	fm	tz2, tz, mat_22					{o4 1}	shufb	py, pi_temp2, pi_temp1, s_cdAB
+{e6 1}	fma	px2, pz, mat_02, px2				{06 0}	lqx	pmat50, pMatrix00, parent5
+{e6 1}	fma	py2, pz, mat_12, py2				{o4 1}	shufb	ny, ni_temp2, ni_temp1, s_cdAB
+{e6 1}	fma	pz2, pz, mat_22, pz2				{06 0}	lqx	pmat51, pMatrix10, parent5
+{e6 1}	fma	nx2, nx, cofm_00, nx2				{o4 1}	shufb	ty, ti_temp2, ti_temp1, s_cdAB
+{e6 1}	fma	ny2, nx, cofm_10, ny2				{o4 2}	shufb	onorm3, no_temp1, nx5, s_dAD0
+{e6 1}	fma	nz2, nx, cofm_20, nz2				{o4 2}	shufb	onorm2, no_temp2, ny5, s_BcDa
+{e6 1}	fma	px3, py, mat_01, px2				{06 0}	lqx	pmat00, pMatrix00, parent0
+{e6 1}	fma	py3, py, mat_11, py2				{06 0}	lqx	pmat10, pMatrix00, parent1
+{e6 1}	fma	pz3, py, mat_21, pz2				{06 0}	lqx	pmat22, pMatrix20, parent2
+{e6 1}	fma	tx2, tx, mat_00, tx2				{06 0}	lqx	pmat31, pMatrix10, parent3
+{e6 1}	fma	ty2, tx, mat_10, ty2				{06 0}	lqx	pmat32, pMatrix20, parent3
+{e6 1}	fma	tz2, tx, mat_20, tz2				{06 0}	lqx	pmat52, pMatrix20, parent5
+{e2 2}	selb	opos0, px3, po_temp1, sel_AbcD				hbrp
+{e2 2}	selb	opos1, py3, po_temp2, sel_aBcD			{06 0}	lqx	pmat70, pMatrix00, parent7
+{e2 2}	selb	onorm0, nx5, no_temp1, sel_AbcD			{06 0}	lqx	pmat71, pMatrix10, parent7
+{e2 2}	selb	onorm1, ny5, no_temp2, sel_aBcD			{06 0}	lqx	pmat72, pMatrix20, parent7
+{e2 2}	selb	otan0, tx5, to_temp1, sel_AbcD				lnop
+{e2 2}	selb	otan1, ty5, to_temp2, sel_aBcD			{06 0}	lqx	pmat40, pMatrix00, parent4
+{e2 2}	selb	onorm1, onorm1, _norm1, sel_ABCd			{06 0}	lqx	pmat20, pMatrix00, parent2
+{e2 2}	selb	onorm0, onorm0, _norm0, sel_ABCd			{06 0}	lqx	pmat21, pMatrix10, parent2
+{e2 2}	selb	onorm3, onorm3, _norm3, sel_ABCd			{o4 2}	shufb	otan3, to_temp1, tx5, s_dAD0
+{e2 2}	selb	onorm2, onorm2, _norm2, sel_ABCd			{o4 2}	shufb	otan2, to_temp2, ty5, s_BcDa
+{e2 2}	selb	otan0, otan0, _tan0, sel_ABCd			{06 0}	lqx	pmat41, pMatrix10, parent4
+{e2 2}	selb	otan1, otan1, _tan1, sel_ABCd			{06 0}	lqx	pmat42, pMatrix20, parent4
+{e2 2}	selb	otan3, otan3, _tan3, sel_ABCd			{06 0}	lqx	pmat60, pMatrix00, parent6
+{e2 2}	selb	otan2, otan2, _tan2, sel_ABCd			{06 0}	lqx	pmat61, pMatrix10, parent6
+{e6 1}	fma	nx4, ny, cofm_01, nx2				{06 0}	lqx	pmat62, pMatrix20, parent6
+{e6 1}	fma	ny4, ny, cofm_11, ny2				{o6 0}	lqx	pos0, pPos00, inOff
+{e6 1}	fma	nz4, ny, cofm_21, nz2				{o  1}	hbr	skinChild_branch, jumpAddr
+{e6 1}	fma	tx4, ty, mat_01, tx2				{o6 0}	lqx	pos1, pPos10, inOff
+{e6 1}	fma	ty4, ty, mat_11, ty2				{o6 0}	lqx	pos2, pPos20, inOff
+{e6 1}	fma	tz4, ty, mat_21, tz2				{o6 0}	lqx	pos3, pPos30, inOff
+{e6 0}	fm	mat0_0, pmat10, weight1				{o6 0}	lqx	disp0, pDisp00, inOff
+{e6 0}	fm	mat0_1, pmat11, weight1					lnop
+{e6 0}	fm	mat0_2, pmat12, weight1				{o6 0}	lqx	disp1, pDisp10, inOff
+{e6 0}	fm	mat1_0, pmat30, weight1				{o6 0}	lqx	disp2, pDisp20, inOff
+{e6 0}	fm	mat1_1, pmat31, weight1				{o6 0}	lqx	disp3, pDisp30, inOff
+{e6 0}	fm	mat1_2, pmat32, weight1				{o6 0}	lqx	norm0, pNormal00, inOff
+{e6 0}	fm	mat2_0, pmat50, weight1				{o6 0}	lqx	norm1, pNormal10, inOff
+{e6 0}	fm	mat2_1, pmat51, weight1				{o6 0}	lqx	norm2, pNormal20, inOff
+{e6 0}	fm	mat2_2, pmat52, weight1				{o6 0}	lqx	norm3, pNormal30, inOff
+{e6 0}	fm	mat3_0, pmat70, weight1				{o6 0}	lqx	tan0, pTangent00, inOff
+{e6 0}	fm	mat3_1, pmat71, weight1					lnop
+{e6 0}	fm	mat3_2, pmat72, weight1				{o6 0}	lqx	tan1, pTangent10, inOff
+{e6 0}	fma	mat0_0, pmat00, weight0, mat0_0			{o6 0}	lqx	tan2, pTangent20, inOff
+{e6 0}	fma	mat0_1, pmat01, weight0, mat0_1			{o6 0}	lqx	tan3, pTangent30, inOff
+{e6 0}	fma	mat0_2, pmat02, weight0, mat0_2			{o6 2}	stqx	opos0, pPos00, outOff
+{e6 0}	fma	mat1_0, pmat20, weight0, mat1_0			{o6 2}	stqx	opos1, pPos10, outOff
+{e6 0}	fma	mat1_1, pmat21, weight0, mat1_1			{o6 2}	stqx	opos3, pPos30, outOff
+{e6 0}	fma	mat1_2, pmat22, weight0, mat1_2				lnop
+{e6 0}	fma	mat2_0, pmat40, weight0, mat2_0			{o6 2}	stqx	opos2, pPos20, outOff
+{e6 1}	fm	nrmag, nx4, nx4					{o6 2}	stqx	onorm0, pNormal00, outOff
+{e6 1}	fm	trmag, tx4, tx4					{o6 2}	stqx	onorm1, pNormal10, outOff
+{e6 0}	fma	mat2_1, pmat41, weight0, mat2_1			{o6 2}	stqx	onorm2, pNormal20, outOff
+{e6 0}	fma	mat2_2, pmat42, weight0, mat2_2			{o6 2}	stqx	onorm3, pNormal30, outOff
+{e6 0}	fma	mat3_0, pmat60, weight0, mat3_0			{o6 2}	stqx	otan0, pTangent00, outOff
+{e6 0}	fma	mat3_1, pmat61, weight0, mat3_1				lnop
+{e6 0}	fma	mat3_2, pmat62, weight0, mat3_2			{o6 2}	stqx	otan1, pTangent10, outOff
+{e6 1}	fma	nrmag, ny4, ny4, nrmag				{o6 2}	stqx	otan2, pTangent20, outOff
+{e6 1}	fma	trmag, ty4, ty4, trmag				{o6 2}	stqx	otan3, pTangent30, outOff
+{e2 2}	a	outOff, outOff, outInc				{o4 2}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 1}	ai	inOff, inOff, 0x40		skinChild_branch:	{o? 1}	bi	jumpAddr	[skinChildExit skinChildLoop]
+skinChildExit:
+	{nop}							{o}	hbr	skinChildExit_branch, $lr
+	{nop}							{o6}	lqd	$lr,  0x010($sp)
+	{nop}							{o6}	lqd	$80,  0x020($sp)
+	{nop}							{o6}	lqd	$81,  0x030($sp)
+	{nop}							{o6}	lqd	$82,  0x040($sp)
+	{nop}							{o6}	lqd	$83,  0x050($sp)
+	{nop}							{o6}	lqd	$84,  0x060($sp)
+	{nop}							{o6}	lqd	$85,  0x070($sp)
+	{nop}							{o6}	lqd	$86,  0x080($sp)
+	{nop}							{o6}	lqd	$87,  0x090($sp)
+	{nop}							{o6}	lqd	$88,  0x0A0($sp)
+	{nop}							{o6}	lqd	$89,  0x0B0($sp)
+	{nop}							{o6}	lqd	$90,  0x0C0($sp)
+	{nop}							{o6}	lqd	$91,  0x0D0($sp)
+	{nop}							{o6}	lqd	$92,  0x0E0($sp)
+	{nop}								hbrp
+	{nop}							{o6}	lqd	$93,  0x0F0($sp)
+	{nop}							{o6}	lqd	$94,  0x100($sp)
+	{nop}							{o6}	lqd	$95,  0x110($sp)
+	{nop}							{o6}	lqd	$96,  0x120($sp)
+	{nop}							{o6}	lqd	$97,  0x130($sp)
+	{nop}							{o6}	lqd	$98,  0x140($sp)
+	{nop}							{o6}	lqd	$99,  0x150($sp)
+	{nop}							{o6}	lqd	$100, 0x160($sp)
+	{nop}							{o6}	lqd	$101, 0x170($sp)
+	{nop}							{o6}	lqd	$102, 0x180($sp)
+	{nop}							{o6}	lqd	$103, 0x190($sp)
+	{nop}							{o6}	lqd	$104, 0x1a0($sp)
+	{nop}							{o6}	lqd	$105, 0x1b0($sp)
+	{nop}							{o6}	lqd	$106, 0x1c0($sp)
+	{nop}							{o6}	lqd	$107, 0x1d0($sp)
+	{nop}							{o6}	lqd	$108, 0x1e0($sp)
+	{nop}							{o6}	lqd	$109, 0x1f0($sp)
+	{nop}							{o6}	lqd	$110, 0x200($sp)
+	{nop}							{o6}	lqd	$111, 0x210($sp)
+	{nop}							{o6}	lqd	$112, 0x220($sp)
+	{nop}							{o6}	lqd	$113, 0x230($sp)
+	{nop}							{o6}	lqd	$114, 0x240($sp)
+	{nop}							{o6}	lqd	$115, 0x250($sp)
+;	{nop}							{o6}	lqd	$116, 0x260($sp)
+;	{nop}							{o6}	lqd	$117, 0x270($sp)
+;	{nop}							{o6}	lqd	$118, 0x280($sp)
+;	{nop}							{o6}	lqd	$119, 0x290($sp)
+;	{nop}							{o6}	lqd	$120, 0x2a0($sp)
+;	{nop}							{o6}	lqd	$121, 0x2b0($sp)
+;	{nop}							{o6}	lqd	$122, 0x2c0($sp)
+;	{nop}							{o6}	lqd	$123, 0x2d0($sp)
+;	{nop}							{o6}	lqd	$124, 0x2e0($sp)
+;	{nop}							{o6}	lqd	$125, 0x2f0($sp)
+;	{nop}							{o6}	lqd	$126, 0x300($sp)
+;	{nop}							{o6}	lqd	$127, 0x310($sp)
+	{nop}							{o6}	lqd	$sp,  0x000($sp)
+	{nop}				skinChildExit_branch:	{o?}	bi	$lr
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+; self-test code
+.if TEST
+
+.extern MakeOffsetTable
+.extern LookupVertMatrix
+.extern SkinDisplaceParent
+
+.data
+
+.align 12
+m_dummyData:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+; Control byte definitions
+; CONTROL_NEXT	0
+; CONTROL_DIFF1	2
+; CONTROL_SAME1	4
+; CONTROL_SAMEN	6
+; CONTROL_END	8
+; CONTROL_DIFFN	A
+
+;0x02, 0x00, 0x06, 0x04
+;0x00, 0x04, 0x08, 0x0c
+m_offsetTable:	.dw 0x80002080, 0x000020c0, 0x00000000, 0x00000004
+		.dw 0x8000207e, 0x000020c4, 0x00000000, 0x00000004
+		.dw 0x80002084, 0x000020c8, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+		.dw 0x80002082, 0x000020cc, 0x00000000, 0x00000004
+
+m_controlTable:	.dw 0x0A020604, 0x08000000, 0x00000000, 0x00000000
+
+; addresses 0x00, 0x12, 0x14, 0x16, 0x1a, 0x1c, 0x1e
+m_sameTable:	.dh 0x0004, 0x0034, 0x0064, 0x0094, 0x0094, 0x0064, 0x0034, 0x0004
+		.dh 0x0000, 0x0030, 0x0060, 0x0094, 0x0090, 0x0060, 0x0030, 0x0000
+
+; addresses 0x00, 0x02, 0x04, 0x06, 0x28, 0x28, 0x28, 0x28
+m_diffTable:	.dh 0x0034, 0x0004, 0x0004, 0x0064, 0x0034, 0x0004, 0x0034, 0x0064
+		.dh 0x0034, 0x0004, 0x0064, 0x0064, 0x0034, 0x0004, 0x0094, 0x0064
+		.dh 0x0090, 0x0090, 0x0090, 0x0090, 0x0064, 0x0064, 0x0064, 0x0064
+		.dh 0x0030, 0x0030, 0x0030, 0x0030, 0x0000, 0x0000, 0x0000, 0x0000
+
+m_weightTable:	.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+		.df 0.25, 0.25, 0.25, 0.25
+
+;00003510 00000000 3f7ffc00 00000000 00000000 ....?¶n.........
+;00003520 00000000 00000000 00000000 00000000 ................
+;00003530 00000000 00000000 00000000 00000000 ................
+;00003540 3f13cdce 3f13cdce 3f13cdce 00000000 ?.-+?.-+?.-+....
+;00003550 3f333333 00000000 3f333333 00000000 ?333....?333....
+;00003560 00000000 3f333333 3f333333 00000000 ....?333?333....
+;00003570 3f333333 3f333333 00000000 00000000 ?333?333........
+;00003580 3f147ae1 3f147ae1 3f147ae1 00000000 ?.zﬂ?.zﬂ?.zﬂ....
+
+m_vertex:	.dh 0x0000, 0x0004, 0x0002, 0x0008, 0x000c, 0x0003, 0x0800, 0x0800
+;1, 0, 0
+;0, 1, 0
+;0, 0, 1
+
+;0, 0, 0
+;0, 0, 0
+;0, 0, 1
+
+;0, 0, 0
+;0, 1, 0
+;0, 0, 0
+
+;1, 0, 0
+;0, 1, 0
+;0, 0, 1
+
+;1, 0, 0
+;0, 1, 0
+;0, 0, 1
+
+;0.5, 0, 0
+;0, 0.5, 0
+;0, 0, 0.5
+
+m_matrixTable:	.df 1,0,0,0
+		.df 0,1,0,0
+		.df 0,0,1,0
+
+		.df 1,0,0,0
+		.df 0,0,0,0
+		.df 0,0,0,0
+
+		.df 0,0,0,0
+		.df 0,1,0,0
+		.df 0,0,0,0
+
+		.df 0,0,0,0
+		.df 0,0,0,0
+		.df 0,0,1,0
+
+m_outMatrix:	.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+		.df 0.0, 0.0, 0.0, 0.0
+
+m_uniformPositions:	.df 0, 0, 0, 1
+			.df 1, 0, 0, 1
+			.df 0, 1, 0, 1
+			.df 1, 1, 0, 1
+			.df 1, 1, 0, 1
+			.df 0, 1, 0, 1
+			.df 1, 0, 0, 1
+			.df 0, 0, 0, 1
+
+m_outPositions:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+m_uniformNormals:	.df	0,	1,	0,	0
+		.df	0,	0,	1,	1
+		.df	1,	0,	0,	0
+		.df	0.58,	0.58,	0.58,	1
+		.df	0.7,	0,	0.7,	0
+		.df	0,	0.7,	0.7,	1
+		.df	0.7,	0.7,    0,	0
+		.df	0.58,	0.58,	0.58,	1
+
+m_outNormals:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+m_uniformTangents:	.df	0,	1,	0,	0
+			.df	0,	0,	1,	0
+			.df	1,	0,	0,	0
+			.df	0.58,	0.58,	0.58,	0
+			.df	0.7,	0,	0.7,	0
+			.df	0,	0.7,	0.7,	0
+			.df	0.7,	0.7,    0,	0
+			.df	0.58,	0.58,	0.58,	0
+
+m_outTangents:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+m_uniformDisps:	.df	0,	1,	0,	0
+			.df	0,	0,	1,	0
+			.df	1,	0,	0,	0
+			.df	0.58,	0.58,	0.58,	0
+			.df	0.7,	0,	0.7,	0
+			.df	0,	0.7,	0.7,	0
+			.df	0.7,	0.7,    0,	0
+			.df	0.58,	0.58,	0.58,	0
+
+m_parents:	.dh 0x000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007
+
+.text
+
+.global _start
+_start:
+
+{e2}	ila	$3, m_offsetTable						{lnop}
+{e2}	il	$4, m_sameTable						{lnop}
+{e2}	ila	$5, m_diffTable						{lnop}
+{e2}	ila	$6, m_controlTable					{lnop}
+{e2}	ila	$7, m_weightTable						{lnop}
+	nop							{o?}	brsl	$lr, MakeOffsetTable [#func]
+
+.cuse $3, $4, $5, $6, $7
+
+{e2}	ila	$3, m_offsetTable						{lnop}
+{e2}	ila	$4, m_matrixTable						{lnop}
+{e2}	ila	$5, m_vertex						{lnop}
+{e2}	il	$6, m_outMatrix						{lnop}
+	nop							{o?}	brsl	$lr, LookupVertMatrix [#func]
+
+.cuse $3, $4, $5, $6
+
+{e2}	ila	$3, 1							{lnop}
+{e2}	ila	$4, m_uniformPositions					{lnop}
+{e2}	ila	$5, m_uniformNormals					{lnop}
+{e2}	ila	$6, m_uniformTangents					{lnop}
+{e2}	ila	$7, m_uniformDisps					{lnop}
+{e2}	il	$8, m_outMatrix						{lnop}
+{e2}	il	$9, 0							{lnop}
+	nop							{o?}	brsl	$lr, SkinDisplaceParent [#func]
+	nop								nop
+
+.cuse $3, $4, $5, $6, $7, $8, $9
+
+{e2}	ila	$3, 1							{lnop}
+{e2}	ila	$4, m_uniformPositions					{lnop}
+{e2}	ila	$5, m_uniformNormals					{lnop}
+{e2}	ila	$6, m_uniformTangents					{lnop}
+{e2}	ila	$7, m_uniformDisps					{lnop}
+{e2}	il	$8, m_outMatrix						{lnop}
+{e2}	il	$9, 0							{lnop}
+{e2}	il	$10, m_parents						{lnop}
+{e2}	il	$11, 0							{lnop}
+	nop							{o?}	brsl	$lr, SkinDisplaceChild [#func]
+	nop								stop
+
+.cuse $3, $4, $5, $6, $7, $8, $9
+
+.endif ; TEST
+
+.end
+

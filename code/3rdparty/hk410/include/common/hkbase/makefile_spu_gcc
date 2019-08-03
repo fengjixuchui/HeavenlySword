@@ -1,0 +1,10 @@
+SRC := monitor/hkMonitorStream.cpp monitor/hkSpuMonitorCache.cpp thread/hkCriticalSection.cpp thread/hkSpuDmaManager.cpp thread/hkSpuStack.cpp thread/hkSpuUtils.cpp thread/impl/hkEmptySemaphore.cpp thread/job/hkJobQueue.cpp thread/ps3/hkPs3SemaphoreBusyWait.cpp
+
+FD_SRC := .
+
+LIB_NAME = hkbase
+
+DEFINES += 
+
+include ../../havokCommon_spu_gcc.mk
+

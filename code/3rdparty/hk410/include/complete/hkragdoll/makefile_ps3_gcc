@@ -1,0 +1,8 @@
+SRC := hkRagdoll.cpp controller/poweredchain/hkRagdollPoweredChainController.cpp controller/poweredconstraint/hkRagdollPoweredConstraintController.cpp controller/rigidbody/hkKeyFrameHierarchyUtility.cpp controller/rigidbody/hkRagdollRigidBodyController.cpp instance/hkRagdollInstance.cpp instance/hkRagdollInstanceClass.cpp posematching/hkPoseMatchingUtility.cpp utils/hkRagdollUtils.cpp
+
+LIB_NAME = hkragdoll
+
+DEFINES += -DHK_DISABLE_VECTOR4_CONSTRUCTORS
+
+include ../../havokCommon_ps3_gcc.mk
+

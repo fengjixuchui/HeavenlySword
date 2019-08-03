@@ -1,0 +1,70 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SharedBufferSample", "SharedBufferSample.vcproj", "{2F9EC33F-4362-453C-B5CF-1BFA7A49ACC8}"
+	ProjectSection(ProjectDependencies) = postProject
+		{BEDFE22F-6D09-423D-A5E0-44BA1F7C0D1D} = {BEDFE22F-6D09-423D-A5E0-44BA1F7C0D1D}
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331} = {20317E6D-EA95-46CE-A4B1-A1B23725B331}
+		{8452BA70-81F3-4F24-BF5F-01D2F1EB2094} = {8452BA70-81F3-4F24-BF5F-01D2F1EB2094}
+		{9534998A-910A-4591-9ACD-C88C6711AE1F} = {9534998A-910A-4591-9ACD-C88C6711AE1F}
+		{29834CCC-234A-4712-856C-DF23421345FF} = {29834CCC-234A-4712-856C-DF23421345FF}
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781} = {56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}
+		{297C2EEF-AEF9-468A-97EF-7E971F455290} = {297C2EEF-AEF9-468A-97EF-7E971F455290}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "job1", "job1\job1.vcproj", "{9534998A-910A-4591-9ACD-C88C6711AE1F}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "job2", "job2\job2.vcproj", "{8452BA70-81F3-4F24-BF5F-01D2F1EB2094}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "job3", "job3\job3.vcproj", "{297C2EEF-AEF9-468A-97EF-7E971F455290}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobx", "jobx\jobX.vcproj", "{BEDFE22F-6D09-423D-A5E0-44BA1F7C0D1D}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobapi-ppu", "..\..\src\ppu\jobapi\jobapi-ppu.vcproj", "{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobapi-spu", "..\..\src\spu\jobapi\jobapi-spu.vcproj", "{20317E6D-EA95-46CE-A4B1-A1B23725B331}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobmanager", "..\..\src\spu\jobmanager\jobmanager.vcproj", "{29834CCC-234A-4712-856C-DF23421345FF}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{2F9EC33F-4362-453C-B5CF-1BFA7A49ACC8}.Debug.ActiveCfg = Debug|Win32
+		{2F9EC33F-4362-453C-B5CF-1BFA7A49ACC8}.Debug.Build.0 = Debug|Win32
+		{2F9EC33F-4362-453C-B5CF-1BFA7A49ACC8}.Release.ActiveCfg = Release|Win32
+		{2F9EC33F-4362-453C-B5CF-1BFA7A49ACC8}.Release.Build.0 = Release|Win32
+		{9534998A-910A-4591-9ACD-C88C6711AE1F}.Debug.ActiveCfg = Debug|Win32
+		{9534998A-910A-4591-9ACD-C88C6711AE1F}.Release.ActiveCfg = Release|Win32
+		{8452BA70-81F3-4F24-BF5F-01D2F1EB2094}.Debug.ActiveCfg = Debug|Win32
+		{8452BA70-81F3-4F24-BF5F-01D2F1EB2094}.Release.ActiveCfg = Release|Win32
+		{297C2EEF-AEF9-468A-97EF-7E971F455290}.Debug.ActiveCfg = Debug|Win32
+		{297C2EEF-AEF9-468A-97EF-7E971F455290}.Release.ActiveCfg = Release|Win32
+		{BEDFE22F-6D09-423D-A5E0-44BA1F7C0D1D}.Debug.ActiveCfg = Debug|Win32
+		{BEDFE22F-6D09-423D-A5E0-44BA1F7C0D1D}.Release.ActiveCfg = Release|Win32
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}.Debug.ActiveCfg = Debug|Win32
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}.Release.ActiveCfg = Release|Win32
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331}.Debug.ActiveCfg = Debug|Win32
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331}.Release.ActiveCfg = Release|Win32
+		{29834CCC-234A-4712-856C-DF23421345FF}.Debug.ActiveCfg = Debug|Win32
+		{29834CCC-234A-4712-856C-DF23421345FF}.Release.ActiveCfg = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

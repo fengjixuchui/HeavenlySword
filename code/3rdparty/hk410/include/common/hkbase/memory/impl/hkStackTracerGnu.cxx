@@ -1,0 +1,122 @@
+/* 
+ * 
+ * Confidential Information of Telekinesys Research Limited (t/a Havok).  Not for disclosure or distribution without Havok's
+ * prior written consent.This software contains code, techniques and know-how which is confidential and proprietary to Havok.
+ * Level 2 and Level 3 source code contains trade secrets of Havok. Havok Software (C) Copyright 1999-2006 Telekinesys Research Limited t/a Havok. All Rights Reserved. Use of this software is subject to the terms of an end user license agreement.
+ * 
+ */
+
+#if defined(HK_PLATFORM_UNIX)
+#	include <hkbase/fwd/hkcmalloc.h>
+#	include <hkbase/fwd/hkcstdio.h>
+#	include <hkbase/fwd/hkcstring.h>
+#	include <execinfo.h>
+#elif defined(HK_PLATFORM_PS2) || defined( HK_PLATFORM_PSP )
+#	include <hkbase/memory/impl/hkBacktracePs2.cxx>
+#else
+#	error "Dont know where to find 'backtrace'"
+#endif
+
+// 
+// Be careful not to call any havok functions which may
+// result in a memory allocation as these methods are
+// called from the debug memory destructor
+//
+
+hkStackTracer::hkStackTracer()
+{
+}
+
+hkStackTracer::~hkStackTracer()
+{
+}
+
+static const int IGNORE_FRAMES = 2;
+
+#if defined(HK_PLATFORM_UNIX)
+
+extern char* program_invocation_name;
+
+// This is slow compared to simply calling backtrace_symbols, but gives it
+// gives the file:line information.
+void hkStackTracer::dumpStackTrace( const hkUlong* trace, int numtrace, printFunc pfunc, void* context )
+{
+	char cmd[1024];
+	int cur = snprintf( cmd, sizeof(cmd), "addr2line -C -f -e %s", program_invocation_name);
+	for( int i = IGNORE_FRAMES; i < numtrace; ++i )
+	{
+		cur += snprintf( cmd+cur, sizeof(cmd)-cur, " %p", (void*)trace[i] );
+		if( cur > (int)sizeof(cmd) ) return;
+	}
+	FILE* fin = popen(cmd, "r");
+	while( feof(fin) == 0 )
+	{
+		char func[1024];
+		char file[1024];
+		if( fgets(func, sizeof(func), fin) )
+		{
+			if( fgets(file, sizeof(file), fin) )
+			{
+				int l = strlen(file);
+				file[ l > 0 ? l-1 : 0 ] = 0;
+				pfunc(file, context);
+				pfunc(":", context);
+				pfunc(func, context);
+			}
+		}
+	}
+	pclose(fin);
+}
+
+#else
+
+static void backtrace_symbols_free(char** syms)
+{
+	free(syms);
+}
+void hkStackTracer::dumpStackTrace( const hkUlong* trace, int numtrace, printFunc pfunc, void* context )
+{
+
+	char** strings = backtrace_symbols( (void* const*)trace, numtrace);
+	if(strings)
+	{
+		for( int i = IGNORE_FRAMES; i < numtrace; ++i )
+		{
+			const char* loc = hkString::strStr(strings[i], "(");
+			pfunc(loc ? loc : strings[i], context);
+			pfunc("\n", context);
+		}
+		backtrace_symbols_free(strings);
+	}
+	else
+	{
+		char buf[100];
+		for( int i = IGNORE_FRAMES; i < numtrace; ++i )
+		{
+			hkString::snprintf(buf, 100, "%.8x (no symbols)\n", trace[i]);
+			pfunc(buf, context);
+		}
+	}
+}
+
+#endif
+
+int hkStackTracer::getStackTrace( hkUlong* trace, int maxtrace )
+{
+	return backtrace( (void**)trace, maxtrace);
+}
+
+/*
+* Havok SDK - PUBLIC RELEASE, BUILD(#20060902)
+*
+* Confidential Information of Havok.  (C) Copyright 1999-2006 
+* Telekinesys Research Limited t/a Havok. All Rights Reserved. The Havok
+* Logo, and the Havok buzzsaw logo are trademarks of Havok.  Title, ownership
+* rights, and intellectual property rights in the Havok software remain in
+* Havok and/or its suppliers.
+*
+* Use of this software for evaluation purposes is subject to and indicates 
+* acceptance of the End User licence Agreement for this product. A copy of 
+* the license is included with this software and is also available from salesteam@havok.com.
+*
+*/

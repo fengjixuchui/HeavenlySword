@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="plugincrt0"
+	ProjectGUID="{67E03493-636B-429D-AD75-80B8ABCFA273}"
+	RootNamespace="plugincrt0"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make -f plugincrt0.makefile VERSION=debug"
+				ReBuildCommandLine="make -f plugincrt0.makefile all VERSION=debug"
+				CleanCommandLine="make -f plugincrt0.makefile clean VERSION=debug"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make -f plugincrt0.makefile VERSION=release"
+				ReBuildCommandLine="make -f plugincrt0.makefile all VERSION=release"
+				CleanCommandLine="make -f plugincrt0.makefile clean VERSION=release"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{3E6A7201-C93C-4777-BF18-D3FB4F63FE49}">
+			<File
+				RelativePath=".\plugincrt0.spu.s">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{DA74145E-7B48-4B22-B14A-D369D6877054}">
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{F5881B16-1710-4AEB-8265-50CC1BC8303C}">
+			<File
+				RelativePath=".\plugincrt0.makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

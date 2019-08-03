@@ -1,0 +1,14 @@
+Z:\Heavenly_Sword\code\game\aibindings.cpp
+Z:\Heavenly_Sword\code\game\armybindings.cpp
+Z:\Heavenly_Sword\code\game\audiobindings.cpp
+Z:\Heavenly_Sword\code\game\awarebindings.cpp
+Z:\Heavenly_Sword\code\game\camerabindings.cpp
+Z:\Heavenly_Sword\code\game\combatbindings.cpp
+Z:\Heavenly_Sword\code\game\debugbindings.cpp
+Z:\Heavenly_Sword\code\game\dynamicsbindings.cpp
+Z:\Heavenly_Sword\code\game\entitybindings.cpp
+Z:\Heavenly_Sword\code\game\movementbindings.cpp
+Z:\Heavenly_Sword\code\game\netbindings.cpp
+Z:\Heavenly_Sword\code\game\objectbindings.cpp
+Z:\Heavenly_Sword\code\game\luahelp.cpp
+Z:\Heavenly_Sword\code\game\timerbindings.cpp

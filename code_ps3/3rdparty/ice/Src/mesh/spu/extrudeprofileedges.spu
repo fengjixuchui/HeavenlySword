@@ -1,0 +1,335 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.global ExtrudeProfileEdges
+; Implements ExtrudeProfileEdges() in ice/mesh/icemeshshadow.cpp
+; void ExtrudeProfileEdges(U16 *indexes, F32 *pos, U16 *profileEdges, F32 *out, U32 numProfileEdges, U32 isPointLight);
+
+.define TEST 0
+
+.data
+
+.text
+
+.reg pIndexes		3	; Index table.  Must be qword aligned
+.reg pPos		4	; Position uniform table.  Must be qword aligned
+.reg pEdges		5	; Edge table
+.reg pOut		6	; Output pointer.  Must be qword aligned.
+.reg numEdges		7
+.reg isPointLight	8
+
+.reg count			; Loop counter
+.reg edge0			; Offset to index 0
+.reg edge1			; Offset to index 1
+.reg edge2			; Offset to index 2
+.reg edge3			; Offset to index 3
+.reg edges			; Loaded edge information
+.reg index0			; Memory offset into edge table
+.reg index00			; Memory offset into position unform table
+.reg index01			; Memory offset into position unform table
+.reg index1			; Memory offset into edge table
+.reg index10			; Memory offset into position unform table
+.reg index11			; Memory offset into position unform table
+.reg index2			; Memory offset into edge table
+.reg index20			; Memory offset into position unform table
+.reg index21			; Memory offset into position unform table
+.reg index3			; Memory offset into edge table
+.reg index30			; Memory offset into position unform table
+.reg index31			; Memory offset into position unform table
+.reg isDirLight			; 
+.reg jumpAddr			; Address loop branches to
+.reg medges			; Starting vertex information (which vertex edge starts with)
+.reg onef			; The value 1.0
+.reg opos00			; Output positon, in same spot as original position
+.reg opos01			; Output positon, in same spot as original position
+.reg opos02			; Output positon, will be projected to infinity
+.reg opos03			; Output positon, will be projected to infinity
+.reg opos10			; Output positon, in same spot as original position
+.reg opos11			; Output positon, in same spot as original position
+.reg opos12			; Output positon, will be projected to infinity
+.reg opos13			; Output positon, will be projected to infinity
+.reg opos20			; Output positon, in same spot as original position
+.reg opos21			; Output positon, in same spot as original position
+.reg opos22			; Output positon, will be projected to infinity
+.reg opos23			; Output positon, will be projected to infinity
+.reg opos30			; Output positon, in same spot as original position
+.reg opos31			; Output positon, in same spot as original position
+.reg opos32			; Output positon, will be projected to infinity
+.reg opos33			; Output positon, will be projected to infinity
+.reg outOffset			; Output pointer
+.reg outOffsetDir		; Output pointer for directional light
+.reg outOffsetPoint		; Output pointer for point light
+.reg pLoopDir			; Branch target for a directional light
+.reg pLoopPoint			; Branch target for a point light
+.reg pos00			; Loaded position, edge 0
+.reg pos01			; Loaded position, edge 0
+.reg pos10			; Loaded position, edge 1
+.reg pos11			; Loaded position, edge 1
+.reg pos20			; Loaded position, edge 2
+.reg pos21			; Loaded position, edge 2
+.reg pos30			; Loaded position, edge 3
+.reg pos31			; Loaded position, edge 3
+.reg pOut_			; Output pointer
+.reg pOut1			; Output pointer
+.reg pOut2			; Output pointer
+.reg pOut3			; Output pointer
+.reg pOutInc			; Output stride
+.reg sel_ABCd			; Select mask for modifying w component of positions
+.reg uedge0			; Used to rotate index data so it points to the desired position
+.reg uedge1			; Used to rotate index data so it points to the desired position
+.reg uedge2			; Used to rotate index data so it points to the desired position
+.reg uedge3			; Used to rotate index data so it points to the desired position
+.reg upedge0			; Used to rotate index data so it points to the desired position
+.reg upedge1			; Used to rotate index data so it points to the desired position
+.reg upedge2			; Used to rotate index data so it points to the desired position
+.reg upedge3			; Used to rotate index data so it points to the desired position
+.reg zero			; The value zero
+
+.align 7
+
+ExtrudeProfileEdges:
+{e2}	il	outOffsetPoint, 0x40					{o?}	biz	numEdges, $lr
+{e2}	il	outOffsetDir, 0x30					{o4}	fsmbi	sel_ABCd, 0x000F
+{e2}	ceqi	isDirLight, isPointLight, 0				{o4}	fsmbi	zero, 0x0000
+{e2}	ila	pLoopPoint, epe_loop_point				{o6 0}	lqd	edges, 0x00(pEdges)
+{e2}	selb	outOffset, outOffsetPoint, outOffsetDir, isDirLight		{lnop}
+{e2}	ila	pLoopDir, epe_loop_dir						{lnop}
+{e2 0}	a	pOut1, pOut, outOffset						{lnop}
+{e2}	selb	jumpAddr, pLoopPoint, pLoopDir, isDirLight			{lnop}
+{e2 0}	a	pOut2, pOut1, outOffset					{o4}	rotqbyi	pOut_, pOut, 0
+{e2}	ai	count, numEdges, 7					{o}	hbr	epe_branch, jumpAddr
+{e2 0}	a	pOut3, pOut2, outOffset						{lnop}
+{e4}	rotmi	count, count, -2						{lnop}
+{e2}	ilhu	onef, 0x3F80							lnop	; to make prefetch stalls go away
+{e2}	shli	pOutInc, outOffset, 2						lnop	; to make prefetch stalls go away
+	nop									lnop	; to make prefetch stalls go away
+.cset index30
+.cset opos01, opos02, opos03, opos10, opos11, opos12, opos13, opos20
+.cset pos20, pos21, pos31
+
+epe_loop_point:
+{e2 2}	selb	opos23, pos21, zero, sel_ABCd				{o6 2}	stqd	opos03, 0x30(pOut)
+{e2 2}	selb	opos33, pos31, zero, sel_ABCd				{o6 2}	stqd	opos13, 0x30(pOut1)
+	{nop}								{o6 2}	stqd	opos23, 0x30(pOut2)
+	{nop}								{o6 2}	stqd	opos33, 0x30(pOut3)
+
+epe_loop_dir:
+{e2 1}	ai	count, count, -1					{o4 1}	rotqby	edges, edges, pEdges
+{e2 2}	selb	opos30, pos31, onef, sel_ABCd				{o6 2}	lqx	pos30, pPos, index30
+{e2 2}	selb	opos21, pos20, onef, sel_ABCd				{o6 2}	stqd	opos01, 0x10(pOut)
+{e2 2}	selb	opos22, pos20, zero, sel_ABCd				{o6 2}	stqd	opos02, 0x20(pOut)
+{e2 1}	andhi	edge1, edges, -8					{o6 2}	stqd	opos10, 0x00(pOut1)
+{e2 1}	andhi	medges, edges, 3					{o6 2}	stqd	opos11, 0x10(pOut1)
+{e4 1}	roti	edge0, edge1, 16					{o4 1}	rotqbyi	edge3, edge1, 4
+{e4 1}	shlhi	medges, medges, 1					{o6 1}	lqx	index1, pIndexes, edge1
+{e2 2}	selb	opos31, pos30, onef, sel_ABCd				{o6 2}	stqd	opos12, 0x20(pOut1)
+{e2 2}	selb	opos32, pos30, zero, sel_ABCd				{o6 2}	stqd	opos20, 0x00(pOut2)
+{e4 1}	roti	edge2, edge3, 16					{o6 1}	lqx	index0, pIndexes, edge0
+{e2 1}	ah	upedge1, edge1, medges					{o6 1}	lqx	index3, pIndexes, edge3
+{e2 1}	ai	pEdges, pEdges, 8					{o6 2}	stqd	opos21, 0x10(pOut2)
+{e2 1}	ahi	uedge1, upedge1, -2					{o4 1}	rotqbyi	upedge3, upedge1, 4
+{e4 1}	shlhi	index1, index1, 4					{o6 1}	lqx	index2, pIndexes, edge2
+{e4 1}	roti	upedge0, upedge1, 16					{o6 2}	stqd	opos22, 0x20(pOut2)
+{e4 1}	roti	uedge0, uedge1, 16					{o6 2}	stqd	opos30, 0x00(pOut3)
+{e4 1}	shlhi	index0, index0, 4					{o6 2}	stqd	opos31, 0x10(pOut3)
+{e4 1}	shlhi	index3, index3, 4					{o4 1}	rotqby	index11, index1, upedge1
+{e2 1}	ori	pOut, pOut_, 0						{o4 1}	rotqby	index10, index1, uedge1
+{e4 1}	roti	upedge2, upedge3, 16					{o6 2}	stqd	opos32, 0x20(pOut3)
+{e2 1}	ahi	uedge3, upedge3, -2					{o4 1}	rotqby	index01, index0, upedge0
+{e4 1}	shlhi	index2, index2, 4					{o6 1}	lqx	pos11, pPos, index11
+{e2 0}	a	pOut1, pOut, outOffset					{o6 1}	lqx	pos10, pPos, index10
+{e4 1}	roti	uedge2, uedge3, 16					{o4 1}	rotqby	index00, index0, uedge0
+{e2 0}	a	pOut2, pOut1, outOffset					{o6 1}	lqx	pos01, pPos, index01
+{e2 1}	a	pOut_, pOut_, pOutInc					{o4 1}	rotqby	index21, index2, upedge2
+{e2 0}	a	pOut3, pOut2, outOffset					{o4 1}	rotqby	index31, index3, upedge3
+{e2 1}	selb	opos10, pos11, onef, sel_ABCd				{o6 1}	lqx	pos00, pPos, index00
+{e2 1}	selb	opos13, pos11, zero, sel_ABCd				{o4 1}	rotqby	index20, index2, uedge2
+{e2 1}	selb	opos11, pos10, onef, sel_ABCd				{o6 1}	lqx	pos21, pPos, index21
+{e2 1}	selb	opos12, pos10, zero, sel_ABCd				{o6 0}	lqd	edges, 0x00(pEdges)
+{e2 1}	selb	opos00, pos01, onef, sel_ABCd				{o6 1}	lqx	pos31, pPos, index31
+{e2 1}	selb	opos03, pos01, zero, sel_ABCd				{o6 1}	lqx	pos20, pPos, index20
+{e2 1}	selb	opos01, pos00, onef, sel_ABCd				{o4 1}	rotqby	index30, index3, uedge3
+{e2 1}	selb	opos02, pos00, zero, sel_ABCd				{o6 2}	stqd	opos00, 0x00(pOut)
+{e2 1}	selb	opos20, pos21, onef, sel_ABCd		epe_branch:	{o? 1}	binz	count, jumpAddr	[epe_loop_point epe_loop_dir]
+
+	nop								{o?}	bi	$lr
+
+.if 0
+; Unrolled loop - untested, for documentation only
+
+; Set up destination pointers
+{e2 0}	a	pOut1, pOut, outOffset
+{e2 0}	a	pOut2, pOut1, outOffset
+{e2 0}	a	pOut3, pOut2, outOffset
+
+; Load unaligned edge data and rotate into place
+									{o6 0}	lqd	edges, 0x00(pEdges)
+									{o4 1}	rotqby	edges, edges, pEdges
+
+{e2 1}	ai	count, count, -1					
+
+	; Set up edge offsets
+{e2 1}	andhi	edge1, edges, -8					
+{e4 1}	roti	edge0, edge1, 16
+									{o4 1}	rotqbyi	edge3, edge1, 4
+{e4 1}	roti	edge2, edge3, 16
+
+	; Get starting edge information
+{e2 1}	andhi	medges, edges, 3					
+{e4 1}	shlhi	medges, medges, 1
+
+	; Load edge index information									
+									{o6 1}	lqx	index1, pIndexes, edge1
+									{o6 1}	lqx	index0, pIndexes, edge0
+									{o6 1}	lqx	index3, pIndexes, edge3
+									{o6 1}	lqx	index2, pIndexes, edge2
+
+{e2 1}	ah	upedge1, edge1, medges					
+{e2 1}	ai	pEdges, pEdges, 8					
+{e2 1}	ahi	uedge1, upedge1, -2					
+									{o4 1}	rotqbyi	upedge3, upedge1, 4
+									
+	; Determine which vertexes we want for extrusion and set up address offsets to get them
+{e4 1}	shlhi	index1, index1, 4					
+{e4 1}	roti	upedge0, upedge1, 16					
+{e4 1}	roti	uedge0, uedge1, 16					
+{e4 1}	shlhi	index0, index0, 4					
+{e4 1}	shlhi	index3, index3, 4					
+{e4 1}	roti	upedge2, upedge3, 16					
+{e2 1}	ahi	uedge3, upedge3, -2					
+{e4 1}	shlhi	index2, index2, 4
+{e4 1}	roti	uedge2, uedge3, 16					
+
+	; Delay increment of output pointer 1 loop
+{e2 1}	ori	pOut, pOut_, 0						
+{e2 1}	a	pOut_, pOut_, pOutInc					
+									
+									{o4 1}	rotqby	index11, index1, upedge1
+									{o4 1}	rotqby	index10, index1, uedge1
+									{o4 1}	rotqby	index01, index0, upedge0
+									{o4 1}	rotqby	index00, index0, uedge0
+									{o4 1}	rotqby	index21, index2, upedge2
+									{o4 1}	rotqby	index31, index3, upedge3
+									{o4 1}	rotqby	index30, index3, uedge3
+									{o4 1}	rotqby	index20, index2, uedge2
+
+	; Load significant vertexes 									
+									{o6 1}	lqx	pos11, pPos, index11
+									{o6 1}	lqx	pos10, pPos, index10
+									{o6 1}	lqx	pos01, pPos, index01
+									{o6 1}	lqx	pos00, pPos, index00
+									{o6 1}	lqx	pos21, pPos, index21
+									{o6 1}	lqx	pos31, pPos, index31
+									{o6 1}	lqx	pos20, pPos, index20
+									{o6 2}	lqx	pos30, pPos, index30
+									
+	; Fix up w components, proper vertexes will go to infinity when projection matrix is applied
+{e2 1}	selb	opos10, pos11, onef, sel_ABCd
+{e2 1}	selb	opos13, pos11, zero, sel_ABCd
+{e2 1}	selb	opos11, pos10, onef, sel_ABCd
+{e2 1}	selb	opos12, pos10, zero, sel_ABCd				
+{e2 1}	selb	opos00, pos01, onef, sel_ABCd				
+{e2 1}	selb	opos03, pos01, zero, sel_ABCd				
+{e2 1}	selb	opos01, pos00, onef, sel_ABCd				
+{e2 1}	selb	opos02, pos00, zero, sel_ABCd				
+{e2 1}	selb	opos20, pos21, onef, sel_ABCd		
+{e2 2}	selb	opos30, pos31, onef, sel_ABCd				
+{e2 2}	selb	opos21, pos20, onef, sel_ABCd				
+{e2 2}	selb	opos22, pos20, zero, sel_ABCd
+{e2 2}	selb	opos31, pos30, onef, sel_ABCd
+{e2 2}	selb	opos32, pos30, zero, sel_ABCd
+
+	; Store results
+									{o6 2}	stqd	opos01, 0x10(pOut)
+									{o6 2}	stqd	opos02, 0x20(pOut)
+									{o6 2}	stqd	opos10, 0x00(pOut1)
+									{o6 2}	stqd	opos11, 0x10(pOut1)
+									{o6 2}	stqd	opos12, 0x20(pOut1)
+									{o6 2}	stqd	opos20, 0x00(pOut2)
+									{o6 2}	stqd	opos21, 0x10(pOut2)
+									{o6 2}	stqd	opos22, 0x20(pOut2)
+									{o6 2}	stqd	opos30, 0x00(pOut3)
+									{o6 2}	stqd	opos31, 0x10(pOut3)
+									{o6 2}	stqd	opos32, 0x20(pOut3)
+									{o6 2}	stqd	opos00, 0x00(pOut)
+							epe_branch:	{o? 1}	binz	count, jumpAddr	[epe_loop_point epe_loop_dir]
+.endif
+
+.if TEST
+
+.align 12
+
+.data
+
+m_numEdges: .dw 8,0,0,0
+
+m_indexTable:	.dh 0,1,2,0,0,1,2,0
+		.dh 0,1,2,0,0,1,2,0
+		.dh 0,2,1,0,0,2,1,0
+		.dh 0,2,1,0,0,2,1,0
+		.dh 0,1,2,0,0,1,2,0
+		.dh 0,2,1,0,0,2,1,0
+
+m_uniformPositions:	.df 0, 0, 0, 1
+			.df 1, 0, 0, 1
+			.df 0, 1, 0, 1
+			.df 1, 1, 0, 1
+					
+m_profileEdges:	.dw 0x00000008, 0x00080010, 0x00100018, 0x00180000
+		.dw 0x00200028, 0x00280030, 0x00300038, 0x00380020
+		.dw 0x00400048, 0x00480050, 0x00500058, 0x00580040
+		.dw 0x00600068, 0x00680070, 0x00700078, 0x00780060
+		.dw 0x00800088, 0x00880090, 0x00900098, 0x00980080
+
+m_outData:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+m_outData2:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+
+.text
+
+.global _start
+_start:
+{e2}	ila	pEdges, m_profileEdges					{o6}	lqr	numEdges, m_numEdges
+{e2}	ila	pPos, m_uniformPositions					{lnop}
+{e2}	ila	pIndexes, m_indexTable						{lnop}
+{e2}	ila	pOut, m_outData							lnop
+{e2}	il	isPointLight, 0						{o?}	brsl	$lr, ExtrudeProfileEdges	[#func]
+	nop									stop
+.endif
+
+.end
+

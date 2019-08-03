@@ -1,0 +1,193 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global CompressIndexes6Byte
+; Implements CompressIndexes6Byte() in ice/mesh/icemeshcompress.cpp
+; void CompressIndexes6Byte(U16 *pSrc, U16 *pDst, U32 numTris);
+;
+; Converts an 8 byte triangle index stream into a 6 byte triangle index stream.
+; pSrc and pDst must be 16 byte aligned.  numTris will automatically be rounded up to a multiple of 8, therefore
+; some garbage data may be output at the end.  Four quadwords are read in, and three are output every loop.
+;
+; The input triangle stream looks like this:
+;	i0_0 i0_1 i0_2 i0_0 i1_0 i1_1 i1_2 i1_0
+;	i2_0 i2_1 i2_2 i2_0 i3_0 i3_1 i3_2 i3_0
+;	i4_0 i4_1 i4_2 i4_0 i5_0 i5_1 i5_2 i5_0
+;	i6_0 i6_1 i6_2 i6_0 i7_0 i7_1 i7_2 i7_0
+; But we want it to look like this:
+;	i0_0 i0_1 i0_2 i1_0 i1_1 i1_2 i2_0 i2_1
+;	i2_2 i3_0 i3_1 i3_2 i4_0 i4_1 i4_2 i5_0
+;	i5_1 i5_2 i6_0 i6_1 i6_2 i7_0 i7_1 i7_2
+
+
+
+.data
+
+; Shuffle masks for removing the redundant index in the input stream and outputting the rest of the indexes.
+.extern m_ABCEFGab 
+.extern m_CEFGabce 
+.extern m_FGabcefg 
+
+.text
+
+.reg pSrc		3	; Must be 16 byte aligned.
+.reg pDst		4	; Must be 16 byte aligned.
+.reg numTris		5	; Can be any value, but will be automatically rounded up to a multiple of 8.
+	
+.reg dstStride			; First time through the loop this is 0.  Subsequnt times it is 48 bytes.
+.reg inData0
+.reg inData1
+.reg inData2
+.reg inData3
+.reg loopCount
+.reg outData0
+.reg outData1
+.reg outData2
+.reg s_ABCEFGab			; Shuffle mask to shuffle indexes from inData0 and inData1 to outData0.
+.reg s_CEFGabce			; Shuffle mask to shuffle indexes from inData1 and inData2 to outData1.
+.reg s_FGabcefg			; Shuffle mask to shuffle indexes from inData2 and inData3 to outData2.
+
+.align 7
+
+CompressIndexes6Byte:
+{e2}	ai	loopCount, numTris, 15				{o}	hbrr	comp_6b_index_branch, comp_6b_index_loop
+{e2}	il	dstStride, 0					{o?}	biz	numTris, $lr
+{e4}	rotmi	loopCount, loopCount, -3			{o6}	lqr	s_ABCEFGab, m_ABCEFGab
+	{nop}							{o6}	lqr	s_CEFGabce, m_CEFGabce
+	{nop}							{o6}	lqr	s_FGabcefg, m_FGabcefg
+.cset outData0, outData1, outData2
+
+comp_6b_index_loop:
+	{nop}							{o6 1}	lqd	inData0, 0x00(pSrc)
+	{nop}							{o6 1}	lqd	inData1, 0x10(pSrc)
+	{nop}							{o6 1}	lqd	inData2, 0x20(pSrc)
+	{nop}							{o6 1}	lqd	inData3, 0x30(pSrc)
+{e2 1}	ai	pSrc, pSrc, 0x40				{o6 2}	stqd	outData0, 0x00(pDst)
+	{nop}							{o6 2}	stqd	outData1, 0x10(pDst)
+	{nop}							{o6 2}	stqd	outData2, 0x20(pDst)
+{e2 1}	a	pDst, pDst, dstStride				{o4 1}	shufb	outData0, inData0, inData1, s_ABCEFGab
+{e2 1}	ai	loopCount, loopCount, -1			{o4 1}	shufb	outData1, inData1, inData2, s_CEFGabce
+{e2 1}	il	dstStride, 0x30					{o4 1}	shufb	outData2, inData2, inData3, s_FGabcefg
+	{nop}				comp_6b_index_branch:	{o? 1}	brnz	loopCount, comp_6b_index_loop
+
+	{nop}							{o?}	bi	$lr
+
+
+
+.if 0
+; Unrolled loop.
+
+; Load eight triangles worth of indexes (four quadwords) and increment the pointer.
+	nop							{o6 1}	lqd	inData0, 0x00(pSrc)
+	nop							{o6 1}	lqd	inData1, 0x10(pSrc)
+	nop							{o6 1}	lqd	inData2, 0x20(pSrc)
+	nop							{o6 1}	lqd	inData3, 0x30(pSrc)
+{e2 1}	ai	pSrc, pSrc, 0x40					lnop
+	nop								lnop
+	nop								lnop
+
+; Remove the redundant indexes from the input stream, which will create exactly three quadwords of output data.
+	nop							{o4 1}	shufb	outData0, inData0, inData1, s_ABCEFGab
+	nop							{o4 1}	shufb	outData1, inData1, inData2, s_CEFGabce
+	nop							{o4 1}	shufb	outData2, inData2, inData3, s_FGabcefg
+	nop								lnop
+
+; Store the output data and increment the destination pointer.
+	nop							{o6 2}	stqd	outData1, 0x10(pDst)
+	nop							{o6 2}	stqd	outData2, 0x20(pDst)
+	nop							{o6 2}	stqd	outData0, 0x00(pDst)
+{e2 1}	ai	pDst, pDst, 0x30					lnop
+
+; Decrement the loop counter and test for exit.
+{e2 1}	ai	loopCount, loopCount, -1				lnop
+	nop								lnop
+	nop				comp_6b_index_branch:	{o? 1}	brnz	loopCount, comp_6b_index_loop
+.endif
+
+
+
+.if TEST
+
+.data
+
+.align 12
+m_in_stream:	.dh	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+		.dh	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+		.dh	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+		.dh	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+		.dh	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+		.dh	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57
+		.dh	0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
+		.dh	0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77
+		.dh	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87
+		.dh	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97
+		.dh	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
+		.dh	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7
+		.dh	0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+		.dh	0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7
+		.dh	0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7
+		.dh	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+		.dh	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+		.dh	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+		.dh	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+		.dh	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+		.dh	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57
+		.dh	0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
+		.dh	0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77
+		.dh	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87
+		.dh	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97
+		.dh	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
+		.dh	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7
+		.dh	0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+		.dh	0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7
+		.dh	0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7
+
+m_out_stream:	.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+
+.text
+
+.global _start
+_start:
+{e2}	ila	pSrc, m_in_stream					{lnop}
+{e2}	ila	pDst, m_out_stream					{lnop}
+{e2}	il	numTris, 28						lnop
+	{nop}							{o?}	brsl	$lr, CompressIndexes6Byte [#func]
+	{nop}								stop
+
+.endif
+
+.end
+

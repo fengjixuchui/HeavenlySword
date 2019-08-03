@@ -1,0 +1,140 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "JobManagerTest", "JobManagerTest.vcproj", "{A9FC72E1-D051-4AC3-A655-37B834EAD2D5}"
+	ProjectSection(ProjectDependencies) = postProject
+		{47DD661A-7610-4C12-9ACD-744FB3BB2535} = {47DD661A-7610-4C12-9ACD-744FB3BB2535}
+		{679E5D47-B01D-456E-B395-7E208AF20426} = {679E5D47-B01D-456E-B395-7E208AF20426}
+		{6B29C956-04FA-4CD3-9463-FF66DDF312DA} = {6B29C956-04FA-4CD3-9463-FF66DDF312DA}
+		{F43E2D58-600E-4D88-8D59-5856C53E0F48} = {F43E2D58-600E-4D88-8D59-5856C53E0F48}
+		{A1FFF361-F2F4-422B-9E86-EA1F0920F4BF} = {A1FFF361-F2F4-422B-9E86-EA1F0920F4BF}
+		{C8F25C62-6760-4682-88DB-44E6A6B7C4CE} = {C8F25C62-6760-4682-88DB-44E6A6B7C4CE}
+		{E410A562-9E8B-4150-AB90-3B4B18ABB960} = {E410A562-9E8B-4150-AB90-3B4B18ABB960}
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331} = {20317E6D-EA95-46CE-A4B1-A1B23725B331}
+		{83E63571-0A33-4DD0-90C0-2BFABB7B062F} = {83E63571-0A33-4DD0-90C0-2BFABB7B062F}
+		{1B4D1988-3036-4F0D-8ABA-6ECFE3696251} = {1B4D1988-3036-4F0D-8ABA-6ECFE3696251}
+		{67E03493-636B-429D-AD75-80B8ABCFA273} = {67E03493-636B-429D-AD75-80B8ABCFA273}
+		{A2EDA0A1-01A7-402A-8EDF-9A1A478121EE} = {A2EDA0A1-01A7-402A-8EDF-9A1A478121EE}
+		{791E35BC-0C06-414D-A72E-ED395E34B8EE} = {791E35BC-0C06-414D-A72E-ED395E34B8EE}
+		{B76299C7-1790-4233-8C46-DD95EC3AEC11} = {B76299C7-1790-4233-8C46-DD95EC3AEC11}
+		{4CF1CCC7-ABE4-44BA-B919-9A03CFC5DC85} = {4CF1CCC7-ABE4-44BA-B919-9A03CFC5DC85}
+		{29834CCC-234A-4712-856C-DF23421345FF} = {29834CCC-234A-4712-856C-DF23421345FF}
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781} = {56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "createaccbuffermodule", "spu\accbuff\createaccbuff\createaccbuff.vcproj", "{A1FFF361-F2F4-422B-9E86-EA1F0920F4BF}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fillaccbuffermodule", "spu\accbuff\fillaccbuff\fillaccbuff.vcproj", "{B76299C7-1790-4233-8C46-DD95EC3AEC11}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nonaccbuffermodule", "spu\accbuff\nonaccbuff\nonaccbuff.vcproj", "{791E35BC-0C06-414D-A72E-ED395E34B8EE}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "writeaccbuffermodule", "spu\accbuff\writeaccbuff\writeaccbuff.vcproj", "{679E5D47-B01D-456E-B395-7E208AF20426}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "auditsmodule", "spu\auditsmodule\auditsmodule.vcproj", "{1B4D1988-3036-4F0D-8ABA-6ECFE3696251}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dmalistmodule", "spu\dmalistmodule\dmalistmodule.vcproj", "{A2EDA0A1-01A7-402A-8EDF-9A1A478121EE}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "module1", "spu\module1\module1.vcproj", "{4CF1CCC7-ABE4-44BA-B919-9A03CFC5DC85}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "module2", "spu\module2\module2.vcproj", "{6B29C956-04FA-4CD3-9463-FF66DDF312DA}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugintestmodule", "spu\plugintestmodule\plugintestmodule.vcproj", "{C8F25C62-6760-4682-88DB-44E6A6B7C4CE}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugin1", "spu\plugintestmodule\plugin1\plugin1.vcproj", "{83E63571-0A33-4DD0-90C0-2BFABB7B062F}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugin2", "spu\plugintestmodule\plugin2\plugin2.vcproj", "{E410A562-9E8B-4150-AB90-3B4B18ABB960}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fixedaddrmodule", "spu\fixedaddrmodule\fixedaddrmodule.vcproj", "{F43E2D58-600E-4D88-8D59-5856C53E0F48}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobapi-ppu", "..\..\src\ppu\jobapi\jobapi-ppu.vcproj", "{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobapi-spu", "..\..\src\spu\jobapi\jobapi-spu.vcproj", "{20317E6D-EA95-46CE-A4B1-A1B23725B331}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobmanager", "..\..\src\spu\jobmanager\jobmanager.vcproj", "{29834CCC-234A-4712-856C-DF23421345FF}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugincrt0", "..\..\src\spu\jobapi\plugincrt0.vcproj", "{67E03493-636B-429D-AD75-80B8ABCFA273}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobcrt0", "..\..\src\spu\jobapi\jobcrt0.vcproj", "{47DD661A-7610-4C12-9ACD-744FB3BB2535}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{A9FC72E1-D051-4AC3-A655-37B834EAD2D5}.Debug.ActiveCfg = Debug|Win32
+		{A9FC72E1-D051-4AC3-A655-37B834EAD2D5}.Debug.Build.0 = Debug|Win32
+		{A9FC72E1-D051-4AC3-A655-37B834EAD2D5}.Release.ActiveCfg = Release|Win32
+		{A9FC72E1-D051-4AC3-A655-37B834EAD2D5}.Release.Build.0 = Release|Win32
+		{A1FFF361-F2F4-422B-9E86-EA1F0920F4BF}.Debug.ActiveCfg = Debug|Win32
+		{A1FFF361-F2F4-422B-9E86-EA1F0920F4BF}.Release.ActiveCfg = Release|Win32
+		{B76299C7-1790-4233-8C46-DD95EC3AEC11}.Debug.ActiveCfg = Debug|Win32
+		{B76299C7-1790-4233-8C46-DD95EC3AEC11}.Release.ActiveCfg = Release|Win32
+		{791E35BC-0C06-414D-A72E-ED395E34B8EE}.Debug.ActiveCfg = Debug|Win32
+		{791E35BC-0C06-414D-A72E-ED395E34B8EE}.Release.ActiveCfg = Release|Win32
+		{679E5D47-B01D-456E-B395-7E208AF20426}.Debug.ActiveCfg = Debug|Win32
+		{679E5D47-B01D-456E-B395-7E208AF20426}.Release.ActiveCfg = Release|Win32
+		{1B4D1988-3036-4F0D-8ABA-6ECFE3696251}.Debug.ActiveCfg = Debug|Win32
+		{1B4D1988-3036-4F0D-8ABA-6ECFE3696251}.Release.ActiveCfg = Release|Win32
+		{A2EDA0A1-01A7-402A-8EDF-9A1A478121EE}.Debug.ActiveCfg = Debug|Win32
+		{A2EDA0A1-01A7-402A-8EDF-9A1A478121EE}.Release.ActiveCfg = Release|Win32
+		{4CF1CCC7-ABE4-44BA-B919-9A03CFC5DC85}.Debug.ActiveCfg = Debug|Win32
+		{4CF1CCC7-ABE4-44BA-B919-9A03CFC5DC85}.Release.ActiveCfg = Release|Win32
+		{6B29C956-04FA-4CD3-9463-FF66DDF312DA}.Debug.ActiveCfg = Debug|Win32
+		{6B29C956-04FA-4CD3-9463-FF66DDF312DA}.Release.ActiveCfg = Release|Win32
+		{C8F25C62-6760-4682-88DB-44E6A6B7C4CE}.Debug.ActiveCfg = Debug|Win32
+		{C8F25C62-6760-4682-88DB-44E6A6B7C4CE}.Release.ActiveCfg = Release|Win32
+		{83E63571-0A33-4DD0-90C0-2BFABB7B062F}.Debug.ActiveCfg = Debug|Win32
+		{83E63571-0A33-4DD0-90C0-2BFABB7B062F}.Release.ActiveCfg = Release|Win32
+		{E410A562-9E8B-4150-AB90-3B4B18ABB960}.Debug.ActiveCfg = Debug|Win32
+		{E410A562-9E8B-4150-AB90-3B4B18ABB960}.Release.ActiveCfg = Release|Win32
+		{F43E2D58-600E-4D88-8D59-5856C53E0F48}.Debug.ActiveCfg = Debug|Win32
+		{F43E2D58-600E-4D88-8D59-5856C53E0F48}.Release.ActiveCfg = Release|Win32
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}.Debug.ActiveCfg = Debug|Win32
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}.Release.ActiveCfg = Release|Win32
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331}.Debug.ActiveCfg = Debug|Win32
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331}.Release.ActiveCfg = Release|Win32
+		{29834CCC-234A-4712-856C-DF23421345FF}.Debug.ActiveCfg = Debug|Win32
+		{29834CCC-234A-4712-856C-DF23421345FF}.Release.ActiveCfg = Release|Win32
+		{67E03493-636B-429D-AD75-80B8ABCFA273}.Debug.ActiveCfg = Debug|Win32
+		{67E03493-636B-429D-AD75-80B8ABCFA273}.Release.ActiveCfg = Release|Win32
+		{47DD661A-7610-4C12-9ACD-744FB3BB2535}.Debug.ActiveCfg = Debug|Win32
+		{47DD661A-7610-4C12-9ACD-744FB3BB2535}.Release.ActiveCfg = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

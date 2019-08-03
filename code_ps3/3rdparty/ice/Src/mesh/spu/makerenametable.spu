@@ -1,0 +1,430 @@
+;
+; Copyright (c) 2006 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.if 0
+
+MakeIndexTable:
+	il	data, 0							lqa	vinx, m_startIndices
+	ai	pBitstream, pBitstream, -3					lqa	s_AAAA, m_AAAA
+	il	lmask, -1						lnop
+	il	pos, 0							lnop
+	il	_3, 3							rotqmbyi	lmask, lmask, -8
+	ila	table, m_table						lnop
+	ila	jumpLoop, loop						lnop
+	ai	vtxCount, vtxCount, 7					lnop
+	ila	jumpExit, exit						shlqbyi	umask, lmask, 8
+	andi	vtxCount, vtxCount, -8					lnop
+
+loop:
+; load a byte from the bitstream, and split it into nibbles for passing as an index into the table.
+; The table is really two tables, one on the left for the upper nibble and one on the right for the lower.
+; We also count the number of bits in the byte and unibble, these are used for calculating the size and shift amounts.
+; The data will be centered after going through the tables, the shift left justifies it.
+	nop								lqx	byte, pBitstream, _3
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								rotqby	byte, byte, pBitstream
+	ai	pBitstream, pBitstream, 1					lnop
+	nop								lnop
+	nop								lnop
+	shli	lnibble, byte, 4						lnop
+	andi	unibble, byte, 0xf0					lnop
+	cntb	bitCount, byte						lnop
+	cntb	tmp, unibble						lnop
+	andi	lnibble, lnibble, 0xf0					lnop
+	nop								lnop
+	andi	bitCount, bitCount, 0xf					lnop
+	a	tmp, tmp, tmp						lnop
+	nop								lnop
+	sfi	shift, tmp, 8						lnop
+
+; load shuffle mask for the upper and lower nibbles, then shuffle the indices into place and increment indices by 8.
+	nop								lqx	ushuf, table, unibble
+	nop								lqx	lshuf, table, lnibble
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								shufb	uind, vinx, vinx, ushuf
+	nop								shufb	lind, vinx, vinx, lshuf
+	nop								lnop
+	nop								lnop
+	and	uind, uind, umask						lnop
+	and	lind, lind, lmask						lnop
+	ahi	vinx, vinx, 8						lnop
+	or	ind, uind, lind						lnop
+	nop								lnop
+
+; here's the left justify code.
+	nop								shlqby	ind, ind, shift
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; calculate the shift amounts for getting the data in the correct place for the output and overflow registers.
+	a	posRot, pos, pos						lnop
+	sfi	ovrRot, pos, 8						lnop
+	sfi	posRot, posRot, 0						lnop
+	a	ovrRot, ovrRot, ovrRot					lnop
+
+; place the data in the correct place and increment pos by the data size.
+	a	pos, pos, bitCount					rotqmby	_ind, ind, posRot
+	nop								shlqby	ovr, ind, ovrRot
+	nop								lnop
+	nop								lnop
+
+; copy indices into out register.
+	or	data, data, _ind						lnop
+	nop								lnop
+
+; store data.
+	nop								stqd	data, 0x00(pIndices)
+
+; if pos > 8 inc pIndices, put overflow into next data, set pos to be at end of overflow amount.
+	cgti	test, pos, 8						lnop
+	ai	ovrPos, pos, -8						lnop
+	nop								shufb	test, test, test, s_AAAA
+	nop								lnop
+	nop								lnop
+	ai	pIndicesInc, pIndices, 16					lnop
+	selb	pos, pos, ovrPos, test					lnop
+	selb	data, data, ovr, test					lnop
+	selb	pIndices, pIndices, pIndicesInc, test			lnop
+
+; loop addr selection code
+	ai	vtxCount, vtxCount, -8					lnop
+	nop								lnop
+	ceqi	test, vtxCount, 0						lnop
+	nop								lnop
+	selb	jumpAddr, jumpLoop, jumpExit, test				lnop
+	nop								lnop
+	nop								bi	jumpAddr [loop exit]
+
+
+
+
+MakeForwardingTable:
+	ai	pBitstream, pBitstream, -3					lqa	s_hhhhhhhh, m_hhhhhhhh
+	il	_3, 3							lnop
+	il	neg1, -1							lnop
+	il	vtx, -1							lnop
+	ila	jumpLoop, loop2						lnop
+	ai	vtxCount, vtxCount, 7					lnop
+	ila	jumpExit, exit2						lnop
+	andi	vtxCount, vtxCount, -8					lnop
+
+loop2:
+; load bitstream byte.
+	nop								lqx	byte, pBitstream, _3
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								rotqby	byte, byte, pBitstream
+	ai	pBitstream, pBitstream, 1					lnop
+	nop								lnop
+	nop								lnop
+
+; expand out byte into 8 halfword masks of 0xffff.
+	nop								fsmh	mask, byte
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; for every halfword rotate and accumalate. After doing this for all 8 halfwords the final data are increment
+; values for the vertex indices. They then run through their mask inserting -1 into non indexed tris.
+; e.g.  0x0000 0xffff 0x0000 0xffff			0x0000 0xffff 0x0000 0xffff
+;       0x0000 0x0000 0xffff 0x0000			0x0000 0xffff 0xffff 0xffff
+;       0x0000 0x0000 0x0000 0xffff			0x0000 0xffff 0xffff 0xfffe
+;       0x0000 0x0000 0x0000 0x0000			0x0000 0xffff 0xffff 0xfffe
+; flip  0x0000 0xffff 0xffff 0xfffe			     0      1      1      2
+; mask  0x0000 0xffff 0x0000 0xffff			0xffff      1 0xffff      2
+	nop								rotqmbyi	inc1, mask, -2
+	nop								rotqmbyi	inc2, mask, -4
+	nop								rotqmbyi	inc3, mask, -6
+	nop								rotqmbyi	inc4, mask, -8
+	ah	inc, inc1, mask						rotqmbyi	inc5, mask, -10
+	nop								rotqmbyi	inc6, mask, -12
+	ah	inc2, inc2, inc3						rotqmbyi	inc7, mask, -14
+	nop								lnop
+	ah	inc4, inc4, inc5						lnop
+	ah	inc2, inc, inc2						lnop
+	ah	inc6, inc6, inc7						lnop
+	ah	inc2, inc2, inc4						lnop
+	nop								lnop
+	ah	inc, inc2, inc6						lnop
+	nop								lnop
+	sfh	vtx, inc, vtx						lnop
+	nop								lnop
+	selb	data, neg1, vtx, mask					shufb	vtx, vtx, vtx, s_hhhhhhhh
+
+; store the data.
+	nop								stqd	data, 0x00(pIndices)
+
+; loop addr selectection.
+	ai	vtxCount, vtxCount, -8					lnop
+	ai	pIndices, pIndices, 0x10					lnop
+	ceqi	test, vtxCount, 0						lnop
+	nop								lnop
+	selb	jumpAddr, jumpLoop, jumpExit, test				lnop
+	nop								lnop
+	nop								bi	jumpAddr [loop2 exit2]
+.endif
+
+
+
+
+
+
+
+
+
+.define TEST 0
+
+.start
+
+.data
+.align 4
+
+m_startIndices:
+.dh	-8, -7, -6, -5, -4, -3, -2, -1
+
+m_table:
+.dshuf "00000000"
+.dshuf "000DH000"
+.dshuf "000CG000"
+.dshuf "00CDGH00"
+
+.dshuf "000BF000"
+.dshuf "00BDFH00"
+.dshuf "00BCFG00"
+.dshuf "0BCDFGH0"
+
+.dshuf "000AE000"
+.dshuf "00ADEH00"
+.dshuf "00ACEG00"
+.dshuf "0ACDEGH0"
+
+.dshuf "00ABEF00"
+.dshuf "0ABDEFH0"
+.dshuf "0ABCEFG0"
+.dshuf "ABCDEFGH"
+
+m_AAAA:
+.dshuf "AAAA"
+
+m_hhhhhhhh:
+.dshuf "hhhhhhhh"
+
+m_BCDD:
+.dshuf "BCDD"
+
+;7 11 12
+;0000 0010 0011
+;0 1 2 3
+;4 5 3 7
+
+;ABCD
+;EFGH
+;0000 4 4 4 4
+;0001 4 4 4 1
+;0010 4 4 1 4
+;0011
+
+;0100
+;0101
+;0110
+;0111
+
+;1000
+;1001
+;1010
+;1011
+
+;1100
+;1101
+;1110
+;1111
+
+.text
+
+.global MakeIndexTable
+
+MakeIndexTable:
+
+.reg pos, table, byte, lnibble, unibble, lmask, umask, lind, uind, vinx, lshuf, ushuf
+.reg bitCount, posRot, ovrRot, _ind, bitcount, ovr, ind, _byte
+.reg data, test, jumpAddr, jumpLoop, tmp
+.reg ovrPos, pIndicesInc, _3, shift, s_AAAA
+
+.reg pBitstream	3
+.reg vtxCount	4
+.reg pIndices	5
+
+.cset unibble, lnibble, byte
+
+	il	data, 0							lqa	vinx, m_startIndices
+	ai	pBitstream, pBitstream, -4					lqa	s_AAAA, m_AAAA
+	il	lmask, -1						shlqbyi	unibble, unibble, 16
+	il	pos, 0							shlqbyi	lnibble, lnibble, 16
+	ila	table, m_table						rotqmbyi	lmask, lmask, -8
+	il	_3, 3							shlqbyi	byte, byte, 16
+	ai	vtxCount, vtxCount, 7					lqx	ushuf, table, unibble
+	ila	jumpLoop, loop						lqx	lshuf, table, lnibble
+	andi	vtxCount, vtxCount, -8					shlqbyi	umask, lmask, 8
+
+loop:
+{e2 2}	ai	pBitstream, pBitstream, 1					{lnop}
+{e2 1}	cntb	tmp, unibble						{lnop}
+{e2 1}	ceqi	test, vtxCount, 0					{o6 2}	lqx	_byte, pBitstream, _3
+{e2 1}	ai	vtxCount, vtxCount, -8					lnop
+{e2 1}	selb	jumpAddr, jumpLoop, $lr, test			{o4 1}	shufb	uind, vinx, vinx, ushuf
+{e2 1}	a	tmp, tmp, tmp					{o4 1}	shufb	lind, vinx, vinx, lshuf
+{e4 1}	cntb	bitCount, byte					{o16 1}	hbr	loop_brn, jumpAddr
+{e2 1}	sfi	shift, tmp, 8						lnop
+{e2 1}	and	uind, uind, umask					{o4 2}	rotqby	byte, _byte, pBitstream
+{e2 1}	and	lind, lind, lmask						{lnop}
+{e2 1}	ahi	vinx, vinx, 8						{lnop}
+{e2 1}	or	ind, uind, lind						{lnop}
+{e2 1}	andi	bitCount, bitCount, 0xf					{lnop}
+{e2 1}	a	posRot, pos, pos					{o4 1}	shlqby	ind, ind, shift
+{e2 1}	sfi	ovrRot, pos, 8						lnop
+{e2 1}	sfi	posRot, posRot, 0						{lnop}
+{e2 1}	a	ovrRot, ovrRot, ovrRot					{lnop}
+{e2 1}	a	pos, pos, bitCount				{o4 1}	rotqmby	_ind, ind, posRot
+{e4 2}	shli	lnibble, byte, 4					{o4 1}	shlqby	ovr, ind, ovrRot
+{e2 1}	cgti	test, pos, 8						{lnop}
+{e2 1}	ai	ovrPos, pos, -8						{lnop}
+{e2 1}	or	data, data, _ind					{o4 1}	shufb	test, test, test, s_AAAA
+{e2 1}	ai	pIndicesInc, pIndices, 16					lnop
+{e2 2}	andi	unibble, byte, 0xf0				{o6 1}	stqd	data, 0x00(pIndices)
+{e2 2}	andi	lnibble, lnibble, 0xf0					lnop
+{e2 1}	selb	pos, pos, ovrPos, test				{o6 2}	lqx	ushuf, table, unibble
+{e2 1}	selb	data, data, ovr, test				{o6 2}	lqx	lshuf, table, lnibble
+{e2 1}	selb	pIndices, pIndices, pIndicesInc, test	loop_brn:	bi	jumpAddr [loop exit]
+
+
+exit:
+	nop								bi	$lr
+
+
+
+
+
+
+
+
+
+
+
+.global MakeForwardingTable
+
+MakeForwardingTable:
+
+.reg byte, neg1, vtx, outInc, s_BCDD
+.reg inc, inc1, inc2, inc3, inc4, inc5, inc6, inc7, mask, _mask
+.reg data, test, jumpAddr, jumpLoop, _jumpAddr
+.reg _3, s_hhhhhhhh
+
+.reg pBitstream	3
+.reg vtxCount	4
+.reg pIndices	5
+
+.cset mask
+
+	ai	pBitstream, pBitstream, -3					lqa	s_hhhhhhhh, m_hhhhhhhh
+	il	outInc, 0x10						lqa	s_BCDD, m_BCDD
+	ila	jumpAddr, loop2						rotqmbyi	mask, mask, -16
+	ai	vtxCount, vtxCount, 7					rotqmbyi	outInc, outInc, -8
+	ila	jumpLoop, loop2						lnop
+	andi	vtxCount, vtxCount, -8					rotqmbyi	_jumpAddr, jumpAddr, 0
+	il	_3, 3							rotqmbyi	inc1, mask, -2
+	il	neg1, -1							rotqmbyi	inc2, mask, -4
+	il	vtx, -1							rotqmbyi	inc3, mask, -6
+
+loop2:
+{e2 1}	ai	vtxCount, vtxCount, -8				{o6 2}	lqx	byte, pBitstream, _3
+{e2 1}	ori	jumpAddr, _jumpAddr, 0				{o16 1}	hbr	loop2_brn, _jumpAddr
+{e2 1}	ah	inc, inc1, mask					{o4 1}	rotqmbyi	inc4, mask, -8
+	nop							{o4 1}	rotqmbyi	inc5, mask, -10
+{e2 1}	ah	inc2, inc2, inc3					{o4 1}	rotqmbyi	inc6, mask, -12
+{e2 1}	ceqi	test, vtxCount, 0					{o4 1}	rotqmbyi	inc7, mask, -14
+{e2 1}	ah	inc2, inc2, inc4					{o4 2}	rotqby	byte, byte, pBitstream
+{e2 1}	ah	inc, inc, inc5						{lnop}
+{e2 1}	ah	inc2, inc2, inc6						{lnop}
+{e2 1}	ah	inc, inc, inc7					{o4 2}	fsmh	_mask, byte
+{e2 1}	ai	pBitstream, pBitstream, 1				{o4 1}	shufb	outInc, outInc, outInc, s_BCDD
+{e2 1}	ah	inc, inc, inc2						{lnop}
+	nop								{lnop}
+{e2 1}	sfh	vtx, inc, vtx					{o4 2}	rotqmbyi	inc1, _mask, -2
+	nop							{o4 2}	rotqmbyi	inc2, _mask, -4
+{e2 1}	selb	data, neg1, vtx, mask				{o4 1}	shufb	vtx, vtx, vtx, s_hhhhhhhh
+{e2 1}	selb	_jumpAddr, jumpLoop, $lr, test			{o4 2}	rotqmbyi	inc3, _mask, -6
+{e2 2}	ori	mask, _mask, 0					{o6 1}	stqd	data, 0x00(pIndices)
+{e2 1}	a	pIndices, pIndices, outInc			loop2_brn:{o 1}	bi	jumpAddr [loop2 exit2]
+
+exit2:
+	nop								bi	$lr
+
+;	stop								lnop
+
+
+
+
+
+
+
+
+
+
+
+; self-test code
+.if TEST
+
+.data
+
+.align 12
+
+m_bitStream:	.dw 0x8f124880, 0x00000000, 0x00000000, 0x00000000
+
+;  0  4  5  6  7  b  e 11
+; 14 18  0  0  0  0  0  0
+m_indTable:	.dw 0x00000000, 0x00000000, 0x00000000, 0x00000000
+		.dw 0x00000000, 0x00000000, 0x00000000, 0x00000000
+
+;    0 ffff ffff ffff    1    2    3    4
+; ffff ffff ffff    5 ffff ffff    6 ffff
+; ffff    7 ffff ffff    8 ffff ffff ffff
+;    9 ffff ffff ffff ffff ffff ffff ffff
+m_fwdTable:	.dw 0x00000000, 0x00000000, 0x00000000, 0x00000000
+		.dw 0x00000000, 0x00000000, 0x00000000, 0x00000000
+		.dw 0x00000000, 0x00000000, 0x00000000, 0x00000000
+		.dw 0x00000000, 0x00000000, 0x00000000, 0x00000000
+
+.text
+
+.global _start
+_start:
+
+{e2}	ila	$3, m_bitStream						{lnop}
+{e2}	il	$4, 32							{lnop}
+{e2}	ila	$5, m_indTable						{lnop}
+	nop							{o?}	brsl	$lr, MakeIndexTable [#func]
+
+{e2}	ila	$3, m_bitStream						{lnop}
+{e2}	il	$4, 32							{lnop}
+{e2}	ila	$5, m_fwdTable						{lnop}
+	nop							{o?}	brsl	$lr, MakeForwardingTable [#func]
+	nop								stop
+
+.endif ; TEST
+
+.end
+

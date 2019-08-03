@@ -1,0 +1,58 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.data
+
+.global m_strideShifts
+.global m_reindexMasks
+.global g_meshGlobalConstData
+.global m_x11y11z10_decomp_mask
+.global m_x11y11z10_decomp_shifts
+.global m_x11y11z10_decomp_scale
+.global m_x11y11z10_decomp_bias
+.global m_x11y11z10_comp_shifts
+.global m_x11y11z10_comp_scale
+.global m_x11y11z10_comp_bias
+
+.align 4
+
+; Lookup table of shift values depening upon the stride offset from 16 bytes.
+; The table is rotated left 3 bytes so that the correct value will be in the preferred byte.
+; NOTE: The shift for an offset of 0 would normally be 0, but 0 doesn't work as the shuffle masks
+; would need to be changed every iteration of the inner loop.  So instead we use a shift of 1
+; which is not quite as optimum as it needs to go through the outer loop twice instead of once,
+; but the shuffle masks don't need to change.
+m_strideShifts:			.db 4, 3, 4, 1, 4, 3, 4, 2, 4, 3, 4, 1, 4, 3, 4, 2
+
+; Table of masks to be used in the compression routines in order to shuffle together reindexes.
+m_reindexMasks:			.dshuf "AaACAEAa"
+
+; The order of the entries in this table is important.
+; It is both possible to read the individual values directly or access them as an offet from the global pointer.
+g_meshGlobalConstData:
+; Bit mask to mask off unused bits from the fixed point value.
+m_x11y11z10_decomp_mask:	.dw 0xFFE00000, 0xFFE00000, 0xFFC00000, 0x00000000
+
+; Constants to shift fixed point values into the MSBs of their respective fields.
+m_x11y11z10_decomp_shifts:	.dw 0x00000005, 0x00000002, 0x00000000, 0x00000000
+
+; Scales and biases to get the X11Y11Z10 components into the proper -1.0f to 1.0f range.
+m_x11y11z10_decomp_scale:	.dw 0x3F801002, 0x3F801002, 0x3F802008, 0x00000000
+				; .df 2048/2047, 2048/2047, 1024/1023, 1.0
+
+m_x11y11z10_decomp_bias:	.dw 0x3A001002, 0x3A001002, 0x3A802008, 0x3F800000
+				; .df 1/2047, 1/2047, 1/1023, 0
+
+m_x11y11z10_comp_shifts:	.dw	-5, -2, 0, 0
+m_x11y11z10_comp_scale:		.dw	0x3F7FE000, 0x3F7FE000, 0x3F7FC000, 0x00000000
+				;.df	2047.0 / 2048.0, 2047.0 / 2048.0, 1023.0 / 1024.0, 0.0
+m_x11y11z10_comp_bias:		.dw	0xBA000000, 0xBA000000, 0xBA800000, 0x00000000
+				;.df	-1.0 / 2048.0, -1.0 / 2048.0, -1.0 / 1024.0, 0.0
+
+.end
+

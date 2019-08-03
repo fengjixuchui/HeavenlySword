@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern TryFreeTagAndUsedPages
+.global WwsJob_TryFreeTagAndUsedPages
+WwsJob_TryFreeTagAndUsedPages:
+		ai $6, $0, 0								br TryFreeTagAndUsedPages
+.end
+.endif
+
+
+.start 
+.include "conventions.inl"
+.text
+.usecc TryFreeTagAndUsedPagesCC
+
+// static Bool32 WwsJob_TryFreeTagAndUsedPages( WwsJob_BufferSetEtc bufferSet, U32 bufferNum, WwsJob_Buffer &buffer )
+.reg dmaTagId, shareable
+.reg bufferSetFirstPageNum, numPagesPerBuffer, bufferPageNum
+.reg mask, m_1000
+.reg bufferNum
+.reg bufferPageNum
+.reg usedPageMask1, usedPageMask2
+.extern g_WwsJob_usedPageMask
+.extern GetPageMasks
+.extern IsDmaTagMaskDone
+.extern FreeDmaTagId
+.global TryFreeTagAndUsedPages
+TryFreeTagAndUsedPages: // 26 instructions, 104 bytes
+		rotmi dmaTagId, $5, -22							rotqbyi numPagesPerBuffer, $3, 14
+		ilhu mask, 0x4000							rotqbyi bufferNum, $4, 0
+		rotmi bufferSetFirstPageNum, $3, -24					{lnop}
+		ila $3, 1								{lnop}
+		andi dmaTagId, dmaTagId, 0x1F						brz dmaTagId, TftaupCond1
+		shl $3, $3, dmaTagId							brsl $4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		ila $4, TftaupFdtiExit							biz $3, $6
+		and shareable, $5, mask							rotqmbyi $3, dmaTagId, 0
+		{nop}									brz shareable, FreeDmaTagId [#FreeDmaTagIdCC]
+TftaupCond1:
+TftaupFdtiExit: {nop}									lqa usedPageMask1, g_WwsJob_usedPageMask
+		andi $4, numPagesPerBuffer, 0xFF 					lqa usedPageMask2, g_WwsJob_usedPageMask+16
+		mpya $3, $4, bufferNum, bufferSetFirstPageNum				brsl $5, GetPageMasks [#GetPageMasksCC]
+		andc usedPageMask1, usedPageMask1, $3					fsmbi $3, 0xFFFF
+		andc usedPageMask2, usedPageMask2, $4					stqa usedPageMask1, g_WwsJob_usedPageMask
+		{nop}									stqa usedPageMask2, g_WwsJob_usedPageMask+16
+		{nop}									bi $6
+
+.end

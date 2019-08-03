@@ -1,0 +1,249 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global SelectVerts40Byte
+; void SelectVerts40Byte(U8 *pSrc, U8 *pDst, U16 *pIndexes, U32 numVerts);
+;
+; pIndexes is a pointer a reindex table, while numVerts is the number of entries in this table.
+; Each value in the reindex table refers to a vertex in the vertex buffers pointed to by pSrc.
+; For each value in the reindex table, the appropriate vertex is read in from the vertex buffer and
+; placed in sequence in the destination buffer, pointed to by pDst.  Thus, by using the reindex table
+; a vertex buffer can be trimmed of unneeded vertexes.
+; NOTE: The values in the reindex table have been multiplied by 16.
+;
+; This routine handles vertexs that are 40 bytes in size.  A multiple of two vertexes are always output,
+; so the last vertex in the output buffer may be garbage.
+
+
+
+.text
+
+; Parameters
+.reg pSrc		3	; Must be 16 byte aligned.
+.reg pDst		4	; Must be 16 byte aligned.
+.reg pIndexes		5	; Must be 4 byte aligned.
+.reg numVerts		6	; Can be any value, but will be automatically rounded up to a multiple of 2.
+
+.reg inData0			; First quadword of data for vertex 0.
+.reg inData0_2			; Second quadword of data for vertex 0.
+.reg inData0_3			; Third quadword of data for vertex 0.
+.reg inData1			; First quadword of data for vertex 1.
+.reg inData1_2			; Second quadword of data for vertex 1.
+.reg inData1_3			; Third quadword of data for vertex 1.
+.reg index0			; The first index turned into the correct byte offset (index * 40).
+.reg index1			; The second index turned into the correct byte offset (index * 40).
+.reg indexes			; A quadword of indexes.
+.reg indexes2			; indexes >> 1 -- Used to turn indexes into the correct byte offsets.
+.reg indexOff			; Offsets of the indexes into a quadword.
+.reg loopCount
+.reg outData0
+.reg outData1
+.reg outData2
+.reg outData3
+.reg outData4
+.reg pSrc10			; pSrc + 0x10
+.reg pSrc20			; pSrc + 0x20
+.reg s_Abcd
+.reg s_ABCD			; Initial shuffle mask to shuffle the first vertex.
+.reg s_BBBBBBBBBBBBBBBB		; Used to get the offset of index0 into every byte of a register.
+.reg s_CDab			; Initial shuffle mask to shuffle the second vertex.
+.reg s_DDDDDDDDDDDDDDDD		; Used to get the offset of index1 into every byte of a register.
+.reg sel_ABcd			; Used to generate s_mask1 from s_mask0 and s_mask2.
+.reg shufOffset			; Temporary value to create a shuffle mask.
+.reg shufOffset0		; Offset of first vertex source data into a quadword shuffled into every byte of a register.
+.reg shufOffset1		; Offset of second vertex source data into a quadword shuffled into every byte of a register.
+.reg s_mask0			; Mask used to shuffle the first vertex into the correct output position.
+.reg s_mask1			; Mask used to shuffle the last 8 bytes of the first vertex and the first 8 bytes
+				; bytes of the second vertex into the correct output position.
+.reg s_mask2			; Mask used to shuffle the second vertex into the correct output position.
+
+.align 7
+
+SelectVerts40Byte:
+	{nop}							{o6 0}	lqd	indexes, 0x00(pIndexes)
+	{nop}							{o?}	biz	numVerts, $lr
+	{nop}							{o4}	cwd	s_Abcd, 0x00(pDst)
+	{nop}							{o4}	fsmbi	sel_ABcd, 0x00FF
+{e2}	ilh	s_BBBBBBBBBBBBBBBB, 0x0101				{lnop}
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303				{lnop}
+{e2}	ai	pSrc10, pSrc, 0x10				{o4 0}	rotqby	indexes, indexes, pIndexes
+{e2}	ai	pSrc20, pSrc, 0x20				{o}	hbrr	sv_40_branch, sv_40_loop
+{e2}	ilh	shufOffset, 0x0808					{lnop}
+{e2}	ai	loopCount, numVerts, 1					{lnop}
+{e4 0}	rothmi	indexes2, indexes, -1					{lnop}
+{e2 0}	ah	index1, indexes, indexes				{lnop}
+{e2}	andbi	s_ABCD, s_Abcd, 0x0F					{lnop}
+{e4}	rotmi	loopCount, loopCount, -1				{lnop}
+{e2 0}	andhi	indexOff, indexes2, 0x08				{lnop}
+{e2}	a	s_CDab, s_ABCD, shufOffset				{lnop}
+
+sv_40_loop:
+{e2 1}	ah	index1, index1, indexes2			{o4 1}	shufb	shufOffset1, indexOff, indexOff, s_DDDDDDDDDDDDDDDD
+{e2 1}	ai	pIndexes, pIndexes, 4				{o4 1}	shufb	shufOffset0, indexOff, indexOff, s_BBBBBBBBBBBBBBBB
+{e4 1}	roti	index0, index1, 16				{o6 1}	lqx	inData1_3, pSrc20, index1
+	{nop}							{o6 0}	lqd	indexes, 0x00(pIndexes)
+	{nop}							{o6 1}	lqx	inData1_2, pSrc10, index1
+{e2 1}	a	s_mask2, s_CDab, shufOffset1			{o6 1}	lqx	inData1, pSrc, index1
+{e2 1}	a	s_mask0, s_ABCD, shufOffset0			{o6 1}	lqx	inData0_3, pSrc20, index0
+	{nop}							{o6 1}	lqx	inData0_2, pSrc10, index0
+	{nop}							{o6 1}	lqx	inData0, pSrc, index0
+{e2 1}	selb	s_mask1, s_mask0, s_mask2, sel_ABcd		{o4 0}	rotqby	indexes, indexes, pIndexes
+	{nop}							{o4 1}	shufb	outData4, inData1_2, inData1_3, s_mask2
+	{nop}							{o4 1}	shufb	outData3, inData1, inData1_2, s_mask2
+	{nop}							{o4 1}	shufb	outData2, inData0_3, inData1, s_mask1
+	{nop}							{o4 1}	shufb	outData1, inData0_2, inData0_3, s_mask0
+{e2 1}	ai	loopCount, loopCount, -1			{o4 1}	shufb	outData0, inData0, inData0_2, s_mask0
+{e4 0}	rothmi	indexes2, indexes, -1				{o6 1}	stqd	outData4, 0x40(pDst)
+{e2 0}	ah	index1, indexes, indexes			{o6 1}	stqd	outData3, 0x30(pDst)
+	{nop}							{o6 1}	stqd	outData2, 0x20(pDst)
+	{nop}							{o6 1}	stqd	outData1, 0x10(pDst)
+{e2 0}	andhi	indexOff, indexes2, 0x08			{o6 1}	stqd	outData0, 0x00(pDst)
+{e2 1}	ai	pDst, pDst, 0x50		sv_40_branch:	{o? 1}	brnz	loopCount, sv_40_loop
+
+	nop							{o?}	bi	$lr
+
+
+
+.if 0
+; unrolled loop
+
+; Load 2 indexes and rotate them into the first two halfword fields and increment the pointer.
+	nop							{o6 0}	lqd	indexes, 0x00(pIndexes)
+{e2 1}	ai	pIndexes, pIndexes, 4					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 0}	rotqby	indexes, indexes, pIndexes
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Indexes are actually index * 16.  However, we need index * 40 here, so we calculate index + index + (index >> 1)
+{e4 0}	rothmi	indexes2, indexes, -1					lnop
+{e2 0}	ah	index1, indexes, indexes				lnop
+	nop								lnop
+	nop								lnop
+{e2 1}	ah	index1, index1, indexes2				lnop
+	nop								lnop
+
+; We have index1 in the preferred halfword, so let's get index0 into another preferred halfword.
+{e4 1}	roti	index0, index1, 16					lnop
+
+; Load the two vertexes (each one will span three quadwords).
+	nop							{o6 1}	lqx	inData0, pSrc, index0
+	nop							{o6 1}	lqx	inData0_2, pSrc10, index0
+	nop							{o6 1}	lqx	inData0_3, pSrc20, index0
+	nop							{o6 1}	lqx	inData1, pSrc, index1
+	nop							{o6 1}	lqx	inData1_2, pSrc10, index1
+	nop							{o6 1}	lqx	inData1_3, pSrc20, index1
+
+; Calculate the shuffle masks we need to use to shuffle the vertex data into the output data.
+; First, we find out whether the vertex starts at an offset of 0 or 8 by masking the indexes.
+{e2 0}	andhi	indexOff, indexes2, 0x08				lnop
+	nop								lnop
+
+; Next, we shuffle out that offset from each of the two indexes into every byte of a register.
+	nop							{o4 1}	shufb	shufOffset0, indexOff, indexOff, s_BBBBBBBBBBBBBBBB
+	nop							{o4 1}	shufb	shufOffset1, indexOff, indexOff, s_DDDDDDDDDDDDDDDD
+
+; Finally we use the shuffled offset to add to shuffle masks to create the correct shuffle masks.
+{e2 1}	a	s_mask0, s_ABCD, shufOffset0				lnop
+{e2 1}	a	s_mask2, s_CDab, shufOffset1				lnop
+
+; For the output quadword that contains data from two vertexes, we create the correct shuffle mask by combining
+; two shuffle masks from above.
+{e2 1}	selb	s_mask1, s_mask0, s_mask2, sel_ABcd			lnop
+
+; Shuffle the five output quadwords from the input vertexes using the calculated shuffle masks.
+	nop							{o4 1}	shufb	outData0, inData0, inData0_2, s_mask0
+	nop							{o4 1}	shufb	outData1, inData0_2, inData0_3, s_mask0
+	nop							{o4 1}	shufb	outData2, inData0_3, inData1, s_mask1
+	nop							{o4 1}	shufb	outData3, inData1, inData1_2, s_mask2
+	nop							{o4 1}	shufb	outData4, inData1_2, inData1_3, s_mask2
+
+; Store the five quadwords and increment the output pointer
+	nop							{o6 1}	stqd	outData0, 0x00(pDst)
+	nop							{o6 1}	stqd	outData1, 0x10(pDst)
+	nop							{o6 1}	stqd	outData2, 0x20(pDst)
+	nop							{o6 1}	stqd	outData3, 0x30(pDst)
+	nop							{o6 1}	stqd	outData4, 0x40(pDst)
+{e2 1}	ai	pDst, pDst, 0x50					lnop
+
+; Decrement the loop and test for exit.
+{e2 1}	ai	loopCount, loopCount, -1				lnop
+	{nop}								lnop
+	{nop}					sv_40_branch:	{o? 1}	brnz	loopCount, sv_40_loop
+
+.endif
+
+
+
+.if TEST
+
+.data
+
+.align 12
+
+m_outD:		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+m_inD:		.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000, 0x60000000, 0x70000000, 0x80000000, 0x90000000
+		.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001, 0x40000001, 0x50000001, 0x60000001, 0x70000001, 0x80000001, 0x90000001
+		.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002, 0x40000002, 0x50000002, 0x60000002, 0x70000002, 0x80000002, 0x90000002
+		.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003, 0x40000003, 0x50000003, 0x60000003, 0x70000003, 0x80000003, 0x90000003
+		.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004, 0x40000004, 0x50000004, 0x60000004, 0x70000004, 0x80000004, 0x90000004
+		.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005, 0x40000005, 0x50000005, 0x60000005, 0x70000005, 0x80000005, 0x90000005
+		.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006, 0x40000006, 0x50000006, 0x60000006, 0x70000006, 0x80000006, 0x90000006
+		.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007, 0x40000007, 0x50000007, 0x60000007, 0x70000007, 0x80000007, 0x90000007
+		.dw 0x00000008, 0x10000008, 0x20000008, 0x30000008, 0x40000008, 0x50000008, 0x60000008, 0x70000008, 0x80000008, 0x90000008
+		.dw 0x00000009, 0x10000009, 0x20000009, 0x30000009, 0x40000009, 0x50000009, 0x60000009, 0x70000009, 0x80000009, 0x90000009
+		.dw 0x0000000A, 0x1000000A, 0x2000000A, 0x3000000A, 0x4000000A, 0x5000000A, 0x6000000A, 0x7000000A, 0x8000000A, 0x9000000A
+		.dw 0x0000000B, 0x1000000B, 0x2000000B, 0x3000000B, 0x4000000B, 0x5000000B, 0x6000000B, 0x7000000B, 0x8000000B, 0x9000000B
+		.dw 0x0000000C, 0x1000000C, 0x2000000C, 0x3000000C, 0x4000000C, 0x5000000C, 0x6000000C, 0x7000000C, 0x8000000C, 0x9000000C
+		.dw 0x0000000D, 0x1000000D, 0x2000000D, 0x3000000D, 0x4000000D, 0x5000000D, 0x6000000D, 0x7000000D, 0x8000000D, 0x9000000D
+		.dw 0x0000000E, 0x1000000E, 0x2000000E, 0x3000000E, 0x4000000E, 0x5000000E, 0x6000000E, 0x7000000E, 0x8000000E, 0x9000000E
+		.dw 0x0000000F, 0x1000000F, 0x2000000F, 0x3000000F, 0x4000000F, 0x5000000F, 0x6000000F, 0x7000000F, 0x8000000F, 0x9000000F
+
+; Test rename table
+; Essentially Reverse the List, Stripping out 5 & 10, and placing them at the end
+m_inRT:		.dh 0xB0, 0x90, 0x80, 0x70, 0x60, 0x40, 0x30, 0x20
+		.dh 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0xA0
+
+m_NumElems:	.dw 16, 0, 0, 0		// 16 elements in the rename table
+
+
+
+.text
+
+.global _start
+_start:
+{e2}	ila	pSrc, m_inD					{o6}	lqr	numVerts, m_NumElems
+{e2}	ila	pDst, m_outD						lnop
+{e2}	ila	pIndexes, m_inRT				{o?}	brsl	$lr, SelectVerts40Byte	[#func]
+	nop								stop
+
+.endif
+
+.end

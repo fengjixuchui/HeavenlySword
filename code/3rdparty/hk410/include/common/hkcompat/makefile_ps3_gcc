@@ -1,0 +1,8 @@
+SRC := hkCompat.cpp hkCompatUtil.cpp hkCompat_hk300_hk310.cpp hkCompat_hk310_hk320.cpp hkCompat_hk320_hk330.cpp hkCompat_hk320_hk330a2.cpp hkCompat_hk330a2_hk330b1.cpp hkCompat_hk330b1_hk330b2.cpp hkCompat_hk330b2_hk330r1.cpp hkCompat_hk330r1_hk400b1.cpp hkCompat_hk400b1_hk400b2.cpp hkCompat_hk400b2_hk400r1.cpp hkCompat_hk400r1_hk410b1.cpp hkCompat_hk410b1_hk410r1.cpp hkHavok300Classes.cpp hkHavok310Classes.cpp hkHavok320Classes.cpp hkHavok330a2Classes.cpp hkHavok330b1Classes.cpp hkHavok330b2Classes.cpp hkHavok330r1Classes.cpp hkHavok400b1Classes.cpp hkHavok400b2Classes.cpp hkHavok400r1Classes.cpp hkHavok410b1Classes.cpp
+
+LIB_NAME = hkcompat
+
+DEFINES += -DHAVOK_ANIMATION_ENABLED -DHAVOK_PHYSICS_ENABLED
+
+include ../../havokCommon_ps3_gcc.mk
+

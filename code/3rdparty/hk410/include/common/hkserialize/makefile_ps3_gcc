@@ -1,0 +1,8 @@
+SRC := hkSerialize.cpp copier/hkDeepCopier.cpp copier/hkObjectCopier.cpp packfile/hkPackfileData.cpp packfile/hkPackfileReader.cpp packfile/hkPackfileWriter.cpp packfile/binary/hkBinaryPackfileReader.cpp packfile/binary/hkBinaryPackfileWriter.cpp packfile/binary/hkPackfileHeaderClass.cpp packfile/binary/hkPackfileSectionHeader.cpp packfile/binary/hkPackfileSectionHeaderClass.cpp packfile/xml/hkXmlPackfileReader.cpp packfile/xml/hkXmlPackfileWriter.cpp serialize/hkRelocationInfo.cpp serialize/platform/hkPlatformObjectWriter.cpp serialize/xml/hkXmlObjectReader.cpp serialize/xml/hkXmlObjectWriter.cpp util/hkBuiltinTypeRegistry.cpp util/hkChainedClassNameRegistry.cpp util/hkLoader.cpp util/hkNativePackfileUtils.cpp util/hkObjectInspector.cpp util/hkRootLevelContainer.cpp util/hkRootLevelContainerClass.cpp util/hkStructureLayout.cpp util/hkVersionCheckingUtils.cpp util/hkVersioningExceptionsArray.cpp util/hkVersioningExceptionsArrayClass.cpp util/hkVtableClassRegistry.cpp util/xml/hkXmlParser.cpp version/hkVersionRegistry.cpp version/hkVersionUtil.cpp
+
+LIB_NAME = hkserialize
+
+DEFINES += -DHK_DISABLE_VECTOR4_CONSTRUCTORS
+
+include ../../havokCommon_ps3_gcc.mk
+

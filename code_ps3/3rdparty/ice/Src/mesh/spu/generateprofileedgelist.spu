@@ -1,0 +1,269 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.global GenerateProfileEdgeList
+; Implements GenerateProfileEdgeList() in ice/mesh/icemeshshadow.cpp
+; U32 GenerateProfileEdgeList(U32 *edges, U16 *profileEdges, U32 numEdges, U32 *facing);
+;
+; Checks edges and determines whether edges are along profile or not based on whether they
+; are facing different directions from the light.
+
+.define TEST 0
+
+.data
+
+// BDFH
+m_lookup:	.dshuf "XXXXXXXX"
+		.dshuf "HXXXXXXX"
+		.dshuf "FXXXXXXX"
+		.dshuf "FHXXXXXX"
+		.dshuf "DXXXXXXX"
+		.dshuf "DHXXXXXX"
+		.dshuf "DFXXXXXX"
+		.dshuf "DFHXXXXX"
+		.dshuf "BXXXXXXX"
+		.dshuf "BHXXXXXX"
+		.dshuf "BFXXXXXX"
+		.dshuf "BFHXXXXX"
+		.dshuf "BDXXXXXX"
+		.dshuf "BDHXXXXX"
+		.dshuf "BDFXXXXX"
+		.dshuf "BDFHXXXX"
+
+.text
+
+; input arguments
+.reg pEdgesIn		3	; Must be quadword aligned
+.reg pOut		4 
+.reg numEdges		5
+.reg pFacing		6	; Must be quadword aligned
+
+; return value
+.reg numProfileEdges	3
+
+.reg chxAdd			; Amount output pointer is offset from qword boundary
+.reg nchxAdd			; Negated chxAdd, for rotating results into place
+.reg count			; Loop counter
+.reg diffc			; Count of different
+.reg difftb			; Checks bits where triangles face different directions; denotes profile edges, also used as lookup offset
+.reg edge0A			; First triangle of first edge
+.reg edge0B			; Second triangle of first edge
+.reg edge0C			; First triangle of second edge
+.reg edge0D			; Second triangle of second edge
+.reg edge1A			; First triangle of third edge
+.reg edge1B			; Second triangle of third edge
+.reg edge1C			; First triangle of fourth edge
+.reg edge1D			; Second triangle of fourth edge
+.reg edges			; Loaded edges
+.reg edges_			; Copy of edges
+.reg facing0A			; Loaded facing data
+.reg facing0B			; Loaded facing data
+.reg facing0C			; Loaded facing data
+.reg facing0D			; Loaded facing data
+.reg facing1A			; Loaded facing data
+.reg facing1B			; Loaded facing data
+.reg facing1C			; Loaded facing data
+.reg facing1D			; Loaded facing data
+.reg facingMask			; Used to select profile edges
+.reg facingTri0			; Facing information for triangle 0 gathered into one register
+.reg facingTri1			; Facing information for triangle 1 gathered into one register
+.reg inc			; Amount to increment destination pointer by
+.reg m_FFFF			; All bits set
+.reg nedges			; Selected edges
+.reg outF1			; Stored completed result
+.reg outF2			; Partial result before rotate			
+.reg outF2R			; Stored partial result, rotated
+.reg outM1			; Select mask for written partial result and completed result
+.reg pEdges			; Copy of pEdgesIn
+.reg pLookup			; Pointer to lookup table
+.reg redges			; edges rotated 16 bits left
+.reg rfacing0A			; Loaded facing data, rotated into preferred word
+.reg rfacing0B			; Loaded facing data, rotated into preferred word
+.reg rfacing0C			; Loaded facing data, rotated into preferred word
+.reg rfacing0D			; Loaded facing data, rotated into preferred word
+.reg rfacing1A			; Loaded facing data, rotated into preferred word
+.reg rfacing1B			; Loaded facing data, rotated into preferred word
+.reg rfacing1C			; Loaded facing data, rotated into preferred word
+.reg rfacing1D			; Loaded facing data, rotated into preferred word
+.reg saved			; Holds partial results
+.reg savedMask			; Masks preserved data
+.reg sel_0x11			; Select mask for gathering facing data into one register
+.reg sel_0x22			; Select mask for gathering facing data into one register
+.reg sel_0x44			; Select mask for gathering facing data into one register
+.reg shuffy1			; Shuffle mask from lookup table
+.reg uedges			; Edge info with triangle indexes only
+
+.align 7
+
+GenerateProfileEdgeList:
+; This will need to be edited to handle non-multiple-of-four edge counts.
+{e2}	ori	pEdges, pEdgesIn, 0					{o6 0}	lqd	edges, 0x00(pEdgesIn)
+{e2}	il	numProfileEdges, 0					{o?}	biz	numEdges, $lr
+{e2}	ila	pLookup, m_lookup					{o}	hbrr	gpel_branch, gpel_loop
+{e2}	ai	count, numEdges, 7					{o4}	fsmbi	facingTri0, 0x0000
+{e2}	il	rfacing0C, 0						{o4}	fsmbi	facingTri1, 0x0000
+{e2}	il	rfacing0D, 0						{o4}	fsmbi	rfacing1C, 0x0000
+{e2 0}	andhi	uedges, edges, -8					{o4}	fsmbi	rfacing1D, 0x0000
+{e2}	rotmi	count, count, -2					{o4}	fsmbi	m_FFFF, 0xFFFF
+{e4 0}	rothmi	edge1A, uedges, -1						{lnop}
+{e2}	il	sel_0x44, 0x44							{lnop}
+{e2}	il	sel_0x22, 0x22							{lnop}
+{e2}	il	sel_0x11, 0x11							{lnop}
+.cset edges_, redges
+.cset saved
+
+gpel_loop:
+{e2 2}	selb	facingTri1, facingTri1, rfacing1C, sel_0x22		{o4 1}	rotqbyi	edge1B, edge1A, 4
+{e2 2}	selb	facingTri0, facingTri0, rfacing0C, sel_0x22		{o4 1}	rotqbyi	edge1C, edge1A, 8
+{e2 2}	selb	facingTri1, facingTri1, rfacing1D, sel_0x11		{o4 1}	rotqbyi	edge1D, edge1A, 12
+{e2 2}	selb	facingTri0, facingTri0, rfacing0D, sel_0x11		{o6 1}	lqx	facing1A, pFacing, edge1A
+{e4 1}	roti	edge0A, edge1A, 16					{o4 2}	fsm	facingMask, facingTri1
+{e2 2}	xor	difftb, facingTri0, facingTri1				{o6 1}	lqx	facing1B, pFacing, edge1B
+{e4 1}	roti	edge0B, edge1B, 16					{o6 1}	lqx	facing1C, pFacing, edge1C
+{e2 2}	andi	difftb, difftb, 0xF0					{o6 1}	lqx	facing1D, pFacing, edge1D
+{e2 2}	selb	nedges, edges_, redges, facingMask			{o6 1}	lqx	facing0A, pFacing, edge0A
+{e2 1}	ai	pEdges, pEdges, 0x10					{o6 2}	lqx	shuffy1, pLookup, difftb
+{e2 1}	ori	edges_, edges, 0					{o4 1}	rotqby	rfacing1A, facing1A, edge1A
+{e4 1}	roti	redges, edges, 16					{o4 1}	rotqby	rfacing1B, facing1B, edge1B
+{e4 1}	roti	edge0C, edge1C, 16					{o6 0}	lqd	edges, 0x00(pEdges)
+{e4 1}	roti	edge0D, edge1D, 16					{o6 1}	lqx	facing0B, pFacing, edge0B
+{e2 2}	andi	chxAdd, pOut, 0xF					{o4 1}	rotqby	rfacing1C, facing1C, edge1C
+{e4 2}	cntb	diffc, difftb						{o4 2}	shufb	outF2, nedges, nedges, shuffy1
+{e2 2}	sfi	nchxAdd, chxAdd, 0					{o6 1}	lqx	facing0C, pFacing, edge0C
+{e2 1}	ai	count, count, -1					{o6 1}	lqx	facing0D, pFacing, edge0D
+{e2 0}	andhi	uedges, edges, -8					{o4 2}	rotqmby	outM1, m_FFFF, nchxAdd
+{e2 2}	a	inc, diffc, diffc					{o4 2}	rotqby	outF2R, outF2, nchxAdd
+{e2 1}	selb	facingTri1, rfacing1A, rfacing1B, sel_0x44		{o4 1}	rotqby	rfacing0A, facing0A, edge0A
+{e2 2}	a	numProfileEdges, numProfileEdges, diffc			{o4 1}	rotqby	rfacing0B, facing0B, edge0B
+{e4 0}	rothmi	edge1A, uedges, -1					{o4 1}	rotqby	rfacing1D, facing1D, edge1D
+{e2 2}	selb	outF1, saved, outF2R, outM1				{o4 1}	rotqby	rfacing0C, facing0C, edge0C
+{e2 2}	ceqhi	savedMask, outF2R, -1					{o4 1}	rotqby	rfacing0D, facing0D, edge0D
+{e2 1}	selb	facingTri0, rfacing0A, rfacing0B, sel_0x44		{o6 2}	stqd	outF2R, 0x10(pOut)
+{e2 2}	selb	saved, outF2R, outF1, savedMask				{o6 2}	stqd	outF1, 0x00(pOut)
+{e2 2}	a	pOut, pOut, inc				gpel_branch:	{o? 1}	brnz	count, gpel_loop
+
+	nop								{o?}	bi	$lr
+
+.if 0
+; Unrolled loop - untested, for documentation only
+				
+; Load edge info					
+{o6 0}	lqd	edges, 0x00(pEdges)
+
+; Turn edge info into offsets into facing table
+{e2 0}	andhi	uedges, edges, -8									
+{e4 0}	rothmi	edge1A, uedges, -1
+									
+{e4 1}	roti	edge0A, edge1A, 16					
+									{o4 1}	rotqbyi	edge1B, edge1A, 4
+{e4 1}	roti	edge0B, edge1B, 16									
+									{o4 1}	rotqbyi	edge1C, edge1A, 8
+{e4 1}	roti	edge0C, edge1C, 16
+									{o4 1}	rotqbyi	edge1D, edge1A, 12
+{e4 1}	roti	edge0D, edge1D, 16
+
+; Load facing data
+									{o6 1}	lqx	facing1A, pFacing, edge1A
+									{o6 1}	lqx	facing1B, pFacing, edge1B
+									{o6 1}	lqx	facing1C, pFacing, edge1C
+									{o6 1}	lqx	facing1D, pFacing, edge1D
+									{o6 1}	lqx	facing0A, pFacing, edge0A
+									{o6 1}	lqx	facing0B, pFacing, edge0B
+									{o6 1}	lqx	facing0C, pFacing, edge0C
+									{o6 1}	lqx	facing0D, pFacing, edge0D
+
+; Loop maintenance, modify counters and pointers
+{e2 1}	ai	count, count, -1
+{e2 1}	ai	pEdges, pEdges, 0x10
+{e2 1}	ori	edges_, edges, 0
+{e4 1}	roti	redges, edges, 16
+
+; Facing data isn't quadword aligned, so move it into place
+									{o4 1}	rotqby	rfacing1A, facing1A, edge1A
+									{o4 1}	rotqby	rfacing1B, facing1B, edge1B
+									{o4 1}	rotqby	rfacing1C, facing1C, edge1C
+									{o4 1}	rotqby	rfacing0A, facing0A, edge0A
+									{o4 1}	rotqby	rfacing0B, facing0B, edge0B
+									{o4 1}	rotqby	rfacing1D, facing1D, edge1D
+									{o4 1}	rotqby	rfacing0C, facing0C, edge0C
+									{o4 1}	rotqby	rfacing0D, facing0D, edge0D
+									
+; Gather facing data into two registers
+{e2 1}	selb	facingTri1, rfacing1A, rfacing1B, sel_0x44
+{e2 1}	selb	facingTri0, rfacing0A, rfacing0B, sel_0x44
+{e2 2}	selb	facingTri1, facingTri1, rfacing1C, sel_0x22
+{e2 2}	selb	facingTri0, facingTri0, rfacing0C, sel_0x22
+{e2 2}	selb	facingTri1, facingTri1, rfacing1D, sel_0x11
+{e2 2}	selb	facingTri0, facingTri0, rfacing0D, sel_0x11
+									{o4 2}	fsm	facingMask, facingTri1
+									
+; Profile edges are where triangles face different directions wrt the light
+{e2 2}	xor	difftb, facingTri0, facingTri1
+{e2 2}	andi	difftb, difftb, 0xF0
+{e2 2}	selb	nedges, edges_, redges, facingMask
+									{o6 2}	lqx	shuffy1, pLookup, difftb
+									
+; Check alignment and rotate results into proper place
+{e2 2}	andi	chxAdd, pOut, 0xF
+{e4 2}	cntb	diffc, difftb						{o4 2}	shufb	outF2, nedges, nedges, shuffy1
+{e2 2}	sfi	nchxAdd, chxAdd, 0
+									{o4 2}	rotqmby	outM1, m_FFFF, nchxAdd
+{e2 2}	a	inc, diffc, diffc					{o4 2}	rotqby	outF2R, outF2, nchxAdd
+{e2 2}	a	numProfileEdges, numProfileEdges, diffc
+{e2 2}	selb	outF1, saved, outF2R, outM1
+{e2 2}	ceqhi	savedMask, outF2R, -1
+
+; Store, and save off results for next loop iteration
+									{o6 2}	stqd	outF2R, 0x10(pOut)
+{e2 2}	selb	saved, outF2R, outF1, savedMask				{o6 2}	stqd	outF1, 0x00(pOut)
+
+; Loop maintenance, increment destination pointer
+{e2 2}	a	pOut, pOut, inc				
+							gpel_branch:	{o? 1}	brnz	count, gpel_loop
+.endif
+
+.if TEST
+
+.data
+
+m_numEdges: .dw 20,0,0,0
+
+m_edgeTable:	.dw 0x00000008, 0x00080010, 0x00100018, 0x00180000
+		.dw 0x00200028, 0x00280030, 0x00300038, 0x00380020
+		.dw 0x00400048, 0x00480050, 0x00500058, 0x00580040
+		.dw 0x00600068, 0x00680070, 0x00700078, 0x00780060
+		.dw 0x00800088, 0x00880090, 0x00900098, 0x00980080
+
+m_facingTable:	.dw 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000000
+		.dw 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000
+		.dw 0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF
+		.dw 0x00000000, 0x00000000, 0xFFFFFFFF, 0xFFFFFFFF
+		.dw 0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF
+				
+		.dw 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
+				
+m_profileEdges: .dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+m_deadData:	.dw 0xbaadbaad, 0xbaadbaad, 0xbaadbaad, 0xbaadbaad
+
+.text
+
+.global _start
+_start:
+	ila	pEdgesIn, m_edgeTable						lqa	numEdges, m_numEdges
+	ila	pFacing, m_facingTable						lnop
+	ila	pOut, m_profileEdges						brsl	$lr, GenerateProfileEdgeList	[#func]
+	nop									stop
+
+.endif ;TEST
+
+.end
+

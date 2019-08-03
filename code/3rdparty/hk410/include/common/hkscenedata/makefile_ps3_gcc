@@ -1,0 +1,8 @@
+SRC := hkSceneData.cpp attributes/hkxAnimatedFloatClass.cpp attributes/hkxAnimatedMatrixClass.cpp attributes/hkxAnimatedQuaternionClass.cpp attributes/hkxAnimatedVectorClass.cpp attributes/hkxAttributeClass.cpp attributes/hkxAttributeGroup.cpp attributes/hkxAttributeGroupClass.cpp attributes/hkxSparselyAnimatedBoolClass.cpp attributes/hkxSparselyAnimatedEnumClass.cpp attributes/hkxSparselyAnimatedIntClass.cpp attributes/hkxSparselyAnimatedStringClass.cpp camera/hkxCameraClass.cpp environment/hkxEnvironment.cpp environment/hkxEnvironmentClass.cpp graph/hkxNode.cpp graph/hkxNodeClass.cpp light/hkxLightClass.cpp material/hkxMaterialClass.cpp material/hkxMaterialEffectClass.cpp material/hkxTextureFileClass.cpp material/hkxTextureInplaceClass.cpp mesh/hkxIndexBufferClass.cpp mesh/hkxMeshClass.cpp mesh/hkxMeshSectionClass.cpp mesh/hkxMeshSectionUtil.cpp mesh/hkxVertexBufferClass.cpp mesh/hkxVertexFormatClass.cpp mesh/hkxVertexFormatUtil.cpp mesh/formats/hkxVertexP4N4C1T2Class.cpp mesh/formats/hkxVertexP4N4T4B4C1T2Class.cpp mesh/formats/hkxVertexP4N4T4B4W4I4C1Q2Class.cpp mesh/formats/hkxVertexP4N4T4B4W4I4Q4Class.cpp mesh/formats/hkxVertexP4N4W4I4C1Q2Class.cpp scene/hkxScene.cpp scene/hkxSceneClass.cpp scene/hkxSceneUtils.cpp skin/hkxSkinBindingClass.cpp
+
+LIB_NAME = hkscenedata
+
+DEFINES += -DHK_DISABLE_VECTOR4_CONSTRUCTORS
+
+include ../../havokCommon_ps3_gcc.mk
+

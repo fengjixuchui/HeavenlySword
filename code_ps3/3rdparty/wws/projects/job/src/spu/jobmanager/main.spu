@@ -1,0 +1,160 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.start
+.include "globaldefines.spu"
+.include "conventions.inl"
+.text
+
+// I32 WwsJob_Main( uintptr_t spursContext, uint64_t eaWorkLoad )
+.reg zero, two
+.reg marker
+.reg loadJobState, nextLoadJobNum, storeJobNum
+.reg tmp1
+.reg instr
+.extern g_WwsJob_eaWorkLoad
+.extern g_WwsJob_spursWorkloadId
+.extern g_WwsJob_dataForJob
+.extern g_WwsJob_nextLoadJobNum
+.extern g_WwsJob_storeJobNum
+.extern g_WwsJob_loadJobState
+.extern g_WwsJob_lastStoreJobNum
+.extern g_currentJobHeaderCacheEa
+.extern InitAudits
+.extern StoreAuditDataInitialNoDataU64
+.extern StoreAuditDataInitialNoParmsU64
+.extern StoreAuditDataInitialU64
+.extern StoreAuditDataParameterU64
+.extern cellSpursGetCurrentSpuId
+.extern WwsJob_ChangeRunToStoreJob
+.extern WwsJob_ChangeLoadToRunJob
+.extern WwsJob_ReturnToSpursKernel
+.extern WwsJob_TryExecuteLoadCmds
+.extern WwsJob_TryChangeStoreToFreeJob
+.extern IsDmaTagMaskDone
+.extern IsDmaTagMaskDoneED
+.extern TryDumpAllStoreShareBufs
+.extern WwsJob_TryChangeFreeToLoadJob
+.extern cellSpursGetWorkloadId
+.global WwsJob_Main
+WwsJob_Main: // 58 instructions, 232 bytes
+		ilhu	instr, 0x0180							shlqbyi	$5, $4, 4
+		il	zero, 0								stqa	$4, g_sideStack
+		iohl	instr, SpuInterruptHandlerAsm					stqa	$5, g_WwsJob_eaWorkLoad
+		il	two, 2								stqa	zero, g_currentJobHeaderCacheEa
+		shli	instr, instr, 5							stqa	zero, g_WwsJob_nextLoadJobNum
+		ilhu	marker, kStackMarkerValue_hi					stqa	two, g_WwsJob_lastStoreJobNum
+		iohl	marker, kStackMarkerValue_lo					stqa	instr, 0
+		{nop}									wrch	$ch1, two
+		{nop}									stqa	marker, kStackMarkerAddr
+		{nop}									brsl	$lr, cellSpursGetCurrentSpuId [#func]
+		{nop}									stqa	$3, g_WwsJob_dataForJob
+		{nop}									lqa	$4, g_sideStack
+		{nop}									brsl	$lr, InitAudits [#func]
+		{nop}									brsl	$lr, cellSpursGetWorkloadId [#func]
+											.cset $3
+		{nop}									stqa	$3, g_WwsJob_spursWorkloadId
+.if ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_begin						wrch	$ch69, $74
+.endif
+.if ENABLE_TIMING_AUDITS || ENABLE_WORKLOAD_AUDITS
+		il	$74, kWwsJob_begin						lqa	$75, g_WwsJob_spursWorkloadId
+		il	$76, 1								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		{nop}									lqa	$74, g_WwsJob_eaWorkLoad
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+
+MainLoop:
+		{nop}									lqa	loadJobState, g_WwsJob_loadJobState
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_WwsMain_beginLoop					lnop
+		ai	$75, loadJobState, 0						brsl	$78, StoreAuditDataInitialNoParmsU64 [#StoreAuditDataInitialNoParmsU64CC]
+.endif
+		{nop}									brhz	loadJobState, DontHaveLoadJob
+
+
+HaveLoadJob:
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_WwsMain_waitForLoadDma_begin			brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+
+StallUntilLoadJobReadyLoop:
+		ila	$lr, TcstfjExit1						lqa	storeJobNum, g_WwsJob_storeJobNum
+		cgti	storeJobNum, storeJobNum, -1					brnz	storeJobNum, WwsJob_TryChangeStoreToFreeJob
+TcstfjExit1:
+		//Note that g_WwsJob_storeJobNum can be modified by WwsJob_TryChangeStoreToFreeJob so must be re-loaded if needed
+		ila	$lr, TelcExit							lqa	loadJobState, g_WwsJob_loadJobState
+		ceqhi	loadJobState, loadJobState, LoadJobState_kExecuteCommands	brhnz	loadJobState, WwsJob_TryExecuteLoadCmds
+		//Note that g_WwsJob_loadJobState can be modified by WwsJob_TryExecuteLoadCmds so must be re-loaded here
+TelcExit:
+		ila	$lr, StallUntilLoadJobReadyLoop					lqa	loadJobState, g_WwsJob_loadJobState
+		ceqhi	loadJobState, loadJobState, LoadJobState_kCommandsExecuted	brhz	loadJobState, EnableDisableAndReturnToLr
+		il	$3, DmaTagMask_kLoadJob_readBuffers				brsl	$4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		{nop}									brz	$3, EnableDisableAndReturnToLr
+
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_WwsMain_waitForLoadDma_end				brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+
+		{nop}									brsl	$lr, WwsJob_ChangeLoadToRunJob [#func]
+
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_WwsMain_waitForStoreDma_begin			brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+
+StallUntilStoreJobEndedLoop:
+		il	$lr, TcstfjExit2						lqa	storeJobNum, g_WwsJob_storeJobNum
+		cgti	storeJobNum, storeJobNum, -1					brnz	storeJobNum, WwsJob_TryChangeStoreToFreeJob
+TcstfjExit2:
+		//Note that g_WwsJob_storeJobNum can be modified by WwsJob_TryChangeStoreToFreeJob so must be re-loaded if needed
+		il	$3, DmaTagMask_kStoreJob_writeAllShareableBuffers		lqa	storeJobNum, g_WwsJob_storeJobNum
+		cgti	storeJobNum, storeJobNum, -1					brsl	$4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		ila	$lr, StallUntilStoreJobEndedLoop				brnz	storeJobNum, EnableDisableAndReturnToLr
+		nop									brz	$3, EnableDisableAndReturnToLr
+
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_WwsMain_waitForStoreDma_end			brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+											//WwsJob_ChangeRunToStoreJob returns directly to "MainLoop" above
+		ila	$lr, MainLoop							br	WwsJob_ChangeRunToStoreJob [#func]
+
+
+
+/////////////////////////////////////
+
+DontHaveLoadJob:
+		ila	$lr, TcftljExit							lqa	nextLoadJobNum, g_WwsJob_nextLoadJobNum
+		cgti	nextLoadJobNum, nextLoadJobNum, -1				brnz	nextLoadJobNum, WwsJob_TryChangeFreeToLoadJob [#func]
+TcftljExit:	{nop}									lqa	loadJobState, g_WwsJob_loadJobState
+		{nop}									brhnz	loadJobState, HaveLoadJob
+
+ShutdownLoop:
+		ila	$lr, TcstfjExit3						lqa	storeJobNum, g_WwsJob_storeJobNum
+		cgti	storeJobNum, storeJobNum, -1					brnz	storeJobNum, WwsJob_TryChangeStoreToFreeJob
+		//Note that g_WwsJob_storeJobNum can be modified by WwsJob_TryChangeStoreToFreeJob so must be re-loaded here
+TcstfjExit3:
+		ila	$lr, ShutdownLoop						lqa	storeJobNum, g_WwsJob_storeJobNum
+		cgti	storeJobNum, storeJobNum, -1					brnz	storeJobNum, EnableDisableAndReturnToLr
+
+		nop									brsl	$4, TryDumpAllStoreShareBufs [#TryDumpAllStoreShareBufsCC]
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_WwsMain_waitForStoreDma_begin			brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+StallForAllShareableBufferDoneLoop:
+		il	$3, DmaTagMask_kStoreJob_writeAllShareableBuffers		brsl	$4, IsDmaTagMaskDoneED [#IsDmaTagMaskDoneCC]
+		{nop}									brz	$3, StallForAllShareableBufferDoneLoop
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_WwsMain_waitForStoreDma_end			brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		ila	$lr, WwsJob_ReturnToSpursKernel					{lnop}
+
+
+EnableDisableAndReturnToLr:
+		//This piece enables and disable interrupts and then returns to whatever is in $lr
+		ila	tmp1, Bie3							bie	tmp1 [Bie3]
+Bie3:		ai	$lr, $lr, 0							bid	$lr // RETURN!! Note: Hack to shut up frontend
+
+
+.end

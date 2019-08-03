@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<targets>
+	<rules>
+		<include>$/atgapi/atg.rules</include>
+	</rules>
+
+	<configurations>
+		<include>$/atgapi/atgps3.configurations</include>
+	</configurations>
+
+	<tools>
+		<include>$/atgapi/atg.tools</include>
+	</tools>
+	
+	<target default-type="PS3,MAKEPMBIN">
+		<source>
+			<file>makefile</file>
+		</source>
+		<file>../../../../../build/host-win32/$(configuration.wws.config)/job/spu/jobbin/jobbootstrap.pmbin</file>
+		<settings>
+			cpp.defines = VERSION=$(configuration.wws.config)
+		</settings>
+	</target>
+</targets>

@@ -1,0 +1,540 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.start
+.include "globaldefines.spu"
+.include "conventions.inl"
+
+.extern StoreAuditDataInitialNoDataU64
+.extern StoreAuditDataInitialU64
+.extern StoreAuditDataParameterU64
+.extern StoreAuditDataInitialNoParmsU64
+.extern UseDmaTagId
+.extern FreeDmaTagId
+.extern GetPageMasks
+.extern TryDumpAllStoreShareBufs
+.extern WwsJob_TryExecuteCmds
+.extern GetBufferTag
+.extern WwsJob_PollSpursKernelQuick
+.extern WwsJob_TryChangeFreeToLoadJob
+.extern WwsJob_FreeLogicalBuffer
+.extern WwsJob_TryExecuteLoadCmds
+.extern WwsJob_TryChangeStoreToFreeJob
+.extern IsDmaTagMaskDoneED
+.extern SetDwordMem
+.if	ASSERTS_ENABLED
+.extern JobApi_AssertInterruptsEnabled
+.extern JobApi_kLoadNextJob_AssertLoadNextJobNotCalled
+.endif
+.if	VERBOSE_ASSERTS_ENABLED
+.extern JobApi_kLoadNextJob_AssertBufferNum
+.endif
+
+.text
+
+;=================================================================================================
+;------ 286 instructions/1144 bytes + 32 bytes data = 1176 bytes total ---------------------------
+;static WwsJob_ApiReturn WwsJob_JobApi( U32 apiCommand, U32 parameter0, U32 parameter1, U32 parameter2 )
+
+.reg	runJobNum, mask_runJobNum0, _2, mask_kStoreAudit
+.reg	int_status, pCode_Next, mask_gte0, mask_gt2, mask_runJobNumOk, mask_apiCommandBad
+.reg	loadJobState, jump_shift, pCode_Switch, pCode_Next, jobHasShareableBuffers
+.reg	pCode_NextE, pCode_NextD, pCode_Loop, pCode_Break, nextLoadJobNum, bufferArrayOffset, next_U64, logicalToBufferNumArray, logicalToBufferNumArrayOffset
+.reg	jobDataOffset, jobData_qw0, prevBuffer, buffer, bufferNum, bufferOffset__, bufferSetOffset0, s_AaAa
+.reg	count, bufferTag
+.reg	mask_reserved, mask_shareable, bufferOffset
+.reg	bJobAuditsEnabled, pDwords, dword, numDwords, mask_hword, mask_numDwords
+.reg	mask_gt0, mask_gt6
+.reg	mask_dwordArray
+.reg	mask_loop
+.reg	dmaTagMask, _0, dma_status, mask_done
+.reg	runJobState, mask_runJobStateBad, audit_U64, sel_aBCD
+.reg	runJobState, lastStoreJobNum, jobDataOffset, jobData, storeJobHasShareableBufs, mask_end
+.reg	totalPageMask0, totalPageMask1, bufferSetOffset, bufferSetOffset_, bufferSet, bufferSetNum, bufferSetNum_
+.reg	mask_runJobStateOk
+.reg	firstPage, numPages, numBuffers, s_abAdefgh
+.reg	prevBufferSetOffset, prevBufferSet, prevJobNumBuffers
+.reg	firstBuffer, bufferOffset, bufferOffset_, bufferOffset__
+.reg	numFreeBuffers, mask_notEnoughFree, collMask0, collMask1, mask_collision
+.reg	mask_firstBuffer, _0, s_aAcd, sel_abCD, mask_buffer, mask_reserved, qw
+.reg	mask_compatible, prevBufferSetPages, prevFirstBuffer, bufferSetPages, prevBufferOffset, prevBufferOffset_, prevBufferOffset__
+.reg	mask_reserved, count, reserved, mask_shareable, shareable, mask_used, prevUsed, sel_aBCD, mask_prevUnused, mask_clear
+.reg	logicalToBufferNumOffset, g_WwsJob_bufferSetArray_, m_JumpTable_, pair
+.reg	mask_tryExecuteLoadCmds, pBufferSet, g_WwsJob_jobDataArray_, g_WwsJob_bufferArray_
+.reg	logicalToBufferNumOffset_, g_WwsJob_logicalToBufferNumArray_
+.reg	cond1, cond2, cond3, shuf
+.reg 	bufferSetNr
+.reg 	firstBufferNum
+.reg 	shuf2
+.reg 	numFreeBuffers_
+.reg 	firstBufferNum_
+.reg 	firstFreeBufferNum
+.reg 	bufferIndex
+.reg 	pBufferSets
+.reg 	pPrevJobBufferSets
+.reg 	bufferIndex_
+.reg 	bufferNr
+.reg 	mask_clear2
+.reg 	prevBufferSetNr
+.reg 	prevFirstBufferNum
+.reg 	compatible
+.reg 	pPrevJobBuffer
+.reg 	prevBufferNr
+.reg 	buffer_
+.reg 	prevBuffer_
+.reg 	used, m_1000
+.reg	bJobManagerAuditsEnabled
+
+
+
+
+;-------30----------------------------------------------------------------------------------------
+.global WwsJob_JobApi_kExecuteCommands
+WwsJob_JobApi_kExecuteCommands:
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_begin					wrch	$ch69, $74
+.endif
+		{nop}									stqd	$sp,-128($sp)
+		{nop}									stqd	$lr,0x10($sp)
+		ai	$sp, $sp,-128							stqd	$80,0x20($sp)
+		ai	$80, $3, 0							stqd	$81,0x30($sp)
+.if	ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, JobApi_AssertInterruptsEnabled
+.endif
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_begin					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_JobApi_executeCommands				brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+kExecuteCommands_Loop:
+		ila $3, DmaTagMask_kRunJob_writeShareableBuffers			brsl $4, IsDmaTagMaskDoneED [#IsDmaTagMaskDoneCC]
+		{nop}									hbrr	kExecuteCommands_CallTec, WwsJob_TryExecuteCmds
+		{nop}									lqa $4, g_WwsJob_runJobNum
+		ila _2, 2								brz $3, kExecuteCommands_Loop
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_TryExecuteCmds_begin			brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		ceqi mask_runJobNum0, $4, 0						{lnop}
+		ai $3, $4, -1								{lnop}
+		ai $5, $80, 0								{lnop}
+		selb $3, $3, _2, mask_runJobNum0					{lnop}
+		{nop}					kExecuteCommands_CallTec:	brsl $lr, WwsJob_TryExecuteCmds [#func]
+		{nop}									brz	$3, kExecuteCommands_TryFreeStoreJob
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_TryExecuteCmds_end				brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+kExecuteCommands_WaitLoop:
+		ila $3, DmaTagMask_kRunJob_readBuffers					brsl $4, IsDmaTagMaskDoneED [#IsDmaTagMaskDoneCC]
+		{nop}									brz $3, kExecuteCommands_WaitLoop
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_TryExecuteCmdsDma_end			brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+		ila	$74, kWwsJob_JobApi_end						brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_end						wrch	$ch69, $74
+.endif
+		{nop}									br	TryExecuteLoadCmds
+
+kExecuteCommands_TryFreeStoreJob:
+.reg storeJobNum
+.reg comp
+		ila	$lr, kExecuteCommands_Loop					lqa	storeJobNum, g_WwsJob_storeJobNum
+		nop									cgthi	comp, storeJobNum, -1
+		{nop}									brz	comp, kExecuteCommands_Loop
+		{nop}									br	WwsJob_TryChangeStoreToFreeJob
+
+;-------14----------------------------------------------------------------------------------------
+
+
+.global WwsJob_JobApi_kGetBufferTags
+WwsJob_JobApi_kGetBufferTags:
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_begin					wrch	$ch69, $74
+.endif
+		{nop}									stqd	$sp,-128($sp)
+		{nop}									stqd	$lr,0x10($sp)
+		ai	$sp, $sp,-128							stqd	$80,0x20($sp)
+		ai	$80, $3, 0							stqd	$81,0x30($sp)
+.if	ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, JobApi_AssertInterruptsEnabled
+.endif
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_begin					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+
+		ai	count, $4, 0							{lnop}
+kGetBufferTags_Loop:
+		ai	count, count, -1						hbrr	kGetBufferTags_Call, GetBufferTag
+		{nop}									lqd	$4, 0x00($80)
+		{nop}									rotqbyi	$5, $4, 4
+		{nop}									rotqbyi	$6, $4, 8
+		{nop}						kGetBufferTags_Call:	brsl	$lr, GetBufferTag [#func]
+		{nop}									stqd	$3, 0x00($80)
+		ai	$80, $80, 0x10				kGetBufferTags_Branch:	brnz	count, kGetBufferTags_Loop
+		{nop}									lqd	$lr, 0x90($sp)
+		{nop}									lqd	$80, 0x20($sp)
+		{nop}									lqd	$81, 0x30($sp)
+		{nop}									lqd	$sp, 0x00($sp)
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_end						brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_end						wrch	$ch69, $74
+.endif
+		nop									bi	$lr
+;-------6-----------------------------------------------------------------------------------------
+.global WwsJob_JobApi_kUseDmaTagId
+WwsJob_JobApi_kUseDmaTagId:
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_begin					wrch	$ch69, $74
+.endif
+.if	ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, JobApi_AssertInterruptsEnabled
+.endif
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_begin					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		{nop}									brsl	$4, UseDmaTagId [#UseDmaTagIdCC]
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_end						brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_end						wrch	$ch69, $74
+.endif
+		{nop}									bi	$lr
+;-------6-----------------------------------------------------------------------------------------
+.global WwsJob_JobApi_kFreeDmaTagId
+WwsJob_JobApi_kFreeDmaTagId:
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_begin					wrch	$ch69, $74
+.endif
+		{nop}									stqd	$sp,-128($sp)
+		{nop}									stqd	$lr,0x10($sp)
+		ai	$sp, $sp,-128							stqd	$80,0x20($sp)
+		ai	$80, $3, 0							stqd	$81,0x30($sp)
+.if	ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, JobApi_AssertInterruptsEnabled
+.endif
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_begin					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		ila 	$4, TryExecuteLoadCmds						br	FreeDmaTagId [#FreeDmaTagIdCC]
+		
+;-------140---------------------------------------------------------------------------------------
+.global WwsJob_JobApi_kLoadNextJob
+WwsJob_JobApi_kLoadNextJob: // 19 instructions, 76 bytes
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_begin					wrch	$ch69, $74
+.endif
+		{nop}									stqd	$sp,-128($sp)
+		{nop}									stqd	$lr,0x10($sp)
+		ai	$sp, $sp,-128							lnop
+.if	ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, JobApi_AssertInterruptsEnabled
+.endif
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_begin					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_JobApi_loadNextJob					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if	ASSERTS_ENABLED
+		{nop}									lqa	runJobState, g_WwsJob_runJobState
+		ceqi mask_runJobStateOk,runJobState,WwsJob_RunJobState_kLoadNotAllowed	{lnop}
+		nop									brz	mask_runJobStateOk, JobApi_kLoadNextJob_AssertLoadNextJobNotCalled
+.endif
+		ila	runJobState, WwsJob_RunJobState_kLoadAllowed			lqa	lastStoreJobNum, g_WwsJob_lastStoreJobNum
+		{nop}									lqa	runJobNum, g_WwsJob_runJobNum
+		{nop}									stqa	runJobState, g_WwsJob_runJobState
+		shli	jobDataOffset, lastStoreJobNum, 5				{lnop}
+		shli	pBufferSet, runJobNum, 6					{lnop}
+		ila	g_WwsJob_jobDataArray_, g_WwsJob_jobDataArray			lqa	firstFreeBufferNum, g_WwsJob_firstBufferNum
+		{nop}									lqx	jobData, g_WwsJob_jobDataArray_, jobDataOffset
+		{nop}									rotqbyi	storeJobHasShareableBufs, jobData, 4
+		ila	totalPageMask0, 0						fsmbi	totalPageMask1, 0
+		ila	bufferSetNum, 17						brhz	storeJobHasShareableBufs, LnjDLoopExit
+		ila	g_WwsJob_bufferSetArray_, g_WwsJob_bufferSetArray		{lnop}
+kLoadNextJob_BufSetActive_Loop: // 15 instructions, 60 bytes
+		{nop}									hbrr	LnjBsaGPM, GetPageMasks
+		ai	bufferSetNum, bufferSetNum, -1					lqx	bufferSet, g_WwsJob_bufferSetArray_, pBufferSet
+		ai	pBufferSet, pBufferSet, 4					brz	bufferSetNum, LnjBsaLoopExit
+		{nop}									rotqmbyi numPages, bufferSet, -2
+		{nop}									rotqmbyi numBuffers, bufferSet, -1
+		andi	numPages, numPages, 0xFF					rotqmbyi $3{firstPage}, bufferSet, -3
+		andi	numBuffers, numBuffers, 0x7F					{lnop}
+		mpy	$4{numPages}, numPages, numBuffers		LnjBsaGPM:	brsl	$5, GetPageMasks [#GetPageMasksCC]
+		or	totalPageMask0, totalPageMask0, $3{pageMask0}			{lnop}
+		or	totalPageMask1, totalPageMask1, $4{pageMask1}			br	kLoadNextJob_BufSetActive_Loop
+LnjBsaLoopExit: // 8 instructions, 32 bytes
+		shli	bufferSetOffset, runJobNum, 6					fsmbi	m_1000, 0x1000
+		shli 	prevBufferSetOffset, lastStoreJobNum, 6				lqa	firstBufferNum, g_WwsJob_firstBufferNum
+		ila	bufferSetNum, 17						hbrr	LnjParBranch, kLoadNextJob_PromoteAndReserve_Loop
+		ila	g_WwsJob_bufferArray_, g_WwsJob_bufferArray			{lnop}
+		ilhu	mask_reserved, 0x8000						{lnop}
+kLoadNextJob_PromoteAndReserve_Loop: // 50 instructions, 200 bytes
+		ai	bufferSetNum, bufferSetNum, -1					lqx	bufferSetNr, g_WwsJob_bufferSetArray_, bufferSetOffset
+		{nop}									lqx	prevBufferSet, g_WwsJob_bufferSetArray_, prevBufferSetOffset
+		{nop}									rotqby	bufferSet, bufferSetNr, bufferSetOffset
+		ai	bufferSetOffset, bufferSetOffset, 4				rotqby	prevBufferSet, prevBufferSet, prevBufferSetOffset
+		ai	prevBufferSetOffset, prevBufferSetOffset, 4			brz	bufferSetNum, LnjParLoopExit
+		rotmi	prevJobNumBuffers, prevBufferSet, -8				lqa	numFreeBuffers, g_WwsJob_numFreeBuffers
+		ceqi	cond1, prevBufferSet, 0						lqa 	runJobNum, g_WwsJob_runJobNum
+		rotmi	numPages, prevBufferSet, -16					{lnop}
+		or	cond1, bufferSet, cond1						{lnop}
+		andi	prevJobNumBuffers, prevJobNumBuffers, 0x7F			{lnop}
+		rotmi	$3{firstPage}, prevBufferSet, -24				{lnop}
+		cgt	cond2, prevJobNumBuffers, numFreeBuffers			{lnop}
+		andi	numPages, numPages, 0xFF					{lnop}
+		or	cond3, cond1, cond2						{lnop}
+		mpy	$4{numPages}, numPages, prevJobNumBuffers			{lnop}
+		shli	jobDataOffset, runJobNum, 5 {size:32}		LnjParBranch:	brnz 	cond3, kLoadNextJob_PromoteAndReserve_Loop
+		ai	bufferSetOffset_, bufferSetOffset, -4				brsl	$5, GetPageMasks [#GetPageMasksCC]
+		and	collMask0, $3, totalPageMask0					cwd	shuf, 4($sp)
+		and	collMask1, $4, totalPageMask1					cwd	shuf2, 0(bufferSetOffset_)
+		sfi	bufferSetNum_, bufferSetNum, 16					lqd	jobData, g_WwsJob_jobDataArray(jobDataOffset)
+		or	mask_collision, collMask0, collMask1				fsmbi	jobHasShareableBuffers, 0x0300
+		selb	prevBufferSet, prevBufferSet, firstBufferNum, m_1000		orx	mask_collision, mask_collision
+		sf	numFreeBuffers_, prevJobNumBuffers, numFreeBuffers		shufb	bufferSetNr, prevBufferSet, bufferSetNr, shuf2
+		shli	bufferOffset, firstBufferNum, 3					shufb	$5, bufferSetNum_, mask_reserved, shuf
+		a	firstBufferNum, firstBufferNum, prevJobNumBuffers		brnz	mask_collision, kLoadNextJob_PromoteAndReserve_Loop
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_CopyStoreShareBufsToRun_copyBufSetToRun		{lnop}
+		ila	$76, 1								{lnop}
+		ai	$75, bufferSetNum, 1						brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		{nop}									rotqmbyi $74, prevBufferSet,-4 
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		or	jobData, jobData, jobHasShareableBuffers			stqa	numFreeBuffers_, g_WwsJob_numFreeBuffers
+		{nop}									stqa	firstBufferNum, g_WwsJob_firstBufferNum
+		{nop}									stqd	jobData, g_WwsJob_jobDataArray(jobDataOffset)
+		a	$3, bufferOffset, g_WwsJob_bufferArray_				stqx	bufferSetNr, g_WwsJob_bufferSetArray_, bufferSetOffset_
+		shli	$4, prevJobNumBuffers, 3					brsl	$6, SetDwordMem [#SetMemCC]
+		{nop}									hbrr	LnjParBranch, kLoadNextJob_PromoteAndReserve_Loop
+		{nop}									br	kLoadNextJob_PromoteAndReserve_Loop
+LnjParLoopExit:	// 8 instructions, 32 bytes
+		shli	bufferSetOffset, runJobNum, 6					hbrr	LnjDBranch, kLoadNextJob_Demote_Loop
+		shli 	prevBufferSetOffset, lastStoreJobNum, 6				lqa	firstFreeBufferNum, g_WwsJob_firstBufferNum
+		shli	bufferIndex, runJobNum, 5					{lnop}
+		shli	bufferOffset, runJobNum, 8					{lnop}
+		a	pBufferSets, g_WwsJob_bufferSetArray_, bufferSetOffset		{lnop}
+		a	pPrevJobBufferSets, g_WwsJob_bufferSetArray_, prevBufferSetOffset {lnop}
+
+kLoadNextJob_Demote_Loop: // 46 instructions, 184 bytes
+		ai	bufferIndex_, bufferIndex, 0					lqx	bufferNr, g_WwsJob_bufferArray_, bufferOffset
+		ai	bufferOffset_, bufferOffset, 0					rotqby	buffer, bufferNr, bufferOffset
+		ceq	cond1, bufferIndex, firstFreeBufferNum				brnz	cond1, LnjDLoopExit
+		ai	bufferIndex, bufferIndex, 1					{lnop}
+		ai	bufferOffset, bufferOffset, 8					{lnop}
+		and	reserved, buffer, mask_reserved					cdd	shuf, 0(bufferOffset_)
+		ila	g_WwsJob_jobDataArray_, g_WwsJob_jobDataArray	LnjDBranch:	brz	reserved, kLoadNextJob_Demote_Loop
+		ilhu	mask_clear, 0x67C0						rotqbyi	bufferSetNum, buffer, 4
+		ilhu	mask_shareable, 0x4000						fsmbi	mask_clear2, 0xF000
+		ilhu	mask_used, 0x0800						{lnop}
+		andi	bufferSetNum, bufferSetNum, 0xF					{lnop}
+		and	mask_clear, mask_clear, mask_clear2				{lnop}
+		shli	bufferSetOffset, bufferSetNum, 2				{lnop}
+		{nop}									lqx	bufferSetNr, pBufferSets, bufferSetOffset
+		{nop}									lqx	prevBufferSetNr, pPrevJobBufferSets, bufferSetOffset
+		{nop}									rotqby	bufferSet, bufferSetNr, bufferSetOffset
+		{nop}									rotqby	prevBufferSet, prevBufferSetNr, bufferSetOffset
+		andi	firstBufferNum, bufferSet, 0xFF					{lnop}
+.if	VERBOSE_ASSERTS_ENABLED
+.reg	mask_bufferNumOk
+		rotmi	numBuffers, bufferSet, -8					{lnop}
+.endif
+		andi	prevFirstBufferNum, prevBufferSet, 0xFF				{lnop}
+		sf	bufferNum, firstBufferNum, bufferIndex_				{lnop}
+		ceqh	compatible, bufferSet, prevBufferSet				{lnop}
+.if	VERBOSE_ASSERTS_ENABLED
+		andi	numBuffers, numBuffers, 0x7F					{lnop}
+		clgt	mask_bufferNumOk, numBuffers, bufferNum				brz	mask_bufferNumOk, JobApi_kLoadNextJob_AssertBufferNum
+.endif
+		a	pPrevJobBuffer, prevFirstBufferNum, bufferNum			{lnop}
+		rotmi	compatible, compatible, -16					{lnop}
+		shli	pPrevJobBuffer, pPrevJobBuffer, 3				{lnop}
+		{nop}									lqx	prevBufferNr, g_WwsJob_bufferArray_, pPrevJobBuffer
+		{nop}									cdd	shuf2, 0(pPrevJobBuffer)
+		{nop}									rotqby	prevBuffer, prevBufferNr, pPrevJobBuffer
+		and	shareable, prevBuffer, mask_shareable				brhz	compatible, kLoadNextJob_Demote_Loop
+		and	mask_used, mask_used, mask_clear2				brz	shareable, kLoadNextJob_Demote_Loop
+		andc	buffer_, prevBuffer, mask_used					shufb	bufferNr, buffer_, bufferNr, shuf
+		and	used, prevBuffer, mask_used					{lnop}
+		clgti	used, used, 0							{lnop}
+		orc	used, used, mask_clear2						lnop
+		and	prevBuffer_, prevBuffer, used					stqx	bufferNr, g_WwsJob_bufferArray_, bufferOffset_	
+		andc	prevBuffer_, prevBuffer_, mask_clear				shufb	prevBufferNr, prevBuffer_, prevBufferNr, shuf2 
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_CopyStoreShareBufsToRun_afterCopy			shlqbyi	$75, bufferSetNum, 1
+		ila	$76, 2								lnop
+		or	$75, $75, bufferNum						brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		ai	$74, buffer_, 0							brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ai	$74, prevBuffer_, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		{nop}									stqx	prevBufferNr, g_WwsJob_bufferArray_, pPrevJobBuffer
+		{nop}									br	kLoadNextJob_Demote_Loop
+LnjDLoopExit: // 13 instructions, 52 bytes
+		shli	jobDataOffset, runJobNum, 5					lqx	jobData_qw0, g_WwsJob_jobDataArray_, jobDataOffset					
+		{nop}									chd	s_abAdefgh, 0x4($sp)
+		{nop}									shufb	jobData_qw0, firstFreeBufferNum, jobData_qw0, s_abAdefgh
+		{nop}									stqx	jobData_qw0, g_WwsJob_jobDataArray_, jobDataOffset
+		{nop}									brsl	$4, TryDumpAllStoreShareBufs [#TryDumpAllStoreShareBufsCC]
+.if	ENABLE_IMPORTANT_AUDITS
+.reg	g_WwsJob_bufferSetArray_, g_WwsJob_logicalToBufferNumArray_, g_WwsJob_bufferArray_, offset, audit_U64, numBuffers
+		shli	offset, runJobNum, 6 {size:4, num:16}				{lnop}
+		ila	g_WwsJob_bufferSetArray_, g_WwsJob_bufferSetArray		{lnop}
+		ila	$74, kWwsJob_JobApi_bufferSets					{lnop}
+		a	g_WwsJob_bufferSetArray_, g_WwsJob_bufferSetArray_, offset	{lnop}
+		ila	$76, 7 {num dwords in hword}					lqd 	audit_U64, 0x00(g_WwsJob_bufferSetArray_)
+		ila	$75, 8 {8 dwords of data for 16 buffer sets}			brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		ai	$74, audit_U64, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		{nop}									rotqbyi	$74, audit_U64, 8
+		{nop}									lqd 	audit_U64, 0x10(g_WwsJob_bufferSetArray_)
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ai	$74, audit_U64, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		{nop}									rotqbyi	$74, audit_U64, 8
+		{nop}									lqd 	audit_U64, 0x20(g_WwsJob_bufferSetArray_)
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ai	$74, audit_U64, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		{nop}									rotqbyi	$74, audit_U64, 8
+		{nop}									lqd 	audit_U64, 0x30(g_WwsJob_bufferSetArray_)
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ai	$74, audit_U64, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		shli	offset, runJobNum, 5 {size:1, num:32}				rotqbyi	$74, audit_U64, 8
+		ila g_WwsJob_logicalToBufferNumArray_,g_WwsJob_logicalToBufferNumArray	brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ila	$74, kWwsJob_JobApi_logicalToBufNums						{lnop}
+		a	g_WwsJob_logicalToBufferNumArray_, g_WwsJob_logicalToBufferNumArray_, offset	{lnop}
+		ila	$76, 7 {num dwords in hword}					lqd 	audit_U64, 0x00(g_WwsJob_logicalToBufferNumArray_)
+		ila	$75, 4 {4 dwords of data for 32 logical buffer nums}		brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		ai	$74, audit_U64, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		{nop}									rotqbyi	$74, audit_U64, 8
+		{nop}									lqd 	audit_U64, 0x10(g_WwsJob_logicalToBufferNumArray_)
+		{nop}									lqa	numBuffers, g_WwsJob_firstBufferNum
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ai	$74, audit_U64, 0						{lnop}
+		andi	numBuffers, numBuffers, 0x1F					{lnop}
+		shli	offset, runJobNum, 8 {size:8, num:32}				brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ila	g_WwsJob_bufferArray_, g_WwsJob_bufferArray			rotqbyi	$74, audit_U64, 8
+		a	g_WwsJob_bufferArray_, g_WwsJob_bufferArray_, offset		brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ila	$74, kWwsJob_JobApi_buffers					{lnop}
+		ila	$76, 7 {num dwords in hword}					{lnop}
+		ai	$75, numBuffers, 0						brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC] 
+AuditBuffersLoop:
+		ai	numBuffers, numBuffers,-1					lqd	$74, 0x00(g_WwsJob_bufferArray_)
+		{nop}									rotqby	$74, $74, g_WwsJob_bufferArray_
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ai	g_WwsJob_bufferArray_, g_WwsJob_bufferArray_, 8			brnz	numBuffers, AuditBuffersLoop
+.endif
+		{nop}									brsl	$lr, WwsJob_PollSpursKernelQuick [#func]
+		ila	$lr, LnjExit							brnz	$3, WwsJob_TryChangeFreeToLoadJob [#func]
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_JobApi_stopLoadingJobs				brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		{nop}									lqa	nextLoadJobNum, g_WwsJob_nextLoadJobNum
+		ori	nextLoadJobNum, nextLoadJobNum, -16				stqa	nextLoadJobNum, g_WwsJob_nextLoadJobNum	
+LnjExit:
+ 		{nop}									lqd	$lr, 0x90($sp)
+ 		{nop}									lqd	$sp, 0x00($sp)
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_end						brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_end						wrch	$ch69, $74
+.endif
+		nop									bi	$lr
+		
+;-------30----------------------------------------------------------------------------------------
+.global WwsJob_JobApi_kStoreAudit
+WwsJob_JobApi_kStoreAudit:
+.if	ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, JobApi_AssertInterruptsEnabled
+.endif
+		ila	mask_hword, 0xFFFF						lqa 	bJobAuditsEnabled, g_bJobAuditsEnabled
+		ilhu	mask_numDwords, 0x8000						biz	bJobAuditsEnabled, $lr
+		and 	$75{hword}, $3, mask_hword					rotqmbyi $74{auditId}, $3, -2
+		andc	$76{numDwords}, $4, mask_numDwords				lqa	bJobManagerAuditsEnabled, g_bJobManagerAuditsEnabled
+		cgti	mask_dwordArray, $4, -1						stqa	mask_hword, g_bJobManagerAuditsEnabled
+		ila 	$78, kStoreAuditExit						brz	$5, StoreAuditDataInitialNoParmsU64 [#StoreAuditDataInitialNoParmsU64CC]
+		ai	numDwords, $76, 0						brz	mask_dwordArray, LessThan6Parms
+		ila	$76{numDwords}, 7			LessThan6Parms:		brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]			
+kStoreAudit_Loop:
+		ai	numDwords, numDwords, -1					lqd	dword, 0x00($5)
+		{nop}                                                                   rotqby	$74, dword, $5
+		{nop}						kStoreAudit_Call:	brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC kStoreAudit_Loop]
+		ai	$5, $5, 0x8							brnz	numDwords, kStoreAudit_Loop
+kStoreAudit_End:
+kStoreAuditExit:{nop}									stqa	bJobManagerAuditsEnabled, g_bJobManagerAuditsEnabled
+		{nop}									bi	$lr
+
+//-------14----------------------------------------------------------------------------------------
+.global WwsJob_JobApi_kFreeLogicalBuffer
+WwsJob_JobApi_kFreeLogicalBuffer:
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_begin					wrch	$ch69, $74
+.endif
+		{nop}									stqd	$sp,-128($sp)
+		{nop}									stqd	$lr,0x10($sp)
+		ai	$sp, $sp,-128							stqd	$80,0x20($sp)
+		ai	$80, $3, 0							stqd	$81,0x30($sp)
+.if	ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, JobApi_AssertInterruptsEnabled
+.endif
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_begin					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		ila $lr, TryExecuteLoadCmds						br 	WwsJob_FreeLogicalBuffer [#func]
+
+//-------14----------------------------------------------------------------------------------------
+.global WwsJob_JobApi_kFreeLogicalBuffers
+WwsJob_JobApi_kFreeLogicalBuffers:
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_begin					wrch	$ch69, $74
+.endif
+		{nop}									stqd	$sp,-128($sp)
+		{nop}									stqd	$lr,0x10($sp)
+		ai	$sp, $sp,-128							stqd	$80,0x20($sp)
+		ai	$80, $3, 0							stqd	$81,0x30($sp)
+.if	ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, JobApi_AssertInterruptsEnabled
+.endif
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_begin					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		ai	count, $4, 0							lnop
+kFreeLogicalBuffers_Loop:
+		ai	count, count, -1						hbrr	kFreeLogicalBuffers_Call, WwsJob_FreeLogicalBuffer
+		{nop}									lqd	pair, 0x00($80)
+		{nop}									rotqby	pair, pair, $80
+		rotmi	$5, pair,-16							rotqmbyi $4, pair, -3
+		andi	$5, $5, 0xFF			kFreeLogicalBuffers_Call: 	brsl	$lr, WwsJob_FreeLogicalBuffer [#func]
+		ai	$80, $80, 0x2							brnz	count, kFreeLogicalBuffers_Loop
+//Intentional fall through:
+//-------4-----------------------------------------------------------------------------------------
+TryExecuteLoadCmds:
+		ila	$lr, TelcExit							lqa	loadJobState, g_WwsJob_loadJobState
+		ceqhi mask_tryExecuteLoadCmds, loadJobState, LoadJobState_kExecuteCommands	{lnop}
+		{nop}									brhnz	mask_tryExecuteLoadCmds, WwsJob_TryExecuteLoadCmds [#func]
+TelcExit:
+.if	ENABLE_TIMING_AUDITS
+		ila	$74, kWwsJob_JobApi_end						brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		{nop}									lqd	$lr, 0x90($sp)
+		{nop}									lqd	$80, 0x20($sp)
+		{nop}									lqd	$81, 0x30($sp)
+		{nop}									lqd	$sp, 0x00($sp)
+.if	ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_JobApi_end						wrch	$ch69, $74
+.endif
+		nop									bi	$lr
+
+.end

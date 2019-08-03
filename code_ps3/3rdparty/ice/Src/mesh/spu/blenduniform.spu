@@ -1,0 +1,179 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global BlendUniform
+; Implements BlendUniform() in ice/mesh/icemeshblend.cpp
+;
+; void BlendUniform(F32 *pSrc1, F32 *pSrc2, F32 *pDst, F32 blendFactor, F32 blendFactor2, U32 count);
+;
+; Blends the two uniform tables pointed to by pSrc1 and pSrc2 using blendFactor and blendFactor2 and
+; places the result in the uniform table pointed to by pDst.  count is the number of vectors (quadwords)
+; in the uniform table.
+; The blending function that is used is:
+;	dst = src1 * blendFactor + src2 * blendFactor2;
+; pSrc1, pSrc2, and pDst must all be 16 byte aligned.  blendFactor and blendFactor2 should be between 0.0 and 1.0.
+; count will be rounded up a multiple of 4, so please make sure the destination uniform table is allocated to
+; a multiple of 4 quadwords.
+; NOTE: pDst and pSrc1 are allowed to be the same value, but pDst and pSrc2 can NOT be the same.
+
+
+
+.text
+
+.reg pSrc1		3	; Must be 16 byte aligned.
+.reg pSrc2		4	; Must be 16 byte aligned.
+.reg pDst		5	; Must be 16 byte aligned.  Can not be the same as pSrc2.
+.reg blendFactor	6	; Really should be between 0.0 and 1.0.
+.reg blendFactor2	7	; Really should be between 0.0 and 1.0.
+.reg count		8	; Can be any value, but is automatically rounded up to a multiple of 4.
+
+.reg accData0			; Accumulated data -- inData1_0 * blendFactor.
+.reg accData1			; Accumulated data -- inData1_1 * blendFactor.
+.reg accData2			; Accumulated data -- inData1_2 * blendFactor.
+.reg accData3			; Accumulated data -- inData1_3 * blendFactor.
+.reg inData1_0			; Input date from first uniform table.
+.reg inData1_1			; Input date from first uniform table.
+.reg inData1_2			; Input date from first uniform table.
+.reg inData1_3			; Input date from first uniform table.
+.reg inData2_0			; Input date from second uniform table.
+.reg inData2_1			; Input date from second uniform table.
+.reg inData2_2			; Input date from second uniform table.
+.reg inData2_3			; Input date from second uniform table.
+.reg loopCount			; The remaining loop count.  Initialized to (count + 7) >> 2.
+.reg outData0			; Blended output data -- inData1_0 * blendFactor + inData2_0 * blendFactor2.
+.reg outData1			; Blended output data -- inData1_1 * blendFactor + inData2_1 * blendFactor2.
+.reg outData2			; Blended output data -- inData1_2 * blendFactor + inData2_2 * blendFactor2.
+.reg outData3			; Blended output data -- inData1_3 * blendFactor + inData2_3 * blendFactor2.
+.reg pDst_			; Copy of pDst used to delay the first set of write to the destination buffer.
+.reg s_AAAA			; Shuffle mask used to distribute blendFactor to all four fields of a register.
+
+.align 7
+
+BlendUniform:
+{e2}	ila	s_AAAA, 0x00010203				{o?}	biz	count, $lr
+{e2}	ori	pDst_, pDst, 0					{o}	hbrr	blend_branch, blend_loop
+{e2}	ai	loopCount, count, 7				{o4}	shufb	blendFactor, blendFactor, blendFactor, s_AAAA
+{e2}	ai	pSrc2, pSrc2, -64				{o4}	shufb	blendFactor2, blendFactor2, blendFactor2, s_AAAA
+{e4}	rotmi	loopCount, loopCount, -2				lnop
+	nop								lnop		; to get rid of prefetch stalls
+	nop								lnop		; to get rid of prefetch stalls
+	nop								lnop		; to get rid of prefetch stalls
+.cset accData0, accData1, accData2, accData3
+.cset inData2_0, inData2_1, inData2_2, inData2_3
+
+blend_loop:
+{e2 1}	ai	pSrc2, pSrc2, 0x40				{o6 1}	lqd	inData1_0, 0x00(pSrc1)
+{e6 2}	fma	outData0, inData2_0, blendFactor2, accData0	{o6 1}	lqd	inData1_1, 0x10(pSrc1)
+{e6 2}	fma	outData1, inData2_1, blendFactor2, accData1	{o6 1}	lqd	inData1_2, 0x20(pSrc1)
+{e6 2}	fma	outData2, inData2_2, blendFactor2, accData2	{o6 1}	lqd	inData1_3, 0x30(pSrc1)
+{e6 2}	fma	outData3, inData2_3, blendFactor2, accData3	{o6 1}	lqd	inData2_0, 0x00(pSrc2)
+{e2 1}	ai	pSrc1, pSrc1, 0x40				{o6 1}	lqd	inData2_1, 0x10(pSrc2)
+{e6 1}	fm	accData0, inData1_0, blendFactor		{o6 1}	lqd	inData2_2, 0x20(pSrc2)
+{e6 1}	fm	accData1, inData1_1, blendFactor		{o6 2}	stqd	outData0, 0x00(pDst)
+{e6 1}	fm	accData2, inData1_2, blendFactor		{o6 2}	stqd	outData1, 0x10(pDst)
+{e6 1}	fm	accData3, inData1_3, blendFactor		{o6 2}	stqd	outData2, 0x20(pDst)
+{e2 2}	ai	loopCount, loopCount, -1			{o6 2}	stqd	outData3, 0x30(pDst)
+{e2 2}	ori	pDst, pDst_, 0					{o6 1}	lqd	inData2_3, 0x30(pSrc2)
+{e2 2}	ai	pDst_, pDst_, 0x40		blend_branch:	{o? 2}	brnz	loopCount, blend_loop
+
+	nop							{o?}	bi	$lr
+
+
+
+.if 0
+; Unrolled loop
+
+; Load four quadwords worth of data from the first uniform table and increment the pointer.
+	nop							{o6 1}	lqd	inData1_0, 0x00(pSrc1)
+	nop							{o6 1}	lqd	inData1_1, 0x10(pSrc1)
+	nop							{o6 1}	lqd	inData1_2, 0x20(pSrc1)
+	nop							{o6 1}	lqd	inData1_3, 0x30(pSrc1)
+{e2 1}	ai	pSrc1, pSrc1, 0x40					lnop
+
+; Load four quadwords worth of data from the second uniform table and increment the pointer.
+	nop							{o6 1}	lqd	inData2_0, 0x00(pSrc2)
+	nop							{o6 1}	lqd	inData2_1, 0x10(pSrc2)
+	nop							{o6 1}	lqd	inData2_2, 0x20(pSrc2)
+	nop							{o6 1}	lqd	inData2_3, 0x30(pSrc2)
+{e2 1}	ai	pSrc2, pSrc2, 0x40					lnop
+
+; Do the first part of the blend.  acc = src1 * blendFactor.
+{e6 1}	fm	accData0, inData1_0, blendFactor			lnop
+{e6 1}	fm	accData1, inData1_1, blendFactor			lnop
+{e6 1}	fm	accData2, inData1_2, blendFactor			lnop
+{e6 1}	fm	accData3, inData1_3, blendFactor			lnop
+	nop								lnop
+	nop								lnop
+
+; Do the second part of the blend.  dst = src2 * blendFactor2 + acc.
+{e6 2}	fma	outData0, inData2_0, blendFactor, accData0		lnop
+{e6 2}	fma	outData1, inData2_1, blendFactor, accData1		lnop
+{e6 2}	fma	outData2, inData2_2, blendFactor, accData2		lnop
+{e6 2}	fma	outData3, inData2_3, blendFactor, accData3		lnop
+	nop								lnop
+	nop								lnop
+
+; Store the four quadwords worth of results to the destination uniform table and increment the pointer.
+	nop							{o6 2}	stqd	outData0, 0x00(pDst)
+	nop							{o6 2}	stqd	outData1, 0x10(pDst)
+	nop							{o6 2}	stqd	outData2, 0x20(pDst)
+	nop							{o6 2}	stqd	outData3, 0x30(pDst)
+{e2 2}	ai	pDst, pDst, 0x40					lnop
+
+; Decrement the loop counter and test for exit.
+{e2 2}	ai	loopCount, loopCount, -1				lnop
+	nop								lnop
+	nop					blend_branch:	{o? 2}	brnz	loopCount, blend_loop
+.endif
+
+
+
+.if TEST
+
+.data
+
+.align 12
+m_in_data1:	.df 2.0, 4.0, 6.0, 8.0
+		.df 10.0, 12.0, 14.0, 16.0
+		.df 18.0, 20.0, 22.0, 24.0
+		.df 26.0, 28.0, 30.0, 32.0
+		.df 102.0, 104.0, 106.0, 108.0
+		.df 110.0, 112.0, 114.0, 116.0
+		.df 118.0, 120.0, 122.0, 124.0
+		.df 126.0, 128.0, 130.0, 132.0
+
+m_in_data2:	.df 0.0, 1.0, 2.0, 3.0
+		.df 4.0, 5.0, 6.0, 7.0
+		.df 7.0, 6.0, 5.0, 4.0
+		.df 3.0, 2.0, 1.0, 0.0
+		.df 0.0, 0.1, 0.2, 0.3
+		.df 0.4, 0.5, 0.6, 0.7
+		.df 0.7, 0.6, 0.5, 0.4
+		.df 0.3, 0.2, 0.1, 0.0
+
+m_blendFactor:	.df 0.5, 0, 0, 0
+m_blendFactor2:	.df 0.5, 0, 0, 0
+
+
+
+.text
+
+.global _start
+_start:
+{e2}	ila	pSrc1, m_in_data1				{o6}	lqr	blendFactor, m_blendFactor
+{e2}	ila	pSrc2, m_in_data2				{o6}	lqr	blendFactor2, m_blendFactor2
+{e2}	ila	pDst, m_in_data1					lnop
+{e2}	il	count, 6					{o?}	brsl	$lr, BlendUniform	[#func]
+	nop								stop
+
+.endif
+
+.end
+

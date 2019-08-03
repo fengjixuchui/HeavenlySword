@@ -1,0 +1,131 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+
+.start
+.include "conventions.inl"
+
+.extern StoreAuditDataInitialNoDataU64
+
+.extern TryDumpAllStoreShareBufs
+.extern IsDmaTagMaskDone
+.extern WwsJob_TryExecuteLoadCmds
+.extern WwsJob_TryChangeStoreToFreeJob
+.extern g_WwsJob_loadJobState
+.extern StoreAuditDataInitialNoDataU64
+.extern StoreAuditDataInitialU64
+.extern	StoreAuditDataParameterU64
+.extern InterruptHandlerCallback_AssertStackOverflow
+.extern InterruptHandlerCallback_AssertInterruptsDisabled
+
+.text
+
+.global InterruptHandlerCallback
+// void InterruptHandlerCallback( void )
+
+.reg status
+.reg activeTags, tags, tagId, one, tagBit
+.reg marker, lsMarker
+.reg cond2
+.reg dmaTagMask
+.reg tmp, mask_readCommandsExpected
+.reg loadJobState
+.reg storeJobNum
+.reg int_status
+
+InterruptHandlerCallback: // 46 instructions, 184 bytes
+.if ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_InterruptHandler_begin				wrch	$ch69, $74
+.endif
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_InterruptHandler_begin				brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if ASSERTS_ENABLED
+		nop									rdch	int_status, $ch13{SPU_RdMachStat}
+		andi	int_status, int_status, 0x1					brnz	int_status, InterruptHandlerCallback_AssertInterruptsDisabled
+.endif
+		il	one, 1								stqd	$lr, 16($sp)
+		{nop}									rdch	status, $ch0
+		{nop}									stqd	$sp, -32($sp)
+		ai	$sp, $sp, -32							wrch	$ch2, status
+		{nop}									lqa	loadJobState, g_WwsJob_loadJobState
+		{nop}									rchcnt	status, $ch25
+		{nop}									brz	status, IhcExit
+
+		{nop}									rdch	tags, $ch25
+		ceqhi	mask_readCommandsExpected, loadJobState, LoadJobState_kReadCommands	hbra	IhcBranch1, IhcLoop
+		ai	dmaTagMask, tags, 0						{lnop}
+IhcLoop:	clz	tagId, tags							{lnop}
+		sfi	tagId, tagId, 31						{lnop}
+		shl	tagBit, one, tagId						{lnop}
+		xor	tags, tags, tagBit						wrch	$ch26, tagId
+		andi	tmp, dmaTagMask, DmaTagMask_kLoadJob_readCommands	IhcBranch1:	brnz	tags, IhcLoop
+
+.if	ENABLE_IMPORTANT_AUDITS
+		il	$74, kWwsJob_WwsInterrupts_begin				fsmbi	$75, 0
+		il	$76, 1								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		{nop}									rotqmbyi $74, dmaTagMask, -4
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+
+		{nop}									brz	mask_readCommandsExpected, LoadJobReadCommandsInterruptProcessingDone
+		{nop}									brz	tmp, LoadJobReadCommandsInterruptProcessingDone
+		//if( (dmaTagMask & (1 << DmaTagId::kLoadJob_readCommands)) && (g_WwsJob_loadJobState == WwsJob_LoadJobState::kReadCommands) )
+		il	tmp, LoadJobState_kExecuteCommands				stqa	tmp, g_WwsJob_loadJobState
+LoadJobReadCommandsInterruptProcessingDone:
+
+
+		//if( dmaTagMask & (1 << DmaTagId::kRunJob_writeShareableBuffers) )
+StallForShareableBuffersLoop:
+		andi	$3, dmaTagMask, DmaTagMask_kRunJob_writeShareableBuffers	brz	$3, StoreShareableBuffersInterruptProcessingDone
+		{nop}									brsl	$4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		{nop}									brz	$3, StallForShareableBuffersLoop
+StoreShareableBuffersInterruptProcessingDone:
+
+
+		andi	$3, dmaTagMask, DmaTagMask_kStoreJob_writeAllShareableBuffers	brz	$3, StoreAllShareableBuffersInterruptProcessingDone
+		//if( dmaTagMask & (1 << DmaTagId::kStoreJob_writeAllShareableBuffers) )
+StallForAllShareableBuffersLoop:
+		il	$3, DmaTagMask_kStoreJob_writeAllShareableBuffers		brsl	$4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		{nop}									brz	$3, StallForAllShareableBuffersLoop
+		{nop}									brsl	$4, TryDumpAllStoreShareBufs [#TryDumpAllStoreShareBufsCC]
+StoreAllShareableBuffersInterruptProcessingDone:
+
+
+		andi	$3, dmaTagMask, DmaTagMask_kStoreJob_writeJobBuffers		brz	$3, WriteJobBuffersInterruptProcessingDone
+		//if( dmaTagMask & (1 << DmaTagId::kStoreJob_writeJobBuffers) )
+		nop									lqa	storeJobNum, g_WwsJob_storeJobNum
+		cgthi	storeJobNum, storeJobNum, -1					brz	storeJobNum, WriteJobBuffersInterruptProcessingDone
+ReTryChangeStoreToFreeJob:
+		{nop}									brsl	$lr, WwsJob_TryChangeStoreToFreeJob [#func]
+		{nop}									brz	$3, ReTryChangeStoreToFreeJob
+WriteJobBuffersInterruptProcessingDone:
+
+
+		//The above may have allowed the load job proceed, so give it a go (if it exists)
+		ila	$lr, IhcExit							lqa	loadJobState, g_WwsJob_loadJobState
+		ceqhi	tmp, loadJobState, LoadJobState_kExecuteCommands		brhnz	tmp, WwsJob_TryExecuteLoadCmds [#func]
+
+
+IhcExit:
+.if ASSERTS_ENABLED
+		ilhu	marker, kStackMarkerValue_hi					lqa	lsMarker, kStackMarkerAddr
+		iohl	marker, kStackMarkerValue_lo					lqd	$lr, 48($sp)
+		ceq	cond2, marker, lsMarker						brz	cond2, InterruptHandlerCallback_AssertStackOverflow
+.else
+		nop									lqd	$lr, 48($sp)
+.endif
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_InterruptHandler_end				brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+.if ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_InterruptHandler_end				wrch	$ch69, $74
+.endif
+
+		ai	$sp, $sp, 32							bi	$lr
+
+.end
+

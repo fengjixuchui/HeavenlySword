@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="jobapi-spu"
+	ProjectGUID="{20317E6D-EA95-46CE-A4B1-A1B23725B331}"
+	RootNamespace="jobapi"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=debug"
+				ReBuildCommandLine="make all VERSION=debug"
+				CleanCommandLine="make clean VERSION=debug"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=release"
+				ReBuildCommandLine="make all VERSION=release"
+				CleanCommandLine="make clean VERSION=release"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{A9A08461-1D74-4EAF-8B28-B312BABD5BA5}">
+			<File
+				RelativePath=".\jobevents.cpp">
+			</File>
+			<File
+				RelativePath=".\jobprintf.spu.s">
+			</File>
+			<File
+				RelativePath=".\jobspudma.cpp">
+			</File>
+			<Filter
+				Name="Common"
+				Filter="">
+				<File
+					RelativePath="..\..\common\jobapi\commandlistchecker.cpp">
+				</File>
+			</Filter>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{8D2F9495-97FD-47FE-AD1A-BFD0C894AC66}">
+			<File
+				RelativePath="..\..\..\include\spu\jobapi\jobapi.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\spu\jobapi\jobprintf.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\spu\jobapi\jobspudma.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\spu\jobapi\spuinterrupts.h">
+			</File>
+			<Filter
+				Name="Common"
+				Filter="">
+				<File
+					RelativePath="..\..\..\include\common\jobapi\audittypes.h">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\commandlistchecker.h">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\jobdefinition.h">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\jobmanagerauditdata.inc">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\jobmanagerauditids.h">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\spumoduleheader.h">
+				</File>
+			</Filter>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{098684DD-F9DC-4158-82A5-7EC31EE236D7}">
+			<File
+				RelativePath=".\makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

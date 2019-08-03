@@ -1,0 +1,689 @@
+/*
+ * Copyright (c) 2003-2005 Naughty Dog, Inc. 
+ * A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+ * Use and distribution without consent strictly prohibited
+ * 
+ * Revision History:
+ *  - Created 10/19/05
+ */
+
+.start
+
+.define TEST 0
+
+.global DecompressSwFormat
+
+/*
+
+Unrolled Loops
+--------------
+
+// < 9 bits per component, or < 16 bits per component if anything > 9 bits is byte aligned
+Decompress256:
+Loop256:
+		andi nibble, pIn, 0xF							lqd d1, 0x10(pIn)
+		{nop}									lqd d0, 0x00(pIn)
+		{nop}									shufb shOff, nibble, nibble, s_DDDDDDDDDDDDDDDD
+		nop									lqd d2, 0x20(pIn)
+		a pIn, pIn, sizex8							{lnop}
+		nop									{lnop}
+		a sh, s_ABCD, shOff							{lnop}
+		{nop}									{lnop}
+		{nop}									shufb da, d0, d1, sh
+		{nop}									shufb db, d1, d2, sh
+		{nop}									{lnop}
+		{nop}									{lnop}
+		{nop}									lnop
+		{nop}									shufb t1, da, db, st1
+		{nop}									shufb t3, da, db, st3
+		{nop}									shufb t2, da, db, st2
+		{nop}									shufb t0, da, db, st0
+		rothm t1, t1, r1							{lnop}
+		rothm t3, t3, r3							{lnop}
+		rothm t2, t2, r2							{lnop}
+		rothm t0, t0, r0							{lnop}
+		andc t1, t1, mask							{lnop}
+		andc t3, t3, mask							{lnop}
+		andc t2, t2, mask							shufb o3, t1, one, s_aEaFaGa0
+		andc t0, t0, mask							shufb o7, t3, one, s_aEaFaGa0
+		{nop}									shufb o6, t3, one, s_aAaBaCa0
+		{nop}									shufb o1, t0, one, s_aEaFaGa0
+		a o3, o3, intoff							shufb o5, t2, one, s_aEaFaGa0
+		a o7, o7, intoff							shufb o0, t0, one, s_aAaBaCa0
+		a o6, o6, intoff							shufb o4, t2, one, s_aAaBaCa0
+		a o1, o1, intoff							shufb o2, t1, one, s_aAaBaCa0
+		a o5, o5, intoff							{lnop}
+		a o0, o0, intoff							{lnop}
+		a o4, o4, intoff							{lnop}
+		a o2, o2, intoff							{lnop}
+		fma o5, o5, scale, bias							{lnop}
+		fma o4, o4, scale, bias							{lnop}
+		fma o0, o0, scale, bias							{lnop}
+		fma o6, o6, scale, bias							{lnop}
+		fma o1, o1, scale, bias							{lnop}
+		fma o2, o2, scale, bias							{lnop}
+		fma o3, o3, scale, bias							stqx o5, out50, off
+		fma o7, o7, scale, bias							stqx o4, out40, off
+		{nop}									stqx o0, out00, off
+		{nop}									stqx o6, out60, off
+		{nop}									stqx o1, out10, off
+		{nop}									stqx o2, out20, off
+		{nop}									stqx o3, out30, off
+		{nop}									stqx o7, out70, off
+		ai off, off, 0x80							{lnop}
+		{nop}									{lnop}
+		{nop}
+		Branch256:								brnz off, Loop256
+
+// < 21-bits per component
+Decompress512:
+Loop512:
+		andi nib0, pIn, 0xF							lqd d1, 0x10(pIn)
+		andi nib1, pIn2, 0xF							lqd d2, 0x20(pIn)
+		{nop}									shufb sho0, nib0, nib0, s_DDDDDDDDDDDDDDDD
+		{nop}									lqd d0, 0x00(pIn)
+		a pIn, pIn, sizex8							lqd d4, 0x10(pIn2)
+		nop									lqd d3, 0x00(pIn2)
+		a sh0, s_ABCD, sho0							shufb sho1, nib1, nib1, s_DDDDDDDDDDDDDDDD
+		nop									lqd d5, 0x20(pIn2)
+		a pIn2, pIn2, sizex8							shufb db, d1, d2, sh0
+		nop									shufb da, d0, d1, sh0
+		a sh1, s_ABCD, sho1							{lnop}
+		{nop}									{lnop}
+		{nop}									shufb dc, d3, d4, sh1
+		{nop}									shufb t1, da, db, st1
+		{nop}									shufb t3, da, db, st3
+		{nop}									shufb t0, da, db, st0
+		{nop}									shufb t2, da, db, st2
+		rotm o1, t1, r1								shufb dd, d4, d5, sh1
+		rotm o3, t3, r3								{lnop}
+		rotm o0, t0, r0								{lnop}
+		rotm o2, t2, r2								lnop
+		selb o1, o1, one, mask							shufb t4, dc, dd, st4
+		selb o3, o3, one, mask							shufb t6, dc, dd, st6
+		selb o0, o0, one, mask							shufb t7, dc, dd, st7
+		selb o2, o2, one, mask							shufb t5, dc, dd, st5
+		rotm o4, t4, r4								{lnop}
+		rotm o6, t6, r6								{lnop}
+		rotm o7, t7, r7								{lnop}
+		rotm o5, t5, r5								{lnop}
+		selb o4, o4, one, mask							{lnop}
+		selb o6, o6, one, mask							{lnop}
+		selb o7, o7, one, mask							{lnop}
+		a o3, o3, intoff							{lnop}
+		a o7, o7, intoff							{lnop}
+		a o4, o4, intoff							{lnop}
+		selb o5, o5, one, mask							{lnop}
+		a o1, o1, intoff							{lnop}
+		a o0, o0, intoff							{lnop}
+		a o6, o6, intoff							{lnop}
+		fma o0, o0, scale, bias							{lnop}
+		fma o7, o7, scale, bias							{lnop}
+		a o5, o5, intoff							{lnop}
+		a o2, o2, intoff							{lnop}
+		fma o5, o5, scale, bias							{lnop}
+		fma o2, o2, scale, bias							{lnop}
+		fma o1, o1, scale, bias							stqx o0, out00, off
+		fma o3, o3, scale, bias							stqx o7, out70, off
+		fma o6, o6, scale, bias							{lnop}
+		fma o4, o4, scale, bias							{lnop}
+		{nop}									stqx o5, out50, off
+		{nop}									stqx o2, out20, off
+		{nop}									stqx o1, out10, off
+		{nop}									stqx o3, out30, off
+		{nop}									stqx o6, out60, off
+		{nop}									stqx o4, out40, off
+		ai off, off, 0x80							{lnop}
+		{nop}									{lnop}
+		{nop}							Branch512:	brnz off, Loop512
+		*/
+	
+.data
+
+
+.extern m_ABCD 
+.extern m_Baaa 
+.extern m_Aa00 
+.extern m_ABa0 
+.extern m_ABCa 
+.extern m_Bb000000 
+.extern m_ABb00000 
+.extern m_ABCb0000 
+.extern m_ABCDb000 
+.extern m_ABCDEb00 
+.extern m_ABCDEFb0 
+.extern m_ABCDEFGb 
+.extern m_Bb00Bb00 
+.extern m_ABb0EFb0 
+.extern m_ABCbEFGb 
+.extern m_aAaBaCaD 
+.extern m_aEaFaGaH 
+.extern m_BBDDFFHHJJLLNNPP 
+.extern m_DDDDHHHHLLLLPPPP 
+
+
+.text
+.align 7
+
+// Parameters
+.reg	pIn 3			// input
+.reg	out00 4			// output
+.reg	numVerts 5		// input
+.reg	bitsX 6			// input
+.reg	bitsY 7			// input
+.reg	bitsZ 8			// input
+.reg	bitsW 9			// input
+.reg	intoff 10		// input
+.reg	scale 11		// input
+.reg	bias 12			// input
+
+.reg nibble, nib0, nib1
+.reg d0, d1, d2, d3, d4, d5, da, db, dc, dd
+.reg off, off_
+.reg one
+.reg sh, sh0, sh1, shOff, sho0, sho1
+.reg o0, o1, o2, o3, o4, o5, o6, o7
+.reg o0_, o1_, o2_, o3_, o4_, o5_, o6_, o7_
+.reg o0__, o1__, o2__, o3__, o4__, o5__, o6__, o7__
+.reg o0___, o1___, o2___, o3___, o4___, o5___, o6___, o7___
+.reg r0, r1, r2, r3, r4, r5, r6, r7, r8
+.reg t0, t1, t2, t3, t4, t5, t6, t7, t8
+.reg t0_, t1_, t2_, t3_
+.reg t0__, t1__, t2__, t3__
+.reg st0, st1, st2, st3, st4, st5, st6, st7, st8
+.reg out10, out20, out30, out40, out50, out60, out70
+.reg sizex4, sizex8
+.reg bitsX1, bitsY1, bitsZ1, bitsW1
+.reg bitsX2, bitsY2, bitsZ2, bitsW2
+.reg bitsX3, bitsY3, bitsZ3, bitsW3
+.reg bitsX4, bitsY4, bitsZ4, bitsW4
+.reg bitsX5, bitsY5, bitsZ5, bitsW5
+.reg bitsX6, bitsY6, bitsZ6, bitsW6
+.reg bitsX7, bitsY7, bitsZ7, bitsW7
+.reg bitsX8, bitsY8, bitsZ8, bitsW8
+.reg s_AAAA, s_ABCD, s_Baaa, s_Aa00, s_ABa0, s_ABCa
+.reg s_aAaBaCaD, s_aEaFaGaH
+.reg s_Bb000000, s_ABb00000, s_ABCb0000, s_ABCDb000, s_ABCDEb00, s_ABCDEFb0, s_ABCDEFGb
+.reg s_Bb00Bb00, s_ABb0EFb0, s_ABCbEFGb
+.reg s_DDDDDDDDDDDDDDDD, s_BBDDFFHHJJLLNNPP, s_DDDDHHHHLLLLPPPP
+.reg m_FFFF
+.reg mask
+.reg shufdBits
+.reg tmp
+.reg const1
+.reg gtX, gtY, gtZ, gtW, gt
+.reg pIn2
+.reg thisWay, thatWay, theWay
+
+DecompressSwFormat:
+		ilhu	one, 0x3f80							biz	numVerts, $lr
+		a	sizex8, bitsX, bitsY						lqa	s_Baaa, m_Baaa
+		cgti	gtY, bitsY, 8							lqa	s_ABCD, m_ABCD
+		cgti	gtX, bitsX, 8							rotqbyi	bitsZ1, sizex8, 0
+		a	sizex8, sizex8, bitsZ						lqa	s_Aa00, m_Aa00
+		or	gt, gtX, gtY							fsmbi	m_FFFF, 0xFFFF
+		cgti	gtZ, bitsZ, 8							rotqbyi	bitsW1, sizex8, 0
+		a	sizex8, sizex8, bitsW						fsmbi	bitsX1, 0x0000
+		or	gt, gt, gtZ							rotqbyi	bitsY1, bitsX, 0
+		cgti	gtW, bitsW, 8							rotqbyi	bitsX2, sizex8, 0
+		ai	numVerts, numVerts, 7						{lnop}
+		or	gt, gt, gtW							{lnop}
+		ila	thatWay, Decompress256						{lnop}
+		a	bitsY2, bitsX2, bitsX						{lnop}
+		ila	thisWay, Decompress512						{lnop}
+		a	bitsZ2, bitsY2, bitsY						{lnop}
+		selb	theWay, thatWay, thisWay, gt					{lnop}
+		a	bitsW2, bitsZ2, bitsZ						{lnop}
+		andi	numVerts, numVerts, -8						hbr	TheBranch, theWay
+		a	bitsX3, bitsW2, bitsW						{lnop}
+		shli	off, numVerts, 4						{lnop}
+		a	bitsY3, bitsX3, bitsX						{lnop}
+		nop									{lnop}
+		a	bitsZ3, bitsY3, bitsY						{lnop}
+		ai	off, off, -128							{lnop}
+		a	bitsW3, bitsZ3, bitsZ						{lnop}
+		a	out00, out00, off						{lnop}
+		a	bitsX4, bitsW3, bitsW						{lnop}
+		nop									{lnop}
+		a	bitsY4, bitsX4, bitsX						{lnop}
+		nop									{lnop}
+		a	bitsZ4, bitsY4, bitsY						{lnop}
+		nop									{lnop}
+		a	bitsW4, bitsZ4, bitsZ				TheBranch:	binz	gt, theWay [Decompress256 Decompress512]
+	
+		
+Decompress256:
+		a	bitsX5, bitsW4, bitsW						lqa	s_Bb000000, m_Bb000000
+		sfi	off, off, 0							lqa	s_ABb00000, m_ABb00000
+		a	bitsY5, bitsX5, bitsX						lqa	s_ABCb0000, m_ABCb0000
+		ai	out10, out00, 0x10						lqa	s_ABCDb000, m_ABCDb000
+		a	bitsZ5, bitsY5, bitsY						lqa	s_ABCDEFb0, m_ABCDEFb0
+		ai	out50, out00, 0x50						lqa	s_ABCDEFGb, m_ABCDEFGb
+		a	bitsW5, bitsZ5, bitsZ						shufb	r1, bitsX3, bitsY3, s_Bb000000
+		ai	out40, out00, 0x40						shufb	r0, bitsX1, bitsY1, s_Bb000000
+		a	bitsX6, bitsW5, bitsW						shufb	r2, bitsX5, bitsY5, s_Bb000000
+		ai	out30, out00, 0x30						lqa	s_ABCDEb00, m_ABCDEb00
+		a	bitsY6, bitsX6, bitsX						shufb	r1, r1, bitsZ3, s_ABb00000
+		ai	out20, out00, 0x20						shufb	r0, r0, bitsZ1, s_ABb00000
+		a	bitsZ6, bitsY6, bitsY						shufb	r2, r2, bitsZ5, s_ABb00000
+		ilhu	s_DDDDDDDDDDDDDDDD, 0x0303					lqa	s_Bb00Bb00, m_Bb00Bb00
+		a	bitsW6, bitsZ6, bitsZ						shufb	r1, r1, bitsW3, s_ABCb0000
+		iohl	s_DDDDDDDDDDDDDDDD, 0x0303					shufb	r0, r0, bitsW1, s_ABCb0000
+		a	bitsX7, bitsW6, bitsW						shufb	r2, r2, bitsW5, s_ABCb0000
+		ai	out70, out00, 0x70						lqa	s_ABb0EFb0, m_ABb0EFb0
+		a	bitsY7, bitsX7, bitsX						lqa	s_ABCbEFGb, m_ABCbEFGb
+		ai	out60, out00, 0x60						shufb	r0, r0, bitsX2, s_ABCDb000
+		a	bitsZ7, bitsY7, bitsY						shufb	r3, bitsX7, bitsY7, s_Bb000000
+		nop									shufb	r2, r2, bitsX6, s_ABCDb000
+		a	bitsW7, bitsZ7, bitsZ						shufb	shufdBits, bitsX, bitsY, s_Bb00Bb00
+		nop									shufb	r0, r0, bitsY2, s_ABCDEb00
+		a	bitsX8, bitsW7, bitsW						shufb	r3, r3, bitsZ7, s_ABb00000
+		nop									shufb	r2, r2, bitsY6, s_ABCDEb00
+		a	bitsY8, bitsX8, bitsX						shufb	shufdBits, shufdBits, bitsZ, s_ABb0EFb0
+		nop									shufb	r0, r0, bitsZ2, s_ABCDEFb0
+		a	bitsZ8, bitsY8, bitsY						shufb	r3, r3, bitsW7, s_ABCb0000
+		nop									shufb	r2, r2, bitsZ6, s_ABCDEFb0
+		a	bitsW8, bitsZ8, bitsZ						shufb	r1, r1, bitsX4, s_ABCDb000
+		{nop}									shufb	r0, r0, bitsW2, s_ABCDEFGb
+		{nop}									shufb	r3, r3, bitsX8, s_ABCDb000
+		{nop}									shufb	shufdBits, shufdBits, bitsW, s_ABCbEFGb
+		{nop}									shufb	r1, r1, bitsY4, s_ABCDEb00
+		rothmi	st0, r0, -3							shufb	r2, r2, bitsW6, s_ABCDEFGb
+		andhi	r0, r0, 7							shufb	r3, r3, bitsY8, s_ABCDEb00
+		sfhi	tmp, shufdBits, 14						lqa	s_aEaFaGaH, m_aEaFaGaH
+		shlh	mask, m_FFFF, shufdBits						shufb	r1, r1, bitsZ4, s_ABCDEFb0
+		rothmi	st2, r2, -3							lqa	s_BBDDFFHHJJLLNNPP, m_BBDDFFHHJJLLNNPP
+		andhi	r2, r2, 7							shufb	r3, r3, bitsZ8, s_ABCDEFb0
+		sfh	r0, r0, tmp							lqa	s_aAaBaCaD, m_aAaBaCaD
+		rothi	mask, mask, 2							shufb	r1, r1, bitsW4, s_ABCDEFGb
+		sfh	r2, r2, tmp							rotqbyi	off_, off, 0
+		sfhi	r0, r0, 0							shufb	r3, r3, bitsW8, s_ABCDEFGb
+		sfhi	r2, r2, 0							shufb	st0, st0, st0, s_BBDDFFHHJJLLNNPP
+		rothmi	st1, r1, -3							shufb	st2, st2, st2, s_BBDDFFHHJJLLNNPP
+		andhi	r1, r1, 7							hbrr	Branch256, Loop256
+		rothmi	st3, r3, -3							{lnop}
+		sfh	r1, r1, tmp							{lnop}
+		andhi	r3, r3, 7							shufb	st1, st1, st1, s_BBDDFFHHJJLLNNPP
+		ahi	st0, st0, 0x0001						lnop
+		sfh	r3, r3, tmp							shufb	st3, st3, st3, s_BBDDFFHHJJLLNNPP
+		ahi	st2, st2, 0x0001						{lnop}
+		sfhi	r3, r3, 0							{lnop}
+		ahi	st1, st1, 0x0001						{lnop}
+		ahi	st3, st3, 0x0001						{lnop}
+		sfhi	r1, r1, 0							lnop
+		.cset o3, o6, o7, t0__, t1__, t2__
+
+Loop256:
+	{e2 1}	andi	nibble, pIn, 0xF					{e6 1}	lqd	d0, 0x00(pIn)
+	{e2 2}	a	o7_, o7, intoff						{e6 1}	lqd	d1, 0x10(pIn)
+	{e2 2}	a	o6_, o6, intoff						{e4 2}	shufb	o1, t0__, one, s_aEaFaGaH
+	{e2 2}	a	o3_, o3, intoff						{e4 1}	shufb	shOff, nibble, nibble, s_DDDDDDDDDDDDDDDD
+	{e6 2}	fma	o7__, o7_, scale, bias					{e6 1}	lqd	d2, 0x20(pIn)
+	{e6 2}	fma	o6__, o6_, scale, bias					{o4 1}	shufb	off_, off_, off, s_Baaa
+	{e2 2}	a	o1_, o1, intoff						{e4 2}	shufb	o2, t1__, one, s_aAaBaCaD
+	{e2 1}	a	sh, s_ABCD, shOff					{e4 2}	shufb	o0, t0__, one, s_aAaBaCaD
+	{e6 2}	fma	o1__, o1_, scale, bias					{e4 2}	shufb	o5, t2__, one, s_aEaFaGaH
+	{e6 2}	fma	o3__, o3_, scale, bias					{e4 1}	shufb	da, d0, d1, sh
+	{e2 2}	a	o2_, o2, intoff						{e4 1}	shufb	db, d1, d2, sh
+	{e2 2}	a	o0_, o0, intoff						{e4 2}	shufb	o4, t2__, one, s_aAaBaCaD
+	{e2 2}	a	o5_, o5, intoff						{e1 2}	stqx	o6__, out60, off_
+	{e6 2}	fma	o2__, o2_, scale, bias					{e1 2}	stqx	o7__, out70, off_
+	{e6 2}	fma	o0__, o0_, scale, bias					{e4 1}	shufb	t3, da, db, st3
+	{e2 2}	a	o4_, o4, intoff						{e4 1}	shufb	t1, da, db, st1
+	{e6 2}	fma	o5__, o5_, scale, bias					{e4 1}	shufb	t2, da, db, st2
+	{e6 2}	fma	o4__, o4_, scale, bias					{e4 1}	shufb	t0, da, db, st0
+	{e4 1}	roth	t3_, t3, r3						{e1 2}	stqx	o3__, out30, off_
+	{e4 1}	roth	t1_, t1, r1						{e1 2}	stqx	o1__, out10, off_
+	{e4 1}	roth	t2_, t2, r2						{e1 2}	stqx	o2__, out20, off_
+	{e4 1}	roth	t0_, t0, r0						{e1 2}	stqx	o0__, out00, off_
+	{e2 1}	andc	t3__, t3_, mask						{e1 2}	stqx	o5__, out50, off_
+	{e2 1}	andc	t1__, t1_, mask						{e1 2}	stqx	o4__, out40, off_
+	{e2 1}	andc	t2__, t2_, mask						{e4 1}	shufb	o7, t3__, one, s_aEaFaGaH
+	{e2 1}	andc	t0__, t0_, mask						{e4 1}	shufb	o3, t1__, one, s_aEaFaGaH
+	{e2 1}	a	pIn, pIn, sizex8					{e4 1}	shufb	o6, t3__, one, s_aAaBaCaD
+	{e2 1}	ai	off, off, 0x80				Branch256:	{e1 2}	brnz	off_, Loop256
+		nop									bi	$lr
+		
+Decompress512:
+		a	bitsX5, bitsW4, bitsW						lqa	s_ABa0, m_ABa0
+		ilhu	s_AAAA, 0x0001							lqa	s_ABCa, m_ABCa
+		andi	bitsX5, bitsX5, 0x7						shufb	r0, bitsX1, bitsY1, s_Aa00
+		iohl	s_AAAA, 0x0203							shufb	r3, bitsX4, bitsY4, s_Aa00
+		a	bitsY5, bitsX5, bitsX						shufb	r2, bitsX3, bitsY3, s_Aa00
+		sfi	off, off, 0							shufb	r1, bitsX2, bitsY2, s_Aa00
+		a	bitsZ5, bitsY5, bitsY						shufb	r4, bitsX5, bitsY5, s_Aa00
+		rotmi	sizex4, sizex8, -1						shufb	shufdBits, bitsX, bitsY, s_Aa00
+		a	bitsW5, bitsZ5, bitsZ						shufb	r3, r3, bitsZ4, s_ABa0
+		ai	out30, out00, 0x30						shufb	r1, r1, bitsZ2, s_ABa0
+		a	bitsX6, bitsW5, bitsW						shufb	r4, r4, bitsZ5, s_ABa0
+		ai	out20, out00, 0x20						shufb	r0, r0, bitsZ1, s_ABa0
+		a	bitsY6, bitsX6, bitsX						shufb	r2, r2, bitsZ3, s_ABa0
+		ai	out10, out00, 0x10						shufb	shufdBits, shufdBits, bitsZ, s_ABa0
+		a	bitsZ6, bitsY6, bitsY						shufb	r5, bitsX6, bitsY6, s_Aa00
+		ai	out60, out00, 0x60						lqa	s_DDDDHHHHLLLLPPPP, m_DDDDHHHHLLLLPPPP
+		a	bitsW6, bitsZ6, bitsZ						shufb	r1, r1, bitsW2, s_ABCa
+		ilh	s_DDDDDDDDDDDDDDDD, 0x0303					shufb	r2, r2, bitsW3, s_ABCa
+		a	bitsX7, bitsW6, bitsW						shufb	r5, r5, bitsZ6, s_ABa0
+		ai	out70, out00, 0x70						shufb	r3, r3, bitsW4, s_ABCa
+		a	bitsY7, bitsX7, bitsX						shufb	r0, r0, bitsW1, s_ABCa
+		rotmi	st2, r2, -3							shufb	r4, r4, bitsW5, s_ABCa
+		a	bitsZ7, bitsY7, bitsY						shufb	r6, bitsX7, bitsY7, s_Aa00
+		rotmi	st3, r3, -3							shufb	r5, r5, bitsW6, s_ABCa
+		a	bitsW7, bitsZ7, bitsZ						shufb	shufdBits, shufdBits, bitsW, s_ABCa
+		rotmi	st4, r4, -3							hbrr	Branch512, Loop512
+		a	bitsX8, bitsW7, bitsW						shufb	r6, r6, bitsZ7, s_ABa0
+		rotmi	st0, r0, -3							shufb	st2, st2, st2, s_DDDDHHHHLLLLPPPP
+		a	bitsY8, bitsX8, bitsX						shufb	st3, st3, st3, s_DDDDHHHHLLLLPPPP
+		sfi	tmp, shufdBits, 30						shufb	st4, st4, st4, s_DDDDHHHHLLLLPPPP
+		a	bitsZ8, bitsY8, bitsY						shufb	r7, bitsX8, bitsY8, s_Aa00
+		rotmi	st1, r1, -3							shufb	r6, r6, bitsW7, s_ABCa
+		a	bitsW8, bitsZ8, bitsZ						shufb	st0, st0, st0, s_DDDDHHHHLLLLPPPP
+		rotmi	st5, r5, -3							rotqbyi	off_, off, 0
+		andi	r2, r2, 7							shufb	r7, r7, bitsZ8, s_ABa0
+		rotmi	st6, r6, -3							shufb	st1, st1, st1, s_DDDDHHHHLLLLPPPP
+		andi	r0, r0, 7							lnop
+		andi	r4, r4, 7							shufb	st5, st5, st5, s_DDDDHHHHLLLLPPPP
+		andi	r1, r1, 7							shufb	r7, r7, bitsW8, s_ABCa
+		andi	r3, r3, 7							shufb	st6, st6, st6, s_DDDDHHHHLLLLPPPP
+		andi	r6, r6, 7							{lnop}
+		andi	r5, r5, 7							{lnop}
+		rotmi	st7, r7, -3							{lnop}
+		andi	r7, r7, 7							{lnop}
+		sf	r4, r4, tmp							{lnop}
+		sf	r7, r7, tmp							{lnop}
+		sf	r0, r0, tmp							shufb	st7, st7, st7, s_DDDDHHHHLLLLPPPP
+		sf	r2, r2, tmp							{lnop}
+		shl	mask, m_FFFF, shufdBits						{lnop}
+		sf	r3, r3, tmp							{lnop}
+		sf	r5, r5, tmp							{lnop}
+		sf	r6, r6, tmp							{lnop}
+		sf	r1, r1, tmp							{lnop}
+		sfi	r7, r7, 0							{lnop}
+		a	st5, st5, s_AAAA						{lnop}
+		sfi	r5, r5, 0							{lnop}
+		a	st2, st2, s_AAAA						{lnop}
+		sfi	r2, r2, 0							{lnop}
+		a	st3, st3, s_AAAA						{lnop}
+		a	st4, st4, s_AAAA						{lnop}
+		sfi	r1, r1, 0							{lnop}
+		a	st0, st0, s_AAAA						{lnop}
+		sfi	r4, r4, 0							{lnop}
+		ai	out50, out00, 0x50						{lnop}
+		a	st7, st7, s_AAAA						{lnop}
+		a	st6, st6, s_AAAA						{lnop}
+		a	st1, st1, s_AAAA						{lnop}
+		sfi	r6, r6, 0							{lnop}
+		sfi	r0, r0, 0							{lnop}
+		ai	out40, out00, 0x40						{lnop}
+		a	pIn2, pIn, sizex4						{lnop}
+		sfi	r3, r3, 0							{lnop}
+		roti	mask, mask, 2							{lnop}
+		.cset dc, dd, o0, o1, o2, o3
+
+Loop512:
+	{e2 1}	andi	nib0, pIn, 0xF						{o4 1}	shufb	off_, off_, off, s_Baaa
+	{e2 1}	andi	nib1, pIn2, 0xF						{e4 2}	shufb	t6, dc, dd, st6
+	{e2 2}	selb	o0_, o0, one, mask					{e4 2}	shufb	t4, dc, dd, st4
+	{e2 2}	selb	o3_, o3, one, mask					{e4 1}	shufb	sho0, nib0, nib0, s_DDDDDDDDDDDDDDDD
+	{e2 2}	selb	o2_, o2, one, mask					{e6 1}	lqd	d0, 0x00(pIn)
+	{e4 2}	rot	o6, t6, r6						{e6 1}	lqd	d4, 0x10(pIn2)
+	{e4 2}	rot	o4, t4, r4						{e6 1}	lqd	d1, 0x10(pIn)
+	{e2 1}	a	sh0, s_ABCD, sho0					{e6 1}	lqd	d2, 0x20(pIn)
+	{e2 2}	selb	o1_, o1, one, mask					{e4 2}	shufb	t7, dc, dd, st7
+	{e2 2}	a	o2__, o2_, intoff					{e6 1}	lqd	d3, 0x00(pIn2)
+	{e2 2}	selb	o4_, o4, one, mask					{e4 2}	shufb	t5, dc, dd, st5
+	{e2 2}	a	o1__, o1_, intoff					{e4 1}	shufb	sho1, nib1, nib1, s_DDDDDDDDDDDDDDDD
+	{e4 2}	rot	o7, t7, r7						{e4 1}	shufb	da, d0, d1, sh0
+	{e2 2}	a	o3__, o3_, intoff					{e4 1}	shufb	db, d1, d2, sh0
+	{e4 2}	rot	o5, t5, r5						{e6 1}	lqd	d5, 0x20(pIn2)
+	{e2 2}	a	o0__, o0_, intoff						{lnop}
+	{e2 2}	selb	o7_, o7, one, mask						{lnop}
+	{e2 1}	a	sh1, s_ABCD, sho1					{e4 1}	shufb	t0, da, db, st0
+	{e2 2}	selb	o5_, o5, one, mask					{e4 1}	shufb	t1, da, db, st1
+	{e2 2}	a	o7__, o7_, intoff					{e4 1}	shufb	t3, da, db, st3
+	{e2 2}	a	o5__, o5_, intoff					{e4 1}	shufb	dd, d4, d5, sh1
+	{e2 2}	selb	o6_, o6, one, mask					{e4 1}	shufb	t2, da, db, st2
+	{e2 2}	a	o4__, o4_, intoff					{e4 1}	shufb	dc, d3, d4, sh1
+	{e2 2}	a	o6__, o6_, intoff						{lnop}
+	{e6 2}	fma	o7___, o7__, scale, bias					{lnop}
+	{e6 2}	fma	o4___, o4__, scale, bias					{lnop}
+	{e6 2}	fma	o5___, o5__, scale, bias					{lnop}
+	{e6 2}	fma	o0___, o0__, scale, bias					{lnop}
+	{e6 2}	fma	o6___, o6__, scale, bias					{lnop}
+	{e6 2}	fma	o1___, o1__, scale, bias					lnop
+	{e6 2}	fma	o3___, o3__, scale, bias				{e1 2}	stqx	o7___, out70, off_
+	{e6 2}	fma	o2___, o2__, scale, bias				{e1 2}	stqx	o4___, out40, off_
+	{e4 1}	rot	o3, t3, r3						{e1 2}	stqx	o5___, out50, off_
+	{e4 1}	rot	o1, t1, r1						{e1 2}	stqx	o0___, out00, off_
+	{e2 1}	a	pIn, pIn, sizex8					{e1 2}	stqx	o6___, out60, off_
+	{e4 1}	rot	o0, t0, r0						{e1 2}	stqx	o1___, out10, off_
+	{e2 1}	ai	off, off, 0x80						{e1 2}	stqx	o3___, out30, off_
+	{e4 1}	rot	o2, t2, r2						{e1 2}	stqx	o2___, out20, off_
+	{e2 1}	a	pIn2, pIn2, sizex8			Branch512:	{e1 2}	brnz	off_, Loop512
+		nop									bi	$lr
+
+
+// self-test code.
+.if TEST
+
+.data
+.align 12
+
+.align 4
+m_x8y8z8:	.db 0x01, 0x02, 0x03
+		.db 0x11, 0x12, 0x13
+		.db 0x21, 0x22, 0x23
+		.db 0x31, 0x32, 0x33
+		.db 0x41, 0x42, 0x43
+		.db 0x51, 0x52, 0x53
+		.db 0x61, 0x62, 0x63
+		.db 0x71, 0x72, 0x73
+		.db 0x81, 0x82, 0x83
+		.db 0x91, 0x92, 0x93
+		.db 0xA1, 0xA2, 0xA3
+		.db 0xB1, 0xB2, 0xB3
+		.db 0xC1, 0xC2, 0xC3
+		.db 0xD1, 0xD2, 0xD3
+		.db 0xE1, 0xE2, 0xE3
+		.db 0xF1, 0xF2, 0xF3
+
+.align 4
+m_x4y4z4:	.dw 0x01234567
+		.dw 0x89ABCDEF
+		.dw 0x01234567
+		.dw 0x89ABCDEF
+		.dw 0x01234567
+		.dw 0x89ABCDEF
+
+.align 4
+m_x4y8z4:	.dw 0x0FF01EE1
+		.dw 0x2DD23CC3
+		.dw 0x4BB45AA5
+		.dw 0x69967887
+		.dw 0x87789669
+		.dw 0xA55AB44B
+		.dw 0xC33CD22D
+		.dw 0xE11EF00F
+
+.align 4
+m_x2y1z1:	.dw 0x01234567
+		.dw 0x89ABCDEF
+
+.align 4
+m_x2y2z0:	.dw 0x01234567
+		.dw 0x89ABCDEF
+
+.align 4
+m_x16y8z8:	.dw 0x00000102, 0x10001112, 0x20002122, 0x30003132
+		.dw 0x40004142, 0x50005152, 0x60006162, 0x70007172
+		.dw 0x80008182, 0x90009192, 0xa000a1a2, 0xb000b1b2
+		.dw 0xc000c1c2, 0xd000d1d2, 0xe000e1e2, 0xf000f1f2
+
+.align 4
+m_out:	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+.text
+.align 7
+
+.global _start
+	.reg m_F000
+	.reg scaleX, scaleY, scaleZ, scaleW
+	.reg intoffX, intoffY, intoffZ, intoffW
+	.reg intoff1, intoff2
+	.reg scale1, scale2
+	.reg bias1, bias2
+	.reg inScaleX, inScaleY, inScaleZ, inScaleW
+	.reg inBiasX, inBiasY, inBiasZ, inBiasW
+	.reg s_00Aa
+_start:
+	ila	pIn, m_x16y8z8				lnop
+	ila	out00, m_out				lnop
+	il	numVerts, 16				lnop
+	il	bitsX, 7				lnop
+	il	bitsY, 8				lnop
+	il	bitsZ, 8				lnop
+	il	bitsW, 0				lnop
+	il	intoffX, 0				lnop
+	il	intoffY, 0				lnop
+	il	intoffZ, 0				lnop
+	il	intoffW, 0				lnop
+	ilhu	inScaleX, 0x3f80			lnop
+	ilhu	inScaleY, 0x3f80			lnop
+	ilhu	inScaleZ, 0x3f80			lnop
+	ilhu	inScaleW, 0x3f80			lnop
+	il	inBiasX, 0				lnop
+	il	inBiasY, 0				lnop
+	il	inBiasZ, 0				lnop
+	il	inBiasW, 0				lnop
+	
+	ilhu one, 0x3f80				lnop
+	sfi scaleZ, bitsZ, 21				lnop
+	sfi scaleY, bitsY, 21				lnop
+	sfi scaleX, bitsX, 21				lnop
+	sfi scaleW, bitsW, 21				lnop
+	shli scaleX, scaleX, 23				lnop
+	shli scaleY, scaleY, 23				lnop
+	shli scaleZ, scaleZ, 23				lnop
+	shli scaleW, scaleW, 23				lnop
+	a scaleX, scaleX, one				lnop
+	a scaleY, scaleY, one				lnop
+	a scaleZ, scaleZ, one				lnop
+	a scaleW, scaleW, one				lnop
+	fs inBiasZ, inBiasZ, scaleZ			lnop
+	fs inBiasY, inBiasY, scaleY			lnop
+	fs inBiasX, inBiasX, scaleX			lnop
+	fs inBiasW, inBiasW, scaleW			lnop
+	fm inScaleX, scaleX, inScaleX			lnop
+	fm inScaleY, scaleY, inScaleY			lnop
+	fm inScaleZ, scaleZ, inScaleZ			lnop
+	fm inScaleW, scaleW, inScaleW			lnop
+
+	nop						lqa s_Aa00, m_Aa00
+	nop						rotqbyi s_00Aa, s_Aa00, 8
+	nop						shufb intoff1, intoffX, intoffY, s_Aa00
+	nop						shufb scale1, inScaleX, inScaleY, s_Aa00
+	nop						shufb bias1, inBiasX, inBiasY, s_Aa00
+	nop						shufb scale2, inScaleZ, inScaleW, s_00Aa
+	nop						shufb intoff2, intoffZ, intoffW, s_00Aa
+	nop						shufb bias2, inBiasZ, inBiasW, s_00Aa
+	or scale, scale1, scale2			lnop
+	or bias, bias1, bias2				lnop
+	or intoff, intoff1, intoff2			lnop
+							
+	nop						fsmbi	m_F000, 0xF000
+	nop						brsl	$lr, DecompressSwFormat [#func]
+	nop						stop
+
+.endif ;; TEST	
+	
+.end
+
+

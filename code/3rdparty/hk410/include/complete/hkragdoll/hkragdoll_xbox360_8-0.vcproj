@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="hkragdoll"
+	ProjectGUID="{43F8DA09-167F-4F42-AE44-EC01CB0F1241}"
+	>
+	<Platforms>
+		<Platform
+			Name="Xbox 360"
+		/>
+	</Platforms>
+	<ToolFiles>
+	</ToolFiles>
+	<Configurations>
+		<Configuration
+			Name="Release Multithreaded|Xbox 360"
+			OutputDirectory="..\..\..\lib\xbox360-net\release_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_8-0\havok_2+mayhem_client\release_multithreaded\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="-1"
+			UseOfATL="0"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLX360CompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="1"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkragdoll.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded|Xbox 360"
+			OutputDirectory="..\..\..\lib\xbox360-net\fulldebug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_8-0\havok_2+mayhem_client\fulldebug_multithreaded\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="-1"
+			UseOfATL="0"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLX360CompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="1"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkragdoll.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded|Xbox 360"
+			OutputDirectory="..\..\..\lib\xbox360-net\debug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_8-0\havok_2+mayhem_client\debug_multithreaded\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="-1"
+			UseOfATL="0"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLX360CompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="1"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkragdoll.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+			<Filter
+Name="classes"
+>
+	<File
+RelativePath=".\classes\hkRagdollClasses.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="controller"
+>
+	<Filter
+Name="poweredchain"
+>
+	<File
+RelativePath=".\controller\poweredchain\hkRagdollPoweredChainController.cpp"
+>
+</File>
+	<File
+RelativePath=".\controller\poweredchain\hkRagdollPoweredChainController.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="poweredconstraint"
+>
+	<File
+RelativePath=".\controller\poweredconstraint\hkRagdollPoweredConstraintController.cpp"
+>
+</File>
+	<File
+RelativePath=".\controller\poweredconstraint\hkRagdollPoweredConstraintController.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="rigidbody"
+>
+	<File
+RelativePath=".\controller\rigidbody\hkKeyFrameHierarchyUtility.cpp"
+>
+</File>
+	<File
+RelativePath=".\controller\rigidbody\hkKeyFrameHierarchyUtility.h"
+>
+</File>
+	<File
+RelativePath=".\controller\rigidbody\hkRagdollRigidBodyController.cpp"
+>
+</File>
+	<File
+RelativePath=".\controller\rigidbody\hkRagdollRigidBodyController.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="instance"
+>
+	<File
+RelativePath=".\instance\hkRagdollInstance.cpp"
+>
+</File>
+	<File
+RelativePath=".\instance\hkRagdollInstance.h"
+>
+</File>
+	<File
+RelativePath=".\instance\hkRagdollInstance.inl"
+>
+</File>
+	<File
+RelativePath=".\instance\hkRagdollInstanceClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="posematching"
+>
+	<File
+RelativePath=".\posematching\hkPoseMatchingUtility.cpp"
+>
+</File>
+	<File
+RelativePath=".\posematching\hkPoseMatchingUtility.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="utils"
+>
+	<File
+RelativePath=".\utils\hkRagdollUtils.cpp"
+>
+</File>
+	<File
+RelativePath=".\utils\hkRagdollUtils.h"
+>
+</File>
+	</Filter>
+	<File
+RelativePath=".\hkRagdoll.cpp"
+>
+	<FileConfiguration Name="fulldebug multithreaded|Xbox360"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="debug multithreaded|Xbox360"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded|Xbox360"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+</File>
+	<File
+RelativePath=".\hkRagdoll.h"
+>
+</File>
+
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
+

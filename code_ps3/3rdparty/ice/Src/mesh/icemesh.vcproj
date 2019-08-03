@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="icemesh"
+	ProjectGUID="{D33A0CCC-9ACA-4712-856C-A1237713F3FF}"
+	RootNamespace="icemesh"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="atgbuild Build $(ProjectName) PS3 DEBUG"
+				ReBuildCommandLine="atgbuild Rebuild $(ProjectName) PS3 DEBUG"
+				CleanCommandLine="atgbuild Clean $(ProjectName) PS3 DEBUG"/>
+		</Configuration>
+		<Configuration
+			Name="Development|Win32"
+			OutputDirectory="Development"
+			IntermediateDirectory="Development"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="atgbuild Build $(ProjectName) PS3 DEVELOPMENT"
+				ReBuildCommandLine="atgbuild Rebuild $(ProjectName) PS3 DEVELOPMENT"
+				CleanCommandLine="atgbuild Clean $(ProjectName) PS3 DEVELOPMENT"/>
+		</Configuration>
+		<Configuration
+			Name="Profile|Win32"
+			OutputDirectory="Profile"
+			IntermediateDirectory="Profile"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="atgbuild Build $(ProjectName) PS3 PROFILE"
+				ReBuildCommandLine="atgbuild Rebuild $(ProjectName) PS3 PROFILE"
+				CleanCommandLine="atgbuild Clean $(ProjectName) PS3 PROFILE"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="atgbuild Build $(ProjectName) PS3 RELEASE"
+				ReBuildCommandLine="atgbuild Rebuild $(ProjectName) PS3 RELEASE"
+				CleanCommandLine="atgbuild Clean $(ProjectName) PS3 RELEASE"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
+			<File
+				RelativePath=".\icedebug.cpp">
+			</File>
+			<File
+				RelativePath=".\icemesh.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshblend.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshcommand.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshcompress.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshconstdata.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshdecompress.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshdm.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshfrontend.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshmemcopy.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshmisc.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshpm.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshshadow.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshskin.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshstats.cpp">
+			</File>
+			<File
+				RelativePath=".\icemeshtrim.cpp">
+			</File>
+			<File
+				RelativePath=".\rgmstable.cpp">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
+			<File
+				RelativePath=".\icedebug.h">
+			</File>
+			<File
+				RelativePath=".\icemesh.h">
+			</File>
+			<File
+				RelativePath=".\icemeshdma.h">
+			</File>
+			<File
+				RelativePath=".\icemeshfrontend.h">
+			</File>
+			<File
+				RelativePath=".\icemeshinternal.h">
+			</File>
+			<File
+				RelativePath=".\icemeshstructs.h">
+			</File>
+			<File
+				RelativePath=".\icequadword.h">
+			</File>
+			<File
+				RelativePath=".\icespucodegeneration.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}">
+		</Filter>
+		<File
+			RelativePath=".\icemesh.targets">
+		</File>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

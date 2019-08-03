@@ -1,0 +1,2 @@
+Release of BeyondDebugging. Version 0.1.4 for ATGSDK release 1.13.2
+See bdhelp.chm for details.

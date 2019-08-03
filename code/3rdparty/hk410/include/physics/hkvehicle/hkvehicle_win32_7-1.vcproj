@@ -1,0 +1,1116 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="hkvehicle"
+	ProjectGUID="{211CB505-3111-482B-BBE4-4C293E109CE4}"
+	>
+	<Platforms>
+		<Platform
+			Name="Win32"
+		/>
+	</Platforms>
+
+	<Configurations>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="4"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release_multithreaded\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release_multithreaded_dll\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="2"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="5"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug_multithreaded\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug_multithreaded_dll\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="5"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug_multithreaded\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug_multithreaded_dll\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Hybrid Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\hybrid_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\hybrid_multithreaded_dll\hkvehicle"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkvehicle/hkVehicle.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkvehicle.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkvehicle.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkvehicle.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+			<Filter
+Name="aerodynamics"
+>
+	<File
+RelativePath=".\aerodynamics\hkVehicleAerodynamics.h"
+>
+</File>
+	<File
+RelativePath=".\aerodynamics\hkVehicleAerodynamicsClass.cpp"
+>
+</File>
+	<Filter
+Name="default"
+>
+	<File
+RelativePath=".\aerodynamics\default\hkVehicleDefaultAerodynamics.cpp"
+>
+</File>
+	<File
+RelativePath=".\aerodynamics\default\hkVehicleDefaultAerodynamics.h"
+>
+</File>
+	<File
+RelativePath=".\aerodynamics\default\hkVehicleDefaultAerodynamicsClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="brake"
+>
+	<File
+RelativePath=".\brake\hkVehicleBrake.h"
+>
+</File>
+	<File
+RelativePath=".\brake\hkVehicleBrakeClass.cpp"
+>
+</File>
+	<Filter
+Name="default"
+>
+	<File
+RelativePath=".\brake\default\hkVehicleDefaultBrake.cpp"
+>
+</File>
+	<File
+RelativePath=".\brake\default\hkVehicleDefaultBrake.h"
+>
+</File>
+	<File
+RelativePath=".\brake\default\hkVehicleDefaultBrakeClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="camera"
+>
+	<File
+RelativePath=".\camera\hk1dAngularFollowCam.cpp"
+>
+</File>
+	<File
+RelativePath=".\camera\hk1dAngularFollowCam.h"
+>
+</File>
+	<File
+RelativePath=".\camera\hk1dAngularFollowCamCinfo.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="classes"
+>
+	<File
+RelativePath=".\classes\hkVehicleClasses.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="driverinput"
+>
+	<File
+RelativePath=".\driverinput\hkVehicleDriverInput.h"
+>
+</File>
+	<File
+RelativePath=".\driverinput\hkVehicleDriverInputClass.cpp"
+>
+</File>
+	<Filter
+Name="default"
+>
+	<File
+RelativePath=".\driverinput\default\hkVehicleDefaultAnalogDriverInput.cpp"
+>
+</File>
+	<File
+RelativePath=".\driverinput\default\hkVehicleDefaultAnalogDriverInput.h"
+>
+</File>
+	<File
+RelativePath=".\driverinput\default\hkVehicleDefaultAnalogDriverInputClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="engine"
+>
+	<File
+RelativePath=".\engine\hkVehicleEngine.h"
+>
+</File>
+	<File
+RelativePath=".\engine\hkVehicleEngineClass.cpp"
+>
+</File>
+	<Filter
+Name="default"
+>
+	<File
+RelativePath=".\engine\default\hkVehicleDefaultEngine.cpp"
+>
+</File>
+	<File
+RelativePath=".\engine\default\hkVehicleDefaultEngine.h"
+>
+</File>
+	<File
+RelativePath=".\engine\default\hkVehicleDefaultEngineClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="friction"
+>
+	<File
+RelativePath=".\friction\hkVehicleFriction.h"
+>
+</File>
+	<File
+RelativePath=".\friction\hkVehicleFrictionClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="steering"
+>
+	<File
+RelativePath=".\steering\hkVehicleSteering.h"
+>
+</File>
+	<File
+RelativePath=".\steering\hkVehicleSteeringClass.cpp"
+>
+</File>
+	<Filter
+Name="default"
+>
+	<File
+RelativePath=".\steering\default\hkVehicleDefaultSteering.cpp"
+>
+</File>
+	<File
+RelativePath=".\steering\default\hkVehicleDefaultSteering.h"
+>
+</File>
+	<File
+RelativePath=".\steering\default\hkVehicleDefaultSteeringClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="suspension"
+>
+	<File
+RelativePath=".\suspension\hkVehicleSuspension.h"
+>
+</File>
+	<File
+RelativePath=".\suspension\hkVehicleSuspensionClass.cpp"
+>
+</File>
+	<Filter
+Name="default"
+>
+	<File
+RelativePath=".\suspension\default\hkVehicleDefaultSuspension.cpp"
+>
+</File>
+	<File
+RelativePath=".\suspension\default\hkVehicleDefaultSuspension.h"
+>
+</File>
+	<File
+RelativePath=".\suspension\default\hkVehicleDefaultSuspensionClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="transmission"
+>
+	<File
+RelativePath=".\transmission\hkVehicleTransmission.h"
+>
+</File>
+	<File
+RelativePath=".\transmission\hkVehicleTransmissionClass.cpp"
+>
+</File>
+	<Filter
+Name="default"
+>
+	<File
+RelativePath=".\transmission\default\hkVehicleDefaultTransmission.cpp"
+>
+</File>
+	<File
+RelativePath=".\transmission\default\hkVehicleDefaultTransmission.h"
+>
+</File>
+	<File
+RelativePath=".\transmission\default\hkVehicleDefaultTransmissionClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="tyremarks"
+>
+	<File
+RelativePath=".\tyremarks\hkTyremarksInfo.cpp"
+>
+</File>
+	<File
+RelativePath=".\tyremarks\hkTyremarksInfo.h"
+>
+</File>
+	<File
+RelativePath=".\tyremarks\hkTyremarksInfoClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="velocitydamper"
+>
+	<File
+RelativePath=".\velocitydamper\hkVehicleVelocityDamper.h"
+>
+</File>
+	<File
+RelativePath=".\velocitydamper\hkVehicleVelocityDamperClass.cpp"
+>
+</File>
+	<Filter
+Name="default"
+>
+	<File
+RelativePath=".\velocitydamper\default\hkVehicleDefaultVelocityDamper.cpp"
+>
+</File>
+	<File
+RelativePath=".\velocitydamper\default\hkVehicleDefaultVelocityDamper.h"
+>
+</File>
+	<File
+RelativePath=".\velocitydamper\default\hkVehicleDefaultVelocityDamperClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="wheelcollide"
+>
+	<File
+RelativePath=".\wheelcollide\hkVehicleWheelCollide.h"
+>
+</File>
+	<File
+RelativePath=".\wheelcollide\hkVehicleWheelCollideClass.cpp"
+>
+</File>
+	<Filter
+Name="raycast"
+>
+	<File
+RelativePath=".\wheelcollide\raycast\hkVehicleRaycastWheelCollide.cpp"
+>
+</File>
+	<File
+RelativePath=".\wheelcollide\raycast\hkVehicleRaycastWheelCollide.h"
+>
+</File>
+	<File
+RelativePath=".\wheelcollide\raycast\hkVehicleRaycastWheelCollideClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<File
+RelativePath=".\hkVehicle.cpp"
+>
+	<FileConfiguration Name="debug multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="debug|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="hybrid multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="debug multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+</File>
+	<File
+RelativePath=".\hkVehicle.h"
+>
+</File>
+	<File
+RelativePath=".\hkVehicleData.cpp"
+>
+</File>
+	<File
+RelativePath=".\hkVehicleData.h"
+>
+</File>
+	<File
+RelativePath=".\hkVehicleDataClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\hkVehicleInstance.cpp"
+>
+</File>
+	<File
+RelativePath=".\hkVehicleInstance.h"
+>
+</File>
+	<File
+RelativePath=".\hkVehicleInstance.inl"
+>
+</File>
+	<File
+RelativePath=".\hkVehicleInstanceClass.cpp"
+>
+</File>
+
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
+

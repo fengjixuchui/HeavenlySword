@@ -1,0 +1,751 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="hkragdoll"
+	ProjectGUID="{615DC28F-BB12-49B1-A8F4-AAC5E5B058A2}"
+	>
+	<Platforms>
+		<Platform
+			Name="Win32"
+		/>
+	</Platforms>
+	<ToolFiles>
+	</ToolFiles>
+	<Configurations>
+		<Configuration
+			Name="Release Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_8-0\havok_2+mayhem_client\release_multithreaded\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+			/>
+                <Tool
+                    Name="VCManagedResourceCompilerTool"
+                />
+                <Tool
+                    Name="VCResourceCompilerTool"
+                    PreprocessorDefinitions="NDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+                    Culture="6153"
+                    ResourceOutputFileName="$(OUTDIR)\hkragdoll.res"
+                    AdditionalIncludeDirectories=""
+                />
+                <Tool
+                    Name="VCPreLinkEventTool"
+                />
+                <Tool
+                    Name="VCLibrarianTool"
+                    OutputFile="$(OUTDIR)\hkragdoll.lib"
+                    SuppressStartupBanner="true"
+                    IgnoreAllDefaultLibraries="true"
+                />
+                <Tool
+                    Name="VCALinkTool"
+                />
+                <Tool
+                    Name="VCXDCMakeTool"
+                />
+                <Tool
+                    Name="VCBscMakeTool"
+                />
+                <Tool
+                    Name="VCFxCopTool"
+                />
+                <Tool
+                    Name="VCPostBuildEventTool"
+                />
+		</Configuration>
+		<Configuration
+			Name="Release Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_8-0\havok_2+mayhem_client\release_multithreaded_dll\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="2"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+			/>
+                <Tool
+                    Name="VCManagedResourceCompilerTool"
+                />
+                <Tool
+                    Name="VCResourceCompilerTool"
+                    PreprocessorDefinitions="NDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+                    Culture="6153"
+                    ResourceOutputFileName="$(OUTDIR)\hkragdoll.res"
+                    AdditionalIncludeDirectories=""
+                />
+                <Tool
+                    Name="VCPreLinkEventTool"
+                />
+                <Tool
+                    Name="VCLibrarianTool"
+                    OutputFile="$(OUTDIR)\hkragdoll.lib"
+                    SuppressStartupBanner="true"
+                    IgnoreAllDefaultLibraries="true"
+                />
+                <Tool
+                    Name="VCALinkTool"
+                />
+                <Tool
+                    Name="VCXDCMakeTool"
+                />
+                <Tool
+                    Name="VCBscMakeTool"
+                />
+                <Tool
+                    Name="VCFxCopTool"
+                />
+                <Tool
+                    Name="VCPostBuildEventTool"
+                />
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_8-0\havok_2+mayhem_client\fulldebug_multithreaded\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+			/>
+                <Tool
+                    Name="VCManagedResourceCompilerTool"
+                />
+                <Tool
+                    Name="VCResourceCompilerTool"
+                    PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+                    Culture="6153"
+                    ResourceOutputFileName="$(OUTDIR)\hkragdoll.res"
+                    AdditionalIncludeDirectories=""
+                />
+                <Tool
+                    Name="VCPreLinkEventTool"
+                />
+                <Tool
+                    Name="VCLibrarianTool"
+                    OutputFile="$(OUTDIR)\hkragdoll.lib"
+                    SuppressStartupBanner="true"
+                    IgnoreAllDefaultLibraries="true"
+                />
+                <Tool
+                    Name="VCALinkTool"
+                />
+                <Tool
+                    Name="VCXDCMakeTool"
+                />
+                <Tool
+                    Name="VCBscMakeTool"
+                />
+                <Tool
+                    Name="VCFxCopTool"
+                />
+                <Tool
+                    Name="VCPostBuildEventTool"
+                />
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_8-0\havok_2+mayhem_client\fulldebug_multithreaded_dll\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+			/>
+                <Tool
+                    Name="VCManagedResourceCompilerTool"
+                />
+                <Tool
+                    Name="VCResourceCompilerTool"
+                    PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+                    Culture="6153"
+                    ResourceOutputFileName="$(OUTDIR)\hkragdoll.res"
+                    AdditionalIncludeDirectories=""
+                />
+                <Tool
+                    Name="VCPreLinkEventTool"
+                />
+                <Tool
+                    Name="VCLibrarianTool"
+                    OutputFile="$(OUTDIR)\hkragdoll.lib"
+                    SuppressStartupBanner="true"
+                    IgnoreAllDefaultLibraries="true"
+                />
+                <Tool
+                    Name="VCALinkTool"
+                />
+                <Tool
+                    Name="VCXDCMakeTool"
+                />
+                <Tool
+                    Name="VCBscMakeTool"
+                />
+                <Tool
+                    Name="VCFxCopTool"
+                />
+                <Tool
+                    Name="VCPostBuildEventTool"
+                />
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_8-0\havok_2+mayhem_client\debug_multithreaded\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+			/>
+                <Tool
+                    Name="VCManagedResourceCompilerTool"
+                />
+                <Tool
+                    Name="VCResourceCompilerTool"
+                    PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+                    Culture="6153"
+                    ResourceOutputFileName="$(OUTDIR)\hkragdoll.res"
+                    AdditionalIncludeDirectories=""
+                />
+                <Tool
+                    Name="VCPreLinkEventTool"
+                />
+                <Tool
+                    Name="VCLibrarianTool"
+                    OutputFile="$(OUTDIR)\hkragdoll.lib"
+                    SuppressStartupBanner="true"
+                    IgnoreAllDefaultLibraries="true"
+                />
+                <Tool
+                    Name="VCALinkTool"
+                />
+                <Tool
+                    Name="VCXDCMakeTool"
+                />
+                <Tool
+                    Name="VCBscMakeTool"
+                />
+                <Tool
+                    Name="VCFxCopTool"
+                />
+                <Tool
+                    Name="VCPostBuildEventTool"
+                />
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_8-0\havok_2+mayhem_client\debug_multithreaded_dll\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+			/>
+                <Tool
+                    Name="VCManagedResourceCompilerTool"
+                />
+                <Tool
+                    Name="VCResourceCompilerTool"
+                    PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+                    Culture="6153"
+                    ResourceOutputFileName="$(OUTDIR)\hkragdoll.res"
+                    AdditionalIncludeDirectories=""
+                />
+                <Tool
+                    Name="VCPreLinkEventTool"
+                />
+                <Tool
+                    Name="VCLibrarianTool"
+                    OutputFile="$(OUTDIR)\hkragdoll.lib"
+                    SuppressStartupBanner="true"
+                    IgnoreAllDefaultLibraries="true"
+                />
+                <Tool
+                    Name="VCALinkTool"
+                />
+                <Tool
+                    Name="VCXDCMakeTool"
+                />
+                <Tool
+                    Name="VCBscMakeTool"
+                />
+                <Tool
+                    Name="VCFxCopTool"
+                />
+                <Tool
+                    Name="VCPostBuildEventTool"
+                />
+		</Configuration>
+		<Configuration
+			Name="Hybrid Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\hybrid_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_8-0\havok_2+mayhem_client\hybrid_multithreaded_dll\hkragdoll"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..\..\physics,..\..\animation,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="hkragdoll/hkRagdoll.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkragdoll.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+			/>
+                <Tool
+                    Name="VCManagedResourceCompilerTool"
+                />
+                <Tool
+                    Name="VCResourceCompilerTool"
+                    PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+                    Culture="6153"
+                    ResourceOutputFileName="$(OUTDIR)\hkragdoll.res"
+                    AdditionalIncludeDirectories=""
+                />
+                <Tool
+                    Name="VCPreLinkEventTool"
+                />
+                <Tool
+                    Name="VCLibrarianTool"
+                    OutputFile="$(OUTDIR)\hkragdoll.lib"
+                    SuppressStartupBanner="true"
+                    IgnoreAllDefaultLibraries="true"
+                />
+                <Tool
+                    Name="VCALinkTool"
+                />
+                <Tool
+                    Name="VCXDCMakeTool"
+                />
+                <Tool
+                    Name="VCBscMakeTool"
+                />
+                <Tool
+                    Name="VCFxCopTool"
+                />
+                <Tool
+                    Name="VCPostBuildEventTool"
+                />
+		</Configuration>
+
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+			<Filter
+Name="classes"
+>
+	<File
+RelativePath=".\classes\hkRagdollClasses.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="controller"
+>
+	<Filter
+Name="poweredchain"
+>
+	<File
+RelativePath=".\controller\poweredchain\hkRagdollPoweredChainController.cpp"
+>
+</File>
+	<File
+RelativePath=".\controller\poweredchain\hkRagdollPoweredChainController.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="poweredconstraint"
+>
+	<File
+RelativePath=".\controller\poweredconstraint\hkRagdollPoweredConstraintController.cpp"
+>
+</File>
+	<File
+RelativePath=".\controller\poweredconstraint\hkRagdollPoweredConstraintController.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="rigidbody"
+>
+	<File
+RelativePath=".\controller\rigidbody\hkKeyFrameHierarchyUtility.cpp"
+>
+</File>
+	<File
+RelativePath=".\controller\rigidbody\hkKeyFrameHierarchyUtility.h"
+>
+</File>
+	<File
+RelativePath=".\controller\rigidbody\hkRagdollRigidBodyController.cpp"
+>
+</File>
+	<File
+RelativePath=".\controller\rigidbody\hkRagdollRigidBodyController.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="instance"
+>
+	<File
+RelativePath=".\instance\hkRagdollInstance.cpp"
+>
+</File>
+	<File
+RelativePath=".\instance\hkRagdollInstance.h"
+>
+</File>
+	<File
+RelativePath=".\instance\hkRagdollInstance.inl"
+>
+</File>
+	<File
+RelativePath=".\instance\hkRagdollInstanceClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="posematching"
+>
+	<File
+RelativePath=".\posematching\hkPoseMatchingUtility.cpp"
+>
+</File>
+	<File
+RelativePath=".\posematching\hkPoseMatchingUtility.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="utils"
+>
+	<File
+RelativePath=".\utils\hkRagdollUtils.cpp"
+>
+</File>
+	<File
+RelativePath=".\utils\hkRagdollUtils.h"
+>
+</File>
+	</Filter>
+	<File
+RelativePath=".\hkRagdoll.cpp"
+>
+	<FileConfiguration Name="debug multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="hybrid multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="debug multithreaded dll|Win32"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+</File>
+	<File
+RelativePath=".\hkRagdoll.h"
+>
+</File>
+
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
+

@@ -1,0 +1,147 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.start
+.text
+
+//Change the "stopd"s used for assert to now each have a different register dependency rather than just $0, $0, $0
+//This means that when a user hits an assert, even without having source level debugging working we can work out
+//which assert they're on just from the opcode.
+
+//Note: If editing this file, please only add new codes, do not edit the previous ones, so that the stopd identifiers do not change.
+
+//Lowest unused reg pattern so far = $0,$0,$61
+//Increment this count each time you use a new one in order to allocate it.
+//The list below is not neccessarily in order
+
+.if ASSERTS_ENABLED
+.global ChangeLoadToRunJob_AssertJobModuleHeader
+ChangeLoadToRunJob_AssertJobModuleHeader:						stopd $0, $0, $3
+.global ChangeLoadToRunJob_AssertLoadNextJobCalled
+ChangeLoadToRunJob_AssertLoadNextJobCalled:						stopd $0, $0, $4
+.global FreeDmaTagId_AssertDmaTagId
+FreeDmaTagId_AssertDmaTagId:								stopd $0, $0, $5
+.global FreeDmaTagId_AssertDmaTagIdUsed
+FreeDmaTagId_AssertDmaTagIdUsed:							stopd $0, $0, $6
+.global FreeLogicalBuffer_AssertBufferSet
+FreeLogicalBuffer_AssertBufferSet:							stopd $0, $0, $7
+.global FreeLogicalBuffer_AssertBufferNum
+FreeLogicalBuffer_AssertBufferNum:							stopd $0, $0, $8
+.global FreeLogicalBuffer_AssertNotShareableOrShared
+FreeLogicalBuffer_AssertNotShareableOrShared:						stopd $0, $0, $9
+.global FreeLogicalBuffer_AssertUsed
+FreeLogicalBuffer_AssertUsed:								stopd $0, $0, $10
+.global GetBufferTag_AssertBufferSet
+GetBufferTag_AssertBufferSet:								stopd $0, $0, $11
+.global GetBufferTag_AssertBuffer
+GetBufferTag_AssertBuffer:								stopd $0, $0, $12
+.global GetBufferTag_AssertLogicalBufferNum
+GetBufferTag_AssertLogicalBufferNum:							stopd $0, $0, $13
+.global GetBufferTag_AssertNotReserved
+GetBufferTag_AssertNotReserved:								stopd $0, $0, $14
+.global GetBufferTag_AssertBufferNum
+GetBufferTag_AssertBufferNum:								stopd $0, $0, $60
+.global JobApi_AssertInterruptsEnabled
+JobApi_AssertInterruptsEnabled:								stopd $0, $0, $15
+.global JobApi_kLoadNextJob_AssertLoadNextJobNotCalled
+JobApi_kLoadNextJob_AssertLoadNextJobNotCalled:						stopd $0, $0, $16
+.global ReturnToSpursKernel_AssertBufferNotFreed
+ReturnToSpursKernel_AssertBufferNotFreed:						stopd $0, $0, $17
+.global ReturnToSpursKernel_AssertStackMarker
+ReturnToSpursKernel_AssertStackMarker:							stopd $0, $0, $18
+.global TryChangeFreeToLoadJob_AssertLoadNextJobCalled
+TryChangeFreeToLoadJob_AssertLoadNextJobCalled:						stopd $0, $0, $19
+.global TryChangeFreeToLoadJob_AssertLoadCommandsSize
+TryChangeFreeToLoadJob_AssertLoadCommandsSize:						stopd $0, $0, $20
+.global TryChangeStoreToFreeJob_AssertBufferNumValid
+TryChangeStoreToFreeJob_AssertBufferNumValid:						stopd $0, $0, $21
+.global Tec_AssertInvalidCommand
+Tec_AssertInvalidCommand:								stopd $0, $0, $22
+.global	Tec_AssertCommandsAligned
+Tec_AssertCommandsAligned:								stopd $0, $0, $23
+.global	TecRbs_AssertNoBufferSet
+TecRbs_AssertNoBufferSet:								stopd $0, $0, $24
+.global	TecRbs_AssertLoadNextJobNotCalled
+TecRbs_AssertLoadNextJobNotCalled:							stopd $0, $0, $25
+.global TecRbs_AssertPagesNotReserved
+TecRbs_AssertPagesNotReserved:								stopd $0, $0, $26
+.global	TecRbs_AssertNumBuffers
+TecRbs_AssertNumBuffers:								stopd $0, $0, $27
+.global	TecRbs_AssertFreeBuffers
+TecRbs_AssertFreeBuffers:								stopd $0, $0, $28
+.global	TecUseBuffer_AssertLogicalBufferNum
+TecUseBuffer_AssertLogicalBufferNum:							stopd $0, $0, $29
+.global	TecUseBuffer_AssertReserved
+TecUseBuffer_AssertReserved:								stopd $0, $0, $30
+.global	TecUseBuffer_AssertLogicalBufferNotUsed
+TecUseBuffer_AssertLogicalBufferNotUsed:						stopd $0, $0, $31
+.global	TecUseBuffer_AssertNotGatherToWriteCached
+TecUseBuffer_AssertNotGatherToWriteCached:						stopd $0, $0, $32
+.global	TecUseBuffer_AssertGatherDmaListInBuffer
+TecUseBuffer_AssertGatherDmaListInBuffer:						stopd $0, $0, $33
+.global	TecUseBuffer_AssertGatherDmaListSize
+TecUseBuffer_AssertGatherDmaListSize:							stopd $0, $0, $34
+.global	TecUseBuffer_AssertDmaSize
+TecUseBuffer_AssertDmaSize:								stopd $0, $0, $35
+.global	TecUseBuffer_AssertShareableIfWriteCached
+TecUseBuffer_AssertShareableIfWriteCached:						stopd $0, $0, $36
+.global	TecUseBuffer_AssertLogicalBufferNotUsed2
+TecUseBuffer_AssertLogicalBufferNotUsed2:						stopd $0, $0, $37
+.global	TecUnreserveBufferSets_AssertBufferSetMask
+TecUnreserveBufferSets_AssertBufferSetMask:						stopd $0, $0, $38
+.global	TecUnreserveBufferSets_AssertReserved
+TecUnreserveBufferSets_AssertReserved:							stopd $0, $0, $39
+.global	TecRdd_AssertNumDeps
+TecRdd_AssertNumDeps:									stopd $0, $0, $40
+.global	TecRunJob_AssertIsLoadJob
+TecRunJob_AssertIsLoadJob:								stopd $0, $0, $41
+.global	TecRunJob_AssertBufferSet
+TecRunJob_AssertBufferSet:								stopd $0, $0, $42
+.global	TecRunJob_AssertLogicalBufferNumOk
+TecRunJob_AssertLogicalBufferNumOk:							stopd $0, $0, $43
+.global InterruptHandlerCallback_AssertStackOverflow
+InterruptHandlerCallback_AssertStackOverflow:						stopd $0, $0, $44
+.global InterruptHandlerCallback_AssertInterruptsDisabled
+InterruptHandlerCallback_AssertInterruptsDisabled:					stopd $0, $0, $45
+.global ChangeRunToStoreJob_AssertReservePageMasks
+ChangeRunToStoreJob_AssertReservePageMasks:						stopd $0, $0, $46
+.global UseDmaTagId_AssertAllTagsUsed
+UseDmaTagId_AssertAllTagsUsed:								stopd $0, $0, $47
+.if IMMEDIATE_AUDIT_OUTPUT
+.global	StoreAduit_AssertSendEvent1
+StoreAduit_AssertSendEvent1:								stopd $0, $0, $48
+.global	StoreAduit_AssertSendEvent2
+StoreAduit_AssertSendEvent2:								stopd $0, $0, $49
+.global	StoreAduit_IntsNotDisabled
+StoreAduit_IntsNotDisabled:								stopd $0, $0, $50
+.endif
+.endif
+
+.if VERBOSE_ASSERTS_ENABLED
+.global ChangeLoadToRunJob_AssertJobCodeSize
+ChangeLoadToRunJob_AssertJobCodeSize:							stopd $0, $0, $51
+.global JobApi_kLoadNextJob_AssertBufferNum
+JobApi_kLoadNextJob_AssertBufferNum:							stopd $0, $0, $52
+.global SetDwordMem_AssertSize
+SetDwordMem_AssertSize:									stopd $0, $0, $53
+.global SetQwordMem_AssertSize
+SetQwordMem_AssertSize:									stopd $0, $0, $54
+.global TryChangeFreeToLoadJob_AssertJobHeaderCommand
+TryChangeFreeToLoadJob_AssertJobHeaderCommand:						stopd $0, $0, $55
+.global	Tec_AssertValidCommand
+Tec_AssertValidCommand:									stopd $0, $0, $56
+.global	TecUseBuffer_AssertPrevBufferNum
+TecUseBuffer_AssertPrevBufferNum:							stopd $0, $0, $57
+.global	TecUnreserveBufferSets_AssertReservedMaskOk
+TecUnreserveBufferSets_AssertReservedMaskOk:						stopd $0, $0, $58
+.global	TecEndCommand_AssertIsNotLoadJob
+TecEndCommand_AssertIsNotLoadJob:							stopd $0, $0, $59
+.endif
+
+.if ASSERTS_ENABLED || VERBOSE_ASSERTS_ENABLED
+.align 3
+.endif
+
+.end

@@ -1,0 +1,35 @@
+//--------------------------------------------------
+//!
+//!	\file test.cg
+//!	This is a dummy holding a few doxygen comments.
+//!
+//--------------------------------------------------
+
+void water_debug_vp
+(
+	float4 in_position						: POSITION, 
+	float4 in_binormal,
+	float4 in_tangent,
+	
+	uniform float4x4 worldViewProj, 
+
+	out float4 out_pos						: POSITION,
+	out float4 out_posLS					: TEXCOORD0
+)
+{
+	// transform position
+	out_pos = mul( worldViewProj, in_position );
+}
+
+
+void water_debug_fp
+( 
+	float4 in_positionLS					: TEXCOORD0,
+	
+	float4 out_colour						: COLOR 
+)
+{
+	out_colour = float4( 1.0f, 0.0f, 0.0f, 1.0f );
+	out_colour.gb = in_positionLS.yy;
+}
+	

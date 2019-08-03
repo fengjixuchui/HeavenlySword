@@ -1,0 +1,68 @@
+<?xml version="1.0" ?>
+<targets>
+	<rules>
+		<include>$/atgapi/atg.rules</include>
+	</rules>
+
+	<configurations>
+		<include>$/atgapi/atgps3.configurations</include>
+		<configuration name="Debug" parent="Debug">
+			<settings>
+				cpp.defines = $(parent.cpp.defines) -DICEDEBUG=1
+			</settings>
+		</configuration>
+		<configuration name="Development" parent="Development">
+			<settings>
+				cpp.defines = $(parent.cpp.defines) -DICEDEBUG=1
+			</settings>
+		</configuration>
+		<configuration name="Profile" parent="Profile">
+			<settings>
+				cpp.defines = $(parent.cpp.defines) -DICEDEBUG=0
+			</settings>
+		</configuration>
+		<configuration name="Release" parent="Release">
+			<settings>
+				cpp.defines = $(parent.cpp.defines) -DICEDEBUG=0
+			</settings>
+		</configuration>
+	</configurations>
+
+	<tools>
+		<include>$/atgapi/atg.tools</include>
+	</tools>
+	
+	<build>$/ice/src/runtime/ice/mesh/spu/icemeshspu.targets</build>
+
+	<target type="$(configuration.default_lib_type)">
+		<source>
+			<file>icemeshmemcopy.cpp</file>
+			<file>icemesh.cpp</file>
+			<file>icemeshblend.cpp</file>
+			<file>icemeshcommand.cpp</file>
+			<file>icemeshcompress.cpp</file>
+			<file>icemeshconstdata.cpp</file>
+			<file>icemeshdecompress.cpp</file>
+			<file>icemeshmisc.cpp</file>
+			<file>icemeshpm.cpp</file>
+			<file>icemeshshadow.cpp</file>
+			<file>icemeshskin.cpp</file>
+			<file>icemeshtrim.cpp</file>
+			<file>icemeshdm.cpp</file>
+			<file>icemeshstats.cpp</file>
+			<file>icemeshfrontend.cpp</file>
+			<file>$/ATGAPI/PS3/Data/IceMesh/icemeshspu.spu.mod</file>
+		</source>
+
+		<!-- What we are ultimately after -->
+		<file>$/ATGAPI/PS3/Lib/$(configuration.basename)/icemesh.$(configuration.cpp.lib_ext)</file>
+		<settings>
+			cpp.includes		= -I$/ice/include/common -I$/ice/include/ppu
+			cpp.includes		+= -include icetypes.h
+			cpp.includes		+= -I$/ice/src/runtime/ice/mesh
+			cpp.includes		+= -I$/ice/src/runtime/ice/render
+			cpp.includes		+= $(configuration.wws.ppu.includes)
+			cpp.defines			= -DMESH_PRINTF_ENABLED=0 
+		</settings>
+	</target>
+</targets>

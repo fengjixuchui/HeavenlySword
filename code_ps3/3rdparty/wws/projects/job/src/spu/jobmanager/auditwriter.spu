@@ -1,0 +1,358 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.start
+.include "conventions.inl"
+.include "globaldefines.spu"
+
+.text
+
+.reg param1 74
+.reg param2 75
+.reg param3 76
+.reg tmp1 76
+.reg tmp2 77
+.reg auditLr 78
+
+.usecc StoreAuditCC
+
+//The audit structure is:
+//32 bits:	time
+//3 bits:	#dwords	(this is NOT on a byte bound!)
+//13 bits:	AuditId	
+//16 bits:	hword
+
+.global StoreAuditDataInitialNoDataU64 
+StoreAuditDataInitialNoDataU64:	// 2 instructions, 8 bytes
+		il param2, 0								{lnop}
+// !!!intentional fallthrough!!!
+
+.global StoreAuditDataInitialNoParmsU64
+StoreAuditDataInitialNoParmsU64:
+		{nop}									fsmbi param3, 0x0000
+// !!!intentional fallthrough!!!
+
+// id is 13 bits
+// numParameters is 3 bits
+// (U16 id, U16 data, U8 numParameters)
+.global StoreAuditDataInitialU64
+StoreAuditDataInitialU64: // 9 instructions, 36 bytes, 36 cycles (73 if on block boundary, 40 if disabled)
+		{nop}									fsmbi tmp2, 0x3000
+		shli param3, param3, 13							{lnop}
+		and param2, param2, tmp2						rdch tmp2, $ch8
+		or param1, param3, param1						fsmbi tmp1{param3}, 0xF000
+		{nop}									rotqmbyi param1, param1,-2
+		{nop}									rotqmbyi param2, param2,-4
+		andc tmp1, tmp1, tmp2							{lnop}
+		or tmp1, tmp1, param1							{lnop}
+		or param1, tmp1, param2							lnop
+// !!!intentional fallthrough!!!
+
+// (U64 parameter)
+.global StoreAuditDataParameterU64
+StoreAuditDataParameterU64: // 10 instructions, 40 bytes, 20 cycles (57 if on block boundary, 24 if disabled)
+.if IMMEDIATE_AUDIT_OUTPUT
+.extern sys_spu_thread_send_event
+.extern StoreAduit_AssertSendEvent1
+.extern StoreAduit_AssertSendEvent2
+.extern StoreAduit_IntsNotDisabled
+		{nop}									lqa tmp2, g_bJobManagerAuditsEnabled
+		{nop}									hbr AuditBranch, auditLr
+		{nop}									biz tmp2, auditLr
+.if ASSERTS_ENABLED
+		{nop}									rdch tmp2, $ch13{SPU_RdMachStat}
+		andi tmp2, tmp2, 1							brnz tmp2, StoreAduit_IntsNotDisabled
+.endif
+WaitLoop:
+		ilhu tmp1, 0x0E00							rchcnt tmp2, $ch29
+		{nop}									brnz tmp2, WaitLoop
+		{nop}									wrch $ch28, param1
+		{nop}									wrch $ch30, tmp1
+		{nop}									rdch tmp2, $ch29
+		ilhu tmp1, 0x8001							{lnop}
+		iohl tmp1, 0x000A							{lnop}
+		ceq tmp1, tmp2, tmp1							brnz tmp1, WaitLoop
+.if ASSERTS_ENABLED
+		{nop}									brnz tmp2, StoreAduit_AssertSendEvent1
+.endif
+		{nop}									rdch tmp2, $ch29
+											.cuse tmp2
+		{nop}									rotqbyi param1, param1, 4
+WaitLoop2:
+		ilhu tmp1, 0x0E00							rchcnt tmp2, $ch29
+		{nop}									brnz tmp2, WaitLoop2
+		{nop}									wrch $ch28, param1
+		{nop}									wrch $ch30, tmp1
+		{nop}									rdch tmp2, $ch29
+		ilhu tmp1, 0x8001							{lnop}
+		iohl tmp1, 0x000A							{lnop}
+		ceq tmp1, tmp2, tmp1							brnz tmp1, WaitLoop2
+.if ASSERTS_ENABLED
+		{nop}									brnz tmp2, StoreAduit_AssertSendEvent2
+.else
+		nop									{lnop}
+.endif
+		{nop}									rdch tmp2, $ch29
+											.cuse tmp2
+		{nop}						AuditBranch:		bi auditLr
+
+.else // .if IMMEDIATE_AUDIT_OUTPUT
+		{nop}									hbr AuditBranch, auditLr
+		{nop}									lqa tmp2, g_bJobManagerAuditsEnabled
+		{nop}									lqa tmp1, g_lsaAudits
+		{nop}									lqd param2, 0x00(tmp1)
+		{nop}									biz tmp2, auditLr
+		{nop}									cdd tmp2, 0x00(tmp1)
+		{nop}									shufb param1, param1, param2, tmp2
+		ai tmp2, tmp1, 8							{lnop}
+		andi $75{param2}, tmp2, 0x7F						stqd param1, 0x00(tmp1)
+		{nop}									stqa tmp2, g_lsaAudits
+		{nop}						AuditBranch:		binz $75{param2}, auditLr
+// !!!intentional fallthrough!!!
+.global OutputAuditBlock
+OutputAuditBlock: // 22 instructions, 88 bytes, 19 cycles
+		{nop}									lqa $74, g_mmaAudits
+		{nop}									lqa $76, g_mmaAuditsEndLessAuditBlockSizePlus1
+		il $75, DmaTagId_kAudits						hbr AuditBranch2, auditLr
+		{nop}									lqa $77, g_lsaAudits
+		{nop}									wrch $ch20, $75
+		il $75, 128 /* size */							{lnop}
+		{nop}									wrch $ch18, $74
+		clgt $76, $76, $74							wrch $ch19, $75
+		ai $75, $74, 128							{lnop}
+		{nop}									brz $76, NoRoom
+		ai $76, $77, -128							stqa $75, g_mmaAudits
+		il $75, 0x20 /* kDmaPut */						{lnop}								
+		{nop}									wrch $ch16, $76
+		{nop}									wrch $ch21, $75
+NoRoom:
+		andi $74, $77, 0xFF							{lnop}
+		ai $77, $77, -256							{lnop}
+		{nop}									binz $74, auditLr
+		{nop}									stqa $77, g_lsaAudits
+		{nop}						AuditBranch2:		bi auditLr
+.endif // .if IMMEDIATE_AUDIT_OUTPUT
+
+.end
+
+.start 
+.include "conventions.inl"
+.text
+
+//////////////////////////////////////////////////////////////////////////
+//void InitAudits( U32 spuNum )
+
+.reg kBuffBaseMarker
+.reg mmaAuditsBegin
+.reg mmaAuditsEnd
+.reg numDwordsWritten
+.reg bJobManagerAuditsEnabled
+.reg bJobAuditsEnabled
+.reg spuNum
+.reg eachSpuAuditBufferSize
+.reg hi
+.reg lo
+.reg multRes
+.reg mmaAuditBuffers
+.reg pAuditBufferHeader
+.reg size
+.reg kBlockingLoadDmaTag
+.reg kDmaTagMask
+.reg kDmaGet
+.reg kWaitTagStatusAll
+.reg status
+.reg auditBufferOffset
+.reg auditDataOffset
+.reg audits
+.reg buffMarkerBad
+.reg auditsEndLessAuditBlockSizePlus1
+.reg pNumDwordsWritten
+.reg auditBufferIndex
+.reg bufferNumOffset
+.reg offset
+.reg bAnyAuditsEnabled
+.reg mmaABHThisSpu
+.reg markAuditsAsActive
+.reg kDmaPut
+
+/* Matches the followig functionality....
+
+void InitAudits( U32 spuNum, U32 eaAuditBufferArrayBase )
+{
+	U32 mmaAuditBufferHeader = eaAuditBufferArrayBase;
+	g_lsaAudits = (U32)&g_auditBlocks[0][0];
+	if ( mmaAuditBufferHeader )
+	{
+		AuditBufferHeader* pAuditBufferHeader = (AuditBufferHeader*)&g_auditBlocks;
+
+		DMA_READ( pAuditBufferHeader, mmaAuditBufferHeader, sizeof(AuditBufferHeader), DmaTagId::kBlockingLoad );
+		cellDmaWaitTagStatusAll( 1 << DmaTagId::kBlockingLoad );
+		g_bJobManagerAuditsEnabled	= pAuditBufferHeader->m_inputHeader.m_bJobManagerAuditsEnabled;
+		g_bJobAuditsEnabled		= pAuditBufferHeader->m_inputHeader.m_bJobAuditsEnabled;
+		U32 bufferNumOffset		= pAuditBufferHeader->m_inputHeader.m_bufferNumOffset;
+		U32 auditBufferIndex		= bufferNumOffset + spuNum;
+		U32 numDwordsWritten		= pAuditBufferHeader->m_outputHeader[auditBufferIndex].m_numDwordsWritten;
+		U32 eachSpuBufferSize		= pAuditBufferHeader->m_inputHeader.m_eachSpuBufferSize;
+		U32 mmaAuditsBegin		= mmaAuditBufferHeader + sizeof(AuditBufferHeader) + (eachSpuBufferSize * (auditBufferIndex));
+		U32 mmaAuditsEnd		= mmaAuditsBegin + eachSpuBufferSize;
+		g_mmaAuditsBase			= mmaAuditsBegin;
+		g_mmaAudits			= mmaAuditsBegin + (sizeof(Audit) * numDwordsWritten );
+		g_mmaAuditsEndLessAuditBlockSizePlus1 = mmaAuditsEnd - AUDIT_BLOCK_SIZE + 1;
+
+		if ( g_bJobManagerAuditsEnabled || g_bJobAuditsEnabled )
+		{
+			U32 mmaAuditBufferOutputHeader	= mmaAuditBufferHeader + sizeof(AuditBufferInputHeader) + auditBufferIndex * sizeof(AuditBufferOutputHeader);
+			g_mmaAuditBufferOutputHeader = mmaAuditBufferOutputHeader;
+			vector unsigned int markAuditsAsActive;
+			markAuditsAsActive		= spu_splats( 0xFFFFFFFF );
+			DMA_WRITE( &markAuditsAsActive, mmaAuditBufferOutputHeader, sizeof(AuditBufferOutputHeader), DmaTagId::kBlockingLoad );
+		}
+	}
+	else
+	{
+		g_bJobManagerAuditsEnabled = false;
+		g_bJobAuditsEnabled = false;
+		g_mmaAudits = 0;
+		g_mmaAuditsEndLessAuditBlockSizePlus1 = 0;
+	}
+}
+
+*/
+// void InitAudits( U32 spuNum )
+.extern g_auditBlocks
+.extern g_eaAuditBufferArrayBase
+.extern g_lsaAudits
+.extern g_bJobManagerAuditsEnabled
+.extern g_bJobAuditsEnabled
+.extern g_mmaAuditsEndLessAuditBlockSizePlus1
+.extern g_mmaAudits
+.extern g_mmaAuditsBase
+.global InitAudits
+InitAudits: // 54 instructions, 216 bytes
+		ila pAuditBufferHeader, g_auditBlocks					lnop
+		il size, 256								stqa pAuditBufferHeader, g_lsaAudits
+		il kBlockingLoadDmaTag, DmaTagId_kBlockingLoad				biz $4, $lr
+		a mmaAuditBuffers, $4, size						wrch $ch16, pAuditBufferHeader
+		ai pNumDwordsWritten, pAuditBufferHeader, 0x40				wrch $ch19, size
+		il kDmaGet, 0x40							wrch $ch18, $4
+		il kDmaTagMask, 0x100							wrch $ch20, kBlockingLoadDmaTag
+		il kWaitTagStatusAll, 2							wrch $ch21, kDmaGet
+		{nop}									wrch $ch22, kDmaTagMask
+		{nop}									wrch $ch23, kWaitTagStatusAll
+		{nop}									rdch status, $ch24
+											.cuse status
+		{nop}									lqd bufferNumOffset, 0x20(pAuditBufferHeader)
+		a auditBufferIndex, $3, bufferNumOffset					lqd bJobAuditsEnabled, 0x10(pAuditBufferHeader)
+		shli auditBufferOffset, auditBufferIndex, 4				lqd eachSpuAuditBufferSize, 0x30(pAuditBufferHeader)
+		mpyh hi, eachSpuAuditBufferSize, auditBufferIndex			lqd bJobManagerAuditsEnabled, 0(pAuditBufferHeader)
+		mpyu lo, eachSpuAuditBufferSize, auditBufferIndex			stqa bJobAuditsEnabled, g_bJobAuditsEnabled
+		a multRes, hi, lo							lqx numDwordsWritten, auditBufferOffset, pNumDwordsWritten
+		a	mmaAuditsBegin, mmaAuditBuffers, multRes			{lnop}
+		a	mmaAuditsEnd, mmaAuditsBegin, eachSpuAuditBufferSize		{lnop}
+		ai	auditsEndLessAuditBlockSizePlus1, mmaAuditsEnd, -127		{lnop}
+		shli	auditDataOffset, numDwordsWritten, 3				{lnop}
+		a	audits, mmaAuditsBegin, auditDataOffset				stqa	mmaAuditsBegin, g_mmaAuditsBase
+		ai	offset, auditBufferOffset, 0x40					stqa	bJobManagerAuditsEnabled, g_bJobManagerAuditsEnabled
+		or	bAnyAuditsEnabled, bJobManagerAuditsEnabled, bJobAuditsEnabled	stqa	auditsEndLessAuditBlockSizePlus1, g_mmaAuditsEndLessAuditBlockSizePlus1
+		a	mmaABHThisSpu, $4, offset					stqa	audits, g_mmaAudits
+		il	markAuditsAsActive, -1						biz	bAnyAuditsEnabled, $lr
+		il	size, 16							wrch	$ch16, pAuditBufferHeader		//Borrow the first qword of the AuditBufferHeader again
+		il	kDmaPut, 0x20							stqd	markAuditsAsActive, 0(pAuditBufferHeader)
+		{nop}									wrch	$ch19, size
+		{nop}									wrch	$ch20, kBlockingLoadDmaTag
+		{nop}									wrch	$ch18, mmaABHThisSpu
+		{nop}									wrch	$ch21, kDmaPut
+		{nop}									stqa	mmaABHThisSpu, g_mmaAuditBufferOutputHeader
+		{nop}							IaBranch:	bi $lr
+
+.end
+
+.start 
+.include "conventions.inl"
+.text
+		
+//////////////////////////////////////////////////////////////////////////
+//void FinalizeAudits( void )
+
+.reg bJMAuditsEnabled
+.reg bJobAuditsEnabled
+.reg anyAuditsEnabled
+.reg pAudits
+.reg pNextAudits
+.reg auditInsertionMask
+.reg alignTest
+.reg kBlockingLoadDmaTag
+.reg size
+.reg kDmaTagMaskBlockingLoad
+.reg kDmaTagMaskAudits
+.reg kDmaPut
+.reg kWaitTagStatusAll
+.reg zero
+.reg auditQword
+.reg auditsSize
+.reg mmaAuditsBase
+.reg mmaAudits
+.reg mmaABHThisSpu
+.reg status
+.reg pOutAddr
+.reg isAlignedIn8
+.reg mmaAELABSP1
+.reg mmBHS
+.reg newLsaAudits
+.reg isAlignedIn16
+.reg kDmaTagIdAudits
+.reg numDwordsWritten
+.reg pOutputQword
+
+.extern OutputAuditBlock
+.global FinalizeAudits
+FinalizeAudits:
+		{nop}										lqa	bJMAuditsEnabled, g_bJobManagerAuditsEnabled
+		{nop}										lqa	bJobAuditsEnabled, g_bJobAuditsEnabled
+		or	anyAuditsEnabled, bJMAuditsEnabled, bJobAuditsEnabled			lqa	pAudits, g_lsaAudits
+		//If all audits are disabled then there's nothing to do in this function
+		andi	alignTest, pAudits, 0x7F						brz	anyAuditsEnabled, Exit
+		il	zero, 0									brz	alignTest, NoRemainingAuditsToFlush
+
+.if IMMEDIATE_AUDIT_OUTPUT
+		//Immediate audits don't write to the audit buffer so nothing to do
+		.cuse zero
+.else
+		//If there'a any remaining space in the current audit block, then fill it out with zeros
+ZeroNextDword:
+		{nop}										lqd	auditQword, 0(pAudits)
+		{nop}										cdd	auditInsertionMask, 0(pAudits)
+		ai	pNextAudits, pAudits, 8							shufb	auditQword, zero, auditQword, auditInsertionMask
+		andi	alignTest, pNextAudits, 0x7F						stqd	auditQword, 0(pAudits)
+		ai	pAudits, pNextAudits, 0							brnz	alignTest, ZeroNextDword
+
+		{nop}										stqa	pAudits, g_lsaAudits
+		{nop}										brsl	$78, OutputAuditBlock [#OutputAuditBlockCC]
+.endif
+
+NoRemainingAuditsToFlush:
+		//Wait for the audit flushing to complete
+		//Then set m_numDwordsWritten and send it out to the appropriate storage in main memory for this SPU and audit buffer num
+		il	kDmaTagMaskAudits, 0x80							lqa	mmaAuditsBase, g_mmaAuditsBase
+		il	kWaitTagStatusAll, 2							wrch	$ch22, kDmaTagMaskAudits
+		ila	pOutputQword, g_sideStack						wrch	$ch23, kWaitTagStatusAll
+		il	size, 16								rdch	status, $ch24
+												.cuse	status
+		il	kBlockingLoadDmaTag, DmaTagId_kBlockingLoad				lqa	mmaAudits, g_mmaAudits
+		sf	auditsSize, mmaAuditsBase, mmaAudits					wrch	$ch16, pOutputQword
+		rotmi	numDwordsWritten, auditsSize, -3					wrch	$ch19, size
+		{nop}										lqa	mmaABHThisSpu, g_mmaAuditBufferOutputHeader
+		{nop}										stqd	numDwordsWritten, 0(pOutputQword)
+		il	kDmaPut, 0x20								wrch	$ch20, kBlockingLoadDmaTag
+		il	kDmaTagMaskBlockingLoad, 0x100						wrch	$ch18, mmaABHThisSpu
+		{nop}										wrch	$ch21, kDmaPut
+		{nop}										wrch	$ch22, kDmaTagMaskBlockingLoad
+		{nop}										wrch	$ch23, kWaitTagStatusAll
+		{nop}										rdch	status, $ch24
+												.cuse	status
+Exit:
+		nop										bi	$lr
+
+.end

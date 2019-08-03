@@ -1,0 +1,90 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.global CopyQWords
+; void CopyQWords(void *pDst, void *pSrc, U32 size);
+;
+; Copies size bytes of quadword aligned data from pSrc to pDst exactly.  pSrc and pDst must be 16 byte aligned.
+; size must be a multiple of 16.
+; This routine is not safe for overlapping memory regions, unless pDst <= pSrc.
+
+
+
+.text
+
+; Input Parameters
+.reg pDst	3	; Must be 16 byte aligned.
+.reg pSrc	4	; Must be 16 byte aligned.
+.reg size	5	; Size in bytes -- must be a multiple of 16.
+
+.reg offset		; Offset to subtract from pSrc and pDst to make size a multiple of 128 bytes.
+.reg jump		; Address to jump to to perform first set of stores.
+.reg jumpOffset		; Offset to add to the address of copy8qw to perform only the correct number of stores
+			; the first time through the loop.
+.reg qw0
+.reg qw1
+.reg qw2
+.reg qw3
+.reg qw4
+.reg qw5
+.reg qw6
+.reg qw7
+
+.align 7
+
+CopyQWords:
+; The main loop for this routine performs copies in 128 byte units.  In order to make this work for non-128 byte sizes
+; without a lot of extra code, the starting source and destination pointers are both decreased to make the copy size a
+; multiple of 128 bytes, but only the stores that actually would have occured do occur.  This is done by jumping into
+; the middle of the loop at the correct spot.  After this, 128 byte units are copied until it is done.
+{e2}	sfi	offset, size, 0x80				{o?}	biz	size, $lr
+	{nop}							{o}	hbrr	copy128branch, copy128loop
+{e2}	andi	offset, offset, 0x70					{lnop}
+	{nop}								{lnop}
+{e2}	sf	pSrc, offset, pSrc					{lnop}
+{e2}	ila	jump, copy8qw						{lnop}
+{e2}	sf	pDst, offset, pDst				{o6 1}	lqd	qw0, 0x00(pSrc)
+{e4}	rotmi	jumpOffset, offset, -2				{o6 1}	lqd	qw1, 0x10(pSrc)
+{e2}	ai	size, size, -128				{o6 1}	lqd	qw2, 0x20(pSrc)
+	{nop}							{o6 1}	lqd	qw3, 0x30(pSrc)
+	{nop}							{o6 1}	lqd	qw4, 0x40(pSrc)
+{e2}	a	size, size, offset				{o6 1}	lqd	qw5, 0x50(pSrc)
+{e2}	a	jump, jump, jumpOffset				{o6 1}	lqd	qw6, 0x60(pSrc)
+	{nop}							{o6 1}	lqd	qw7, 0x70(pSrc)
+	{nop}							{o?}	bi	jump	[copy8qw copy7qw copy6qw copy5qw copy4qw copy3qw copy2qw copy1qw]
+
+copy128loop:
+{e2 1}	ai	size, size, -128				{o6 1}	lqd	qw0, 0x00(pSrc)
+	nop							{o6 1}	lqd	qw1, 0x10(pSrc)
+	{nop}							{o6 1}	lqd	qw2, 0x20(pSrc)
+	{nop}							{o6 1}	lqd	qw3, 0x30(pSrc)
+	{nop}							{o6 1}	lqd	qw4, 0x40(pSrc)
+	{nop}							{o6 1}	lqd	qw5, 0x50(pSrc)
+	{nop}							{o6 1}	lqd	qw6, 0x60(pSrc)
+	{nop}							{o6 1}	lqd	qw7, 0x70(pSrc)
+copy8qw:
+	{nop}							{o6 1}	stqd	qw0, 0x00(pDst)
+copy7qw:
+	{nop}							{o6 1}	stqd	qw1, 0x10(pDst)
+copy6qw:
+	{nop}							{o6 1}	stqd	qw2, 0x20(pDst)
+copy5qw:
+	{nop}							{o6 1}	stqd	qw3, 0x30(pDst)
+copy4qw:
+	{nop}							{o6 1}	stqd	qw4, 0x40(pDst)
+copy3qw:
+	{nop}							{o6 1}	stqd	qw5, 0x50(pDst)
+copy2qw:
+	{nop}							{o6 1}	stqd	qw6, 0x60(pDst)
+copy1qw:
+	{nop}							{o6 1}	stqd	qw7, 0x70(pDst)
+{e2 1}	ai	pSrc, pSrc, 128					{o? 1}	biz	size, $lr
+{e2 1}	ai	pDst, pDst, 128			copy128branch:	{o? 1}	br	copy128loop
+
+.end
+

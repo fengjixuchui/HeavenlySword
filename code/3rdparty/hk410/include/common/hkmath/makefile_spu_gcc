@@ -1,0 +1,10 @@
+SRC := hkMath.cpp basetypes/hkAabb.cpp basetypes/hkMotionState.cpp impl/hkMathTypes.cpp linear/hkMatrix3.cpp linear/hkMatrix4.cpp linear/hkMatrix6.cpp linear/hkQsTransform.cpp linear/hkQuaternion.cpp linear/hkRotation.cpp linear/hkTransform.cpp linear/hkVector4.cpp linear/hkVector4Util.cpp
+
+FD_SRC := .
+
+LIB_NAME = hkmath
+
+DEFINES += -DHK_DISABLE_VECTOR4_CONSTRUCTORS
+
+include ../../havokCommon_spu_gcc.mk
+

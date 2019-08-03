@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.start
+
+.text
+
+// void DecrementDependency( U32 mmaDependencyCounter )
+
+// Input parameters
+.reg mmaDependencyCounter	3
+
+// Parameters to _cellSpursReadyCountSwap
+.reg workloadId			3
+.reg readyCount			4
+
+.reg pTempUsageAtomicBuffer
+.reg cacheLineAddr, depOffset, oldVal, rotBytes, depQword, insertionMask
+.reg status, kDmaGetllar, kDmaPutllc
+.reg cond1
+.reg newDepQword
+.reg newVal
+
+.extern _cellSpursReadyCountSwap
+.extern g_sideStack
+.extern g_tempUsageAtomicBuffer
+.global DecrementDependency
+DecrementDependency:
+	ila	pTempUsageAtomicBuffer, g_tempUsageAtomicBuffer		hbrr	dd_rcs_branch, _cellSpursReadyCountSwap
+	andi	cacheLineAddr, mmaDependencyCounter, -128		stqa	$lr, g_sideStack
+	andi	depOffset, mmaDependencyCounter, 0x7F			lnop
+
+dd_loop:
+	il	kDmaGetllar, 0xD0					wrch	$ch16, pTempUsageAtomicBuffer
+	il	kDmaPutllc, 0xB4					wrch	$ch18, cacheLineAddr
+	ai	rotBytes, depOffset, 14					wrch	$ch21, kDmaGetllar
+	{nop}								rdch	status, $ch27
+.cuse status
+
+	{nop}								lqx	depQword, depOffset, pTempUsageAtomicBuffer
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								rotqby	oldVal, depQword, rotBytes
+	{nop}								chx	insertionMask, depOffset, pTempUsageAtomicBuffer
+	{nop}								{lnop}
+	{nop}								{lnop}
+	ahi	newVal, oldVal, -1					rotqbyi	workloadId, oldVal, 1
+	{nop}								rotqbyi	readyCount, oldVal, 2
+	{nop}								shufb	newDepQword, newVal, depQword, insertionMask
+	ceqhi	cond1, oldVal, 1					wrch	$ch16, pTempUsageAtomicBuffer
+	andi	workloadId, workloadId, 0xFF				wrch	$ch18, cacheLineAddr
+	andi	readyCount, readyCount, 0xFF				stqx	newDepQword, depOffset, pTempUsageAtomicBuffer
+	{nop}								wrch	$ch21, kDmaPutllc
+	{nop}								rdch	status, $ch27
+
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	andi	status, status, 1					{lnop}
+	{nop}								{lnop}
+	{nop}								brnz	status, dd_loop
+	{nop}								brhz	cond1, dd_exit
+	{nop}								stqa	status, g_countToNextPoll	//Set to zero (Note that status is zero here)
+	{nop}						dd_rcs_branch:	brsl	$lr, _cellSpursReadyCountSwap [#func]
+
+dd_exit:
+	{nop}								lqa	$lr, g_sideStack
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	nop								bi	$lr
+.end

@@ -1,0 +1,605 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.global CmdSetupNvStream
+; Implements CmdSetupNvStream() in ice/mesh/icemeshdecompress.cpp
+; void CmdSetupNvStream(U32 *pStaticMem, Ice::IceQuadWord cmdQuad1, Ice::IceQuadWord cmdQuad2); 
+; NOTE: This function also implements DecompressNvFormat() and DecompressAttributeToUniform(),
+;       but all as a single function.
+; Decomprsses the requested attributes from the named stream into uniform tables.
+; Also, optionally copies the stream into the work buffer.
+
+.include "icemeshinternal.spu.h"
+
+; Functions that can be called from here.
+.extern CopyQWords
+.extern DecompressF32
+.extern DecompressF16
+.extern DecompressI16
+.extern DecompressX11Y11Z1
+.extern DecompressU8
+
+.data
+
+.align 4
+; Jump table of functions to call depening upon input format.
+m_decomp_func_0:	.dw	DecompressF32, DecompressF16, DecompressI16, DecompressI16
+m_decomp_func_1:	.dw	DecompressX11Y11Z10, DecompressU8, DecompressU8, 0
+
+; Adjustment to the scale for each format.
+m_decomp_scale_0:	.dw	0x3F800000, 0x3F800000, 0x38000080, 0x3F800000
+			; .df	1.0, 1.0, 2.0 / 65535.0, 1.0
+m_decomp_scale_1:	.dw	0x3F800000, 0x3B808081, 0x3F800000, 0x3F800000
+			; .df	1.0, 1.0 / 255.0, 1.0, 1.0
+
+; Adjustment to the bias for each format.
+m_decomp_bias_0:	.dw	0, 0, 0x37800080, 0
+			; .df	0.0, 0.0, 1.0 / 65535.0, 0.0
+m_decomp_bias_1:	.dw	0, 0, 0, 0
+			; .df	0.0, 0.0, 0.0, 0.0
+
+.extern m_ABCD 
+.extern g_meshGlobalConstData	; For passing a pointer to constants required by a custom decompress routine.
+
+.text
+
+; Input Paramaters
+.reg pStaticMemIn	3	; Pointer to static memory area.
+.reg cmdQuad1		4	; First 8 command halfwords.
+.reg cmdQuad2		5	; Last 8 command haflwords.
+
+; Copy Input Parameters
+.reg pCopyDst		3	; Pointer to copy destination.
+.reg pCopySrc		4	; Pointer to copy source.
+.reg copySize		5	; Size of copy in bytes.
+
+; Decompression Input Paramaters
+.reg pDecompSrc		3	; Pointer to the source for the decompression.
+.reg decompStride	4	; Input stride for the decompression.
+.reg pUniform		5	; Pointer to the destination for the decompression.
+.reg componentCount	6	; Number of elements to be decompressed at a time.
+.reg decompNum		7	; Number of vertexes to be decompressed.
+.reg decompScale	8	; Scale to be multiplied by during decompression (1/255).
+.reg decompBias		9	; Bias to be added during decompression (0).
+
+.reg attribCount		; Number of arrtributes in the vertex stream.
+.reg attribId			; Id of the current attribute.
+.reg attribIds			; Id of the attribute stored in each uniform table (0 = none).
+.reg attribIndex		; Index for this attribute into the pointers to the skinning uniform tables.
+.reg attribInfo			; Info for the current attribute.
+.reg attribNotSkin		; This attribute is not a position, normal, tangent, or displacement normal.
+.reg attribNum			; Number of the current attribute.
+.reg attribOffset		; Offset of this attribute into the attribute infos.
+.reg bias			; Bias loaded from the format info.
+.reg bias0			; Biases can spread two quadwords.  This is the first quadword.
+.reg bias1			; Biases can spread two quadwords.  This is the second quadword.
+.reg biasMaskOffset		; Mask to be added to the shuffle in order to get all of the biases into one quadword.
+.reg biasOffset			; Offset from a quadword that the biases are located in memory.
+.reg copyFlag			; Flag to perform a copy of the entire stream.
+.reg decompBias0		; First four entries of the biases for the specific decompression formats.
+.reg decompBias1		; Last four entries of the biases for the specific decompression formats.
+.reg decompScale0		; First four entries of the scales for the specific decompression formats.
+.reg decompScale1		; Last four entries of the sclaes for the specific decompression formats.
+.reg doCustom			; Flag to signify that custom decompression is to be used.
+.reg first			; Flag to signify the first time through the loop.
+.reg flags			; Bit mask of which attributes to decompress from the stream.
+.reg formatInfo			; Attribute count and stride for this stream.
+.reg formatType			; Format type of the current attribute.
+.reg mask			; Mask used to clear the current attribute from the flags.
+.reg maskOffset			; Mask to be added to the shuffle used for info about the format of the current attribute.
+.reg newWorkStart		; Start of free area in work buffer after an allocation.
+.reg numVerts			; Number of vertexes.
+.reg offset			; Offset of current attribute into the stream.
+.reg oneF			; 1.0.
+.reg pAttrib			; Pointer to the current attribute's info in the format info.
+.reg pAttribs			; Pointer to the start of the attribute infos for this stream in the format info.
+.reg pBias			; Pointer to the biases for the current attribute in the format info.
+.reg pCustomFunc		; Pointer to the special function used to store off the scale and biases.
+.reg pCustomSab			; Pointer to the scale and biases stored on the stack for custom decompression.
+.reg pCustomSab_2		; Copy of pCustomSab used to delay writes of the scales and biases.
+.reg pDecompFunc		; Pointer to the decompression function to be used with the current attribute.
+.reg pDecompFunc0		; Pointers to the first four decompression functions.
+.reg pDecompFunc1		; Pointers to the last four decompression functions.
+.reg pFirstUniform		; Pointer to the first uniform table used by this stream.
+.reg pFixedFormat		; Pointer to the fixed format info.
+.reg pFormat			; Pointer to the format info for this stream.
+.reg pInputBuffer		; Pointer to the input buffer.
+.reg pSabLoc			; Pointer to the scale and bias locator for the current attribute.
+.reg pSabLocs			; Pointer to the scale and bias locators for this stream.
+.reg pScale			; Pointer to the scales for the current attribute in the format info.
+.reg pStaticMem			; Pointer to the start of static memory.
+.reg pStaticUniform
+.reg pStream			; Pointer to the stream.
+.reg pUniNewSkin		; Skinning uniform table pointers with the current uniform table pointer shuffled into it.
+.reg pUniSkin			; Skinning uniform table pointers loaded from static memory.
+.reg pVarFormat			; Pointer to the variable format info.
+.reg pWorkStream
+.reg s_AAAA
+.reg s_ABCD
+.reg s_DDDDDDDDDDDDDDDD
+.reg s_attribInsert		; Shuffle mask to insert the attribute id into the table of attribute ids.
+.reg s_bias			; Shuffle mask to shuffle all of the biases together.
+.reg s_format			; Shuffle mask to shuffle out the function pointer, scale, and bias for the current format.
+.reg s_scale			; Shuffle mask to shuffle all fo the scales together.
+.reg s_streamInsert		; Shuffle mask to insert the work stream pointer into static memory.
+.reg s_uniInsert		; Shuffle mask to insert the uniform table pointer into static memory.
+.reg s_uniSkinInsert		; Shuffle mask to insert the uniform table into the skinning uniform table pointers.
+.reg sabBase			; Base address from which to get the scale and bias values.
+.reg sabFlags			; Scale and bias flags from the current attribute's info.
+.reg sabLoc			; Scale and bias locator for the current attribute.
+.reg sabLocOffset		; Offset into the scale and biases for the current attribute.
+.reg sabOffset			; Offset of the scale and biases from the start of the attribute infos for this stream.
+.reg sabOn			; Set if scale and bias are being used by the current attribute.
+.reg sabVar			; Set if scale and bias are variable for the current attribute.
+.reg scale			; Scale loaded from the format info.
+.reg scale0			; Scales can spread two quadwords.  This is the first quadword.
+.reg scale1			; Scales can spread two quadwords.  This is the second quadword.
+.reg scaleMaskOffset		; Mask to be added to the shuffle in order to get all of the scales into one quadword.
+.reg scaleOffset		; Offset from a quadword that the scales are located in memory.
+.reg sel_AbCdEfGh
+.reg stackFrameSize		; Size of the stack frame.
+.reg streamName			; Name of this stream.
+.reg streamNameFormat		; Offset into the fixed format info for the info for this stream.
+.reg streamNameWork		; Offset into the work stream pointers for this stream.
+.reg streamWorkPtrs		; Pointers to the various streams in the work buffer.
+.reg stride			; Vertex stride for this stream.
+.reg uniformCount		; Count of uniform tables.
+.reg uniformIndex		; Index of the current uniform table.
+.reg uniformOffset		; Offset into the uniform table pointers for this uniform table.
+.reg uniformPtrs		; Set of four pointers to uniform tables.  These have the new pointer inserted into them.
+.reg uniformSize		; Size needed to be allocated for each uniform table.
+.reg uniformSize_2		; Two times uniformSize.
+
+.align 7
+
+CmdSetupNvStream:
+{e4}	rotmi	streamName, cmdQuad1, -19			{o6}	stqd	$80, -0x10($sp)
+{e2}	il	stackFrameSize, -0x2C0				{o6}	stqd	$81, -0x20($sp)
+	{nop}							{o6}	lqd	pFixedFormat, kStaticFixedFormatPtr(pStaticMemIn)
+	{nop}							{o6}	stqd	$82, -0x30($sp)
+{e2}	andi	streamName, streamName, 0xE				{lnop}
+{e2}	ila	sel_AbCdEfGh, 0xFFFF					{lnop}
+{e2}	ai	streamNameFormat, streamName, 2			{o6}	stqd	$83, -0x40($sp)
+{e2}	and	pStream, cmdQuad1, sel_AbCdEfGh			{o6}	stqd	$84, -0x50($sp)
+{e4}	rotmi	copyFlag, cmdQuad1, -16				{o6}	lqx	pFormat, pFixedFormat, streamNameFormat
+	{nop}							{o6}	stqd	$85, -0x60($sp)
+	{nop}							{o4}	rotqbyi	doCustom, cmdQuad1, 6
+	{nop}							{o6}	stqd	$86, -0x70($sp)
+	{nop}							{o6}	stqd	$87, -0x80($sp)
+{e2}	andi	copyFlag, copyFlag, 1				{o6}	stqd	$88, -0x90($sp)
+{e2}	cgthi	doCustom, doCustom, 0				{o4}	rotqby	pFormat, pFormat, streamNameFormat
+	{nop}							{o4}	rotqbyi	flags, cmdQuad1, 2
+	{nop}							{o6}	lqd	pInputBuffer, kStaticInputBufferPtr(pStaticMemIn)
+{e4}	rotmai	doCustom, doCustom, -16				{o6}	lqd	numVerts, kStaticVertexCount(pStaticMemIn)
+{e4}	rotmi	pFormat, pFormat, -16				{o6}	stqd	$89, -0xA0($sp)
+{e2}	and	flags, flags, sel_AbCdEfGh			{o6}	stqd	$lr, 0x10($sp)
+{e2}	ori	pStaticMem, pStaticMemIn, 0			{o6}	stqd	$sp, -0x2C0($sp)
+{e2}	a	$sp, $sp, stackFrameSize				{lnop}
+{e2}	a	pFormat, pFormat, pFixedFormat				{lnop}
+{e2}	ila	s_AAAA, 0x00010203				{o}	hbrr	cmd_setup_nvstream_copy_branch, cmd_setup_nvstream_skip_copy
+{e2}	ai	numVerts, numVerts, 3				{o6}	lqd	formatInfo, 0x00(pFormat)
+{e2}	a	streamNameWork, streamName, streamName		{o4}	shufb	pInputBuffer, pInputBuffer, pInputBuffer, s_AAAA
+{e2}	andi	numVerts, numVerts, -4					{lnop}
+{e2}	a	pWorkStream, pStaticMem, streamNameWork			{lnop}
+{e2}	ai	pCustomSab, $sp, 0x20					{lnop}
+	{nop}							{o6}	lqd	streamWorkPtrs, kStaticStreamWorkPtr(pWorkStream)
+{e2}	a	pStream, pStream, pInputBuffer			{o4}	rotqby	formatInfo, formatInfo, pFormat
+{e2}	il	pFirstUniform, 0					{lnop}
+	{nop}								{lnop}
+	{nop}							{o6}	lqd	pCopyDst, kStaticWorkFreeStart(pStaticMem)
+{e4}	rotmi	attribCount, formatInfo, -16			{o4}	rotqbyi	pCopySrc, pStream, 0
+{e2}	and	stride, formatInfo, sel_AbCdEfGh		{o4}	cwd	s_streamInsert, 0x00(streamNameWork)	
+	{nop}								{lnop}
+{e7}	mpy	copySize, numVerts, stride				{lnop}
+{e4}	shli	sabOffset, attribCount, 2				{lnop}
+	{nop}							{o4}	shufb	streamWorkPtrs, pCopyDst, streamWorkPtrs, s_streamInsert
+{e2}	ai	pAttribs, pFormat, 4					{lnop}
+	{nop}								{lnop}
+{e2}	a	pSabLocs, pAttribs, sabOffset			; Branch on next line.
+				cmd_setup_nvstream_copy_branch:	{o?}	brz	copyFlag, cmd_setup_nvstream_skip_copy
+
+; If the copy flag is set, then copy the entire stream into the work buffer and store the resultant pointer.
+	{nop}								{lnop}
+{e2}	a	newWorkStart, pCopyDst, copySize			{lnop}
+	{nop}							{o6}	stqd	streamWorkPtrs, kStaticStreamWorkPtr(pWorkStream)
+	{nop}							{o6}	stqd	newWorkStart, kStaticWorkFreeStart(pStaticMem)
+.cuse pCopySrc, pCopyDst, copySize
+	{nop}							{o?}	brsl	$lr, CopyQWords	[#func]
+
+cmd_setup_nvstream_skip_copy:
+	nop							{o?}	brz	flags, cmd_setup_nvstream_end
+.cset decompScale, decompBias
+
+; For each atttribute that is set in the 'flags' bit mask, decompress the attribute from the stream into a uniform table.
+cmd_setup_nvstream_attrib_loop:
+{e2}	clz	attribNum, flags				{o6}	lqd	uniformIndex, kStaticUniformCount(pStaticMem)
+{e2}	ai	uniformSize, numVerts, 4			{o}	hbrr	cmd_setup_nvstream_custom_branch, cmd_setup_nvstream_call_custom
+{e2}	sfi	attribNum, attribNum, 31			{o6}	lqd	pUniform, kStaticWorkFreeStart(pStaticMem)
+{e4}	shli	uniformSize, uniformSize, 4				{lnop}
+{e4}	shli	attribOffset, attribNum, 2				{lnop}
+{e2}	ila	s_AAAA, 0x00010203					{lnop}
+{e2}	ai	uniformCount, uniformIndex, 1				{lnop}
+{e4}	shli	uniformOffset, uniformIndex, 2				{lnop}
+{e2}	a	pAttrib, pAttribs, attribOffset				{lnop}	
+{e2}	a	newWorkStart, pUniform, uniformSize		{o6}	stqd	decompScale, 0x00(pCustomSab)
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303			{o6}	lqd	attribInfo, 0x00(pAttrib)
+{e2}	a	pStaticUniform, pStaticMem, uniformOffset		{lnop}
+{e2}	ceqi	first, pFirstUniform, 0					{lnop}
+	{nop}							{o6}	lqd	uniformPtrs, kStaticUniformPtr(pStaticUniform)
+	{nop}							{o6}	stqd	decompBias, 0x10(pCustomSab)
+{e2}	selb	pFirstUniform, pFirstUniform, pUniform, first	{o4}	cwd	s_uniInsert, 0x00(uniformOffset)
+{e2}	ai	pCustomSab_2, pCustomSab, 0x20			{o4}	rotqby	attribInfo, attribInfo, pAttrib
+{e2}	il	mask, 1						; Branch is below
+			cmd_setup_nvstream_custom_branch:	{o?}	brz	flags, cmd_setup_nvstream_call_custom
+{e2}	selb	pCustomSab, pCustomSab_2, pCustomSab, first	{o6}	stqd	uniformCount, kStaticUniformCount(pStaticMem)
+{e4}	shl	mask, mask, attribNum				{o4}	shufb	uniformPtrs, pUniform, uniformPtrs, s_uniInsert
+{e4}	rotmi	sabFlags, attribInfo, -8			{o6}	lqd	attribIds, kStaticAttributeId(pStaticMem)
+{e4}	rotmi	formatType, attribInfo, -18			{o6}	stqd	newWorkStart, kStaticWorkFreeStart(pStaticMem)
+{e4}	rotmi	attribId, attribInfo, -24			{o4}	cbd	s_attribInsert, 0x00(uniformIndex)
+{e4}	rotmi	componentCount, attribInfo, -16			{o6}	lqd	pFixedFormat, kStaticFixedFormatPtr(pStaticMem)
+{e2}	andi	sabLocOffset, sabFlags, 0xF			{o6}	lqr	pDecompFunc0, m_decomp_func_0
+{e2}	andi	formatType, formatType, 0x3C			{o6}	lqr	pDecompFunc1, m_decomp_func_1
+{e2}	a	sabLocOffset, sabLocOffset, sabLocOffset	{o4}	shufb	attribIds, attribId, attribIds, s_attribInsert
+{e2}	ai	attribIndex, attribId, -1			{o4}	shufb	maskOffset, formatType, formatType, s_DDDDDDDDDDDDDDDD
+{e2}	a	pSabLoc, pSabLocs, sabLocOffset			{o6}	stqd	uniformPtrs, kStaticUniformPtr(pStaticUniform)
+{e4}	shli	attribIndex, attribIndex, 2			{o4}	rotqbyi	pVarFormat, pFixedFormat, 4
+{e2}	andi	componentCount, componentCount, 0xF		{o6}	lqd	sabLoc, 0x00(pSabLoc)
+{e2}	a	s_format, s_AAAA, maskOffset			{o6}	stqd	attribIds, kStaticAttributeId(pStaticMem)
+{e2}	andi	sabOn, sabFlags, kScaleAndBiasOn		{o6}	lqd	pUniSkin, kStaticUniformPosPtr(pStaticMem)
+{e2}	andi	sabVar, sabFlags, kScaleAndBiasVariable		{o4}	shufb	pDecompFunc, pDecompFunc0, pDecompFunc1, s_format
+{e2}	cgti	sabOn, sabOn, 0					{o4}	cwd	s_uniSkinInsert, 0x00(attribIndex)
+{e2}	ila	pCustomFunc, cmd_setup_nvstream_attrib_loop	{o4}	shufb	attribId, attribId, attribId, s_AAAA
+{e2}	cgti	sabVar, sabVar, 0				{o4}	rotqby	sabLoc, sabLoc, pSabLoc
+{e2}	selb	pDecompFunc, pDecompFunc, pCustomFunc, doCustom	{o6}	lqr	s_ABCD, m_ABCD
+{e2}	selb	sabBase, pFixedFormat, pVarFormat, sabVar	{o4}	shufb	pUniNewSkin, pUniform, pUniSkin, s_uniSkinInsert
+{e2}	cgti	attribNotSkin, attribId, kDispNormalId		{o}	hbr	cmd_setup_nvstream_decomp_call, pDecompFunc
+{e4}	rotmi	sabLoc, sabLoc, -16				{o6}	lqr	decompScale0, m_decomp_scale_0
+{e4}	shli	biasOffset, componentCount, 2			{o6}	lqr	decompScale1, m_decomp_scale_1
+{e2}	selb	pUniSkin, pUniNewSkin, pUniSkin, attribNotSkin		{lnop}
+{e2}	xor	flags, flags, mask					{lnop}
+{e2}	a	pScale, sabBase, sabLoc				{o6}	stqd	pUniSkin, kStaticUniformPosPtr(pStaticMem)
+{e2}	andi	offset, attribInfo, 0xFF			{o4}	shufb	sabOn, sabOn, sabOn, s_AAAA
+{e2}	a	pBias, pScale, biasOffset			{o6}	lqd	scale0, 0x00(pScale)
+{e2}	andi	scaleOffset, pScale, 0xF			{o6}	lqd	scale1, 0x10(pScale)
+{e2}	andi	biasOffset, pBias, 0xF				{o6}	lqd	bias0, 0x00(pBias)
+{e2}	ilhu	oneF, 0x3F80					{o6}	lqd	bias1, 0x10(pBias)
+	{nop}							{o4}	shufb	scaleMaskOffset, scaleOffset, scaleOffset, s_DDDDDDDDDDDDDDDD
+	{nop}							{o4}	shufb	biasMaskOffset, biasOffset, biasOffset, s_DDDDDDDDDDDDDDDD
+	{nop}							{o6}	lqr	decompBias0, m_decomp_bias_0
+	{nop}							{o6}	lqr	decompBias1, m_decomp_bias_1
+{e2}	a	s_scale, s_ABCD, scaleMaskOffset			{lnop}
+{e2}	a	s_bias, s_ABCD, biasMaskOffset				{lnop}
+{e2}	a	pDecompSrc, pStream, offset			{o4}	shufb	scale, scale0, scale1, s_scale
+{e2}	ori	decompStride, stride, 0				{o4}	shufb	bias, bias0, bias1, s_bias
+{e2}	ori	decompNum, numVerts, 0				{o4}	shufb	decompScale, decompScale0, decompScale1, s_format
+	{nop}							{o4}	shufb	decompBias, decompBias0, decompBias1, s_format
+{e2}	selb	scale, oneF, scale, sabOn				{lnop}
+{e2}	and	bias, bias, sabOn					{lnop}
+{e6}	fm	decompScale, scale, decompScale				{lnop}
+{e6}	fma	decompBias, scale, decompBias, bias		; Function call is below
+.cuse pDecompSrc, decompStride, pUniform, componentCount, decompNum, decompScale, decompBias
+				cmd_setup_nvstream_decomp_call:	{o?}	bisl	$lr, pDecompFunc	[#func cmd_setup_nvstream_attrib_loop]
+
+	{nop}							{o?}	brnz	flags, cmd_setup_nvstream_attrib_loop
+	{nop}							{o?}	br	cmd_setup_nvstream_end
+
+cmd_setup_nvstream_call_custom:
+{e2}	a	uniformSize_2, uniformSize, uniformSize		{o6}	lqd	$7{scale0}, 0x20($sp)
+{e2}	ori	$6{pUniform0}, pFirstUniform, 0			{o6}	lqd	$8{bias0}, 0x30($sp)
+{e2}	a	$9{pUniform1}, pFirstUniform, uniformSize	{o6}	lqd	$10{scale1}, 0x40($sp)
+{e2}	a	$12{pUniform2}, $6{pUniform0}, uniformSize_2	{o6}	lqd	$11{bias1}, 0x50($sp)
+{e2}	a	$15{pUniform3}, $9{pUniform1}, uniformSize_2	{o6}	lqd	$13{scale2}, 0x60($sp)
+{e2}	a	$18{pUniform4}, $12{pUniform2}, uniformSize_2	{o6}	lqd	$14{bias2}, 0x70($sp)
+{e2}	a	$21{pUniform5}, $15{pUniform3}, uniformSize_2	{o6}	lqd	$16{scale3}, 0x80($sp)
+{e2}	a	$24{pUniform6}, $18{pUniform4}, uniformSize_2	{o4}	rotqbyi	pDecompFunc, pStream, 4
+{e2}	a	$27{pUniform7}, $21{pUniform5}, uniformSize_2	{o6}	lqd	$17{bias3}, 0x90($sp)
+{e2}	a	$30{pUniform8}, $24{pUniform6}, uniformSize_2	{o6}	lqd	$19{scale4}, 0xA0($sp)
+{e2}	a	$33{pUniform9}, $27{pUniform7}, uniformSize_2	{o6}	lqd	$20{bias4}, 0xB0($sp)
+{e2}	a	$36{pUniform10}, $30{pUniform8}, uniformSize_2	{o6}	lqd	$22{scale5}, 0xC0($sp)
+{e2}	a	$39{pUniform11}, $33{pUniform9}, uniformSize_2	{o6}	lqd	$23{bias5}, 0xD0($sp)
+{e2}	a	$42{pUniform12}, $36{pUniform10}, uniformSize_2	{o6}	lqd	$25{scale6}, 0xE0($sp)
+{e2}	a	$45{pUniform13}, $39{pUniform11}, uniformSize_2	{o6}	lqd	$26{bias6}, 0xF0($sp)
+{e2}	a	$48{pUniform14}, $42{pUniform12}, uniformSize_2	{o}	hbr	cmd_setup_nvstream_call_custom_branch, pDecompFunc
+{e2}	a	$51{pUniform15}, $45{pUniform13}, uniformSize_2	{o6}	lqd	$28{scale7}, 0x100($sp)
+{e2}	ori	$3{decompNum}, numVerts, 0			{o6}	lqd	$29{bias7}, 0x110($sp)
+{e2}	ori	$4{pDecompSrc}, pStream, 0			{o6}	lqd	$31{scale8}, 0x120($sp)
+{e2}	ila	$5{pConstData}, g_meshGlobalConstData		{o6}	lqd	$32{bias8}, 0x130($sp)
+	{nop}							{o6}	lqd	$34{scale9}, 0x140($sp)
+	{nop}							{o6}	lqd	$35{bias9}, 0x150($sp)
+	{nop}							{o6}	lqd	$37{scale10}, 0x160($sp)
+	{nop}							{o6}	lqd	$38{bias10}, 0x170($sp)
+	{nop}							{o6}	lqd	$40{scale11}, 0x180($sp)
+	{nop}							{o6}	lqd	$41{bias11}, 0x190($sp)
+	{nop}							{o6}	lqd	$43{scale12}, 0x1A0($sp)
+	{nop}							{o6}	lqd	$44{bias12}, 0x1B0($sp)
+	{nop}							{o6}	lqd	$46{scale13}, 0x1C0($sp)
+	{nop}							{o6}	lqd	$47{bias13}, 0x1D0($sp)
+	{nop}							{o6}	lqd	$49{scale14}, 0x1E0($sp)
+	{nop}							{o6}	lqd	$50{bias14}, 0x1F0($sp)
+	{nop}							{o6}	lqd	$52{scale15}, 0x200($sp)
+	{nop}							{o6}	lqd	$53{bias15}, 0x210($sp)
+	{nop}		cmd_setup_nvstream_call_custom_branch:	{o?}	bisl	$lr, pDecompFunc	[#func]
+
+cmd_setup_nvstream_end:
+	{nop}							{o6}	lqd	$lr, 0x2D0($sp)
+	{nop}							{o6}	lqd	$80, 0x2B0($sp)
+	{nop}							{o6}	lqd	$81, 0x2A0($sp)
+	{nop}							{o6}	lqd	$82, 0x290($sp)
+	{nop}							{o6}	lqd	$83, 0x280($sp)
+	{nop}							{o6}	lqd	$84, 0x270($sp)
+	{nop}							{o6}	lqd	$85, 0x260($sp)
+	{nop}							{o6}	lqd	$86, 0x250($sp)
+	{nop}							{o6}	lqd	$87, 0x240($sp)
+	{nop}							{o6}	lqd	$88, 0x230($sp)
+	{nop}							{o6}	lqd	$89, 0x220($sp)
+	{nop}							{o6}	lqd	$sp, 0($sp)
+	{nop}							{o?}	bi	$lr
+
+
+
+.if 0
+; This section has the individual snippets of code that have been scheduled above.
+
+; Generate stack frame and store necessary non-volatile registers on to the stack.
+; Also 512 bytes is reserved for storing scales and biases for custom decompress.
+; These registers are needed in non-volatile:
+; pStaticMem, pAttribs, pStream, flags, numVerts, stride, pSabLocs, pCustomSab, doCustom, pFirstUniform
+; Lots of things need pStaticMem, so it is not mentioned in the 'needs' for each code snippet.
+	{nop}							{o6}	stqd	$80, -0x10($sp)
+	{nop}							{o6}	stqd	$81, -0x20($sp)
+	{nop}							{o6}	stqd	$82, -0x30($sp)
+	{nop}							{o6}	stqd	$83, -0x40($sp)
+	{nop}							{o6}	stqd	$84, -0x50($sp)
+	{nop}							{o6}	stqd	$85, -0x60($sp)
+	{nop}							{o6}	stqd	$86, -0x70($sp)
+	{nop}							{o6}	stqd	$86, -0x80($sp)
+	{nop}							{o6}	stqd	$86, -0x90($sp)
+	{nop}							{o6}	stqd	$86, -0xA0($sp)
+	{nop}							{o6}	stqd	$lr, 0x10($sp)
+	{nop}							{o6}	stqd	$sp, -0x2C0($sp)
+{e2}	il	stackFrameSize, -0x2C0				
+{e2}	a	$sp, $sp, stackFrameSize			
+
+; Generate pointer to scales and biases to be stored on the stack.
+{e2}	ai	pCustomSab, $sp, 0x20				
+
+; Set pFirstUniform to 0 so that it can be set properly the first time through the loop.
+{e2}	il	pFirstUniform, 0				
+
+; Copy pStaticMem from input parameter to non-volatile register.
+{e2}	ori	pStaticMem, pStaticMemIn, 0			
+
+; Generate pFormat from input parameters.
+	{nop}							{o6}	lqd	pFixedFormat, kStaticFixedFormatPtr(pStaticMemIn)
+{e4}	rotmi	streamName, cmdQuad1, -19			
+{e2}	andi	streamName, streamName, 0xE			
+{e2}	ai	streamNameFormat, streamName, 2			
+	{nop}							{o6}	lqx	pFormat, pFixedFormat, streamNameFormat
+	{nop}							{o4}	rotqby	pFormat, pFormat, streamNameFormat
+{e4}	rotmi	pFormat, pFormat, -16				
+{e2}	a	pFormat, pFormat, pFixedFormat			
+
+; Generate flags and pStream from input paramaters.
+; This also generates the address for the custom decompress function which is stored in the second field of pStream.
+{e2}	ila	sel_AbCdEfGh, 0xFFFF				
+{e2}	ila	s_AAAA, 0x00010203				
+	{nop}							{o6}	lqd	pInputBuffer, kStaticInputBufferPtr(pStaticMemIn)
+	{nop}							{o4}	shufb	pInputBuffer, pInputBuffer, pInputBuffer, s_AAAA
+{e2}	and	pStream, cmdQuad1, sel_AbCdEfGh			
+{e2}	a	pStream, pStream, pInputBuffer			
+	{nop}							{o4}	rotqbyi	flags, cmdQuad1, 2
+{e2}	and	flags, flags, sel_AbCdEfGh			
+
+; Get and round numVerts from static memory.
+	{nop}							{o6}	lqd	numVerts, kStaticVertexCount(pStaticMemIn)
+{e2}	ai	numVerts, numVerts, 3				
+{e2}	andi	numVerts, numVerts, -4				
+
+; Generate stride, pAttribs and pSabLocs from the stream's format info.
+; Needs pFormat, sel_AbCdEfGh.
+	{nop}							{o6}	lqd	formatInfo, 0x00(pFormat)
+	{nop}							{o4}	rotqby	formatInfo, formatInfo, pFormat
+{e2}	and	stride, formatInfo, sel_AbCdEfGh			
+{e4}	rotmi	attribCount, formatInfo, -16			
+{e4}	shli	sabOffset, attribCount, 2			
+{e2}	ai	pAttribs, pFormat, 4				
+{e2}	a	pSabLocs, pAttribs, sabOffset			
+
+; Generate doCustom flag from input parameters.
+	{nop}							{o4}	rotqbyi	doCustom, cmdQuad1, 6
+{e2}	cgthi	doCustom, doCustom, 0				
+{e4}	rotmi	doCustom, doCustom, -16				
+
+; Get copyFlags from the input paramaters and branch depending on its value.
+{e4}	rotmi	copyFlag, cmdQuad1, -16				
+{e2}	andi	copyFlag, copyFlag, 1				
+	{nop}							{o?}	brz	copyFlag, cmd_setup_nvstream_skip_copy
+
+; Perform the conditional stream copy into the work buffer.
+; This allocates space in the work buffer for the stream and stores the resultant pointer into the table of work stream
+; pointers in static memory.
+; Needs numVerts, stride, pStream, streamName.
+{e7}	mpy	copySize, numVerts, stride			
+	{nop}							{o6}	lqd	pCopyDst, kStaticWorkFreeStart(pStaticMem)
+{e2}	a	newWorkStart, pCopyDst, copySize		
+	{nop}							{o6}	stqd	newWorkStart, kStaticWorkFreeStart(pStaticMem)
+{e2}	a	streamNameWork, streamName, streamName		
+{e2}	a	pWorkStream, pStaticMem, streamNameWork		
+	{nop}							{o6}	lqd	streamWorkPtrs, kStaticStreamWorkPtr(pWorkStream)
+	{nop}							{o4}	cwd	s_streamInsert, 0x00(streamNameWork)
+	{nop}							{o4}	shufb	streamWorkPtrs, pCopyDst, streamWorkPtrs, s_streamInsert
+	{nop}							{o6}	stqd	streamWorkPtrs, kStaticStreamWorkPtr(pWorkStream)
+{e2}	ori	pCopySrc, pStream, 0				
+.cuse pCopySrc, pCopyDst, copySize
+	{nop}							{o?}	brsl	$lr, CopyQWords	[#func]
+
+
+
+; If there are no attributes to decompress, skip to the end.
+; Needs flags.
+cmd_setup_nvstream_skip_copy:
+	{nop}							{o?}	brz	flags, cmd_setup_nvstream_end
+
+; Main attribute loop.
+; This code looks for the highest bit set in flags, deterimes the attribute number for that bit and then clears that bit.
+; Needs flags.
+cmd_setup_nvstream_attrib_loop:
+{e2}	clz	attribNum, flags				
+{e2}	sfi	attribNum, attribNum, 31			
+{e2}	il	mask, 1						
+{e4}	shl	mask, mask, attribNum				
+{e2}	xor	flags, flags, mask				
+
+; Load some constants needed in the loop.
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303			
+{e2}	ila	s_AAAA, 0x00010203				
+
+; Get all of the information for the current attribute that is in the attribute info.
+; This is the id, format, component count, and offset into the stream.
+; Needs attribNum, pAttribs.
+{e4}	shli	attribOffset, attribNum, 2			
+{e2}	a	pAttrib, pAttribs, attribOffset			
+	{nop}							{o6}	lqd	attribInfo, 0x00(pAttrib)
+	{nop}							{o4}	rotqby	attribInfo, attribInfo, pAttrib
+{e4}	rotmi	attribId, attribInfo, -24			
+{e4}	rotmi	formatType, attribInfo, -18			
+{e2}	andi	formatType, formatType, 0x3C
+{e4}	rotmi	componentCount, attribInfo, -16			
+{e2}	andi	componentCount, componentCount, 0xF		
+{e2}	andi	offset, attribInfo, 0xFF			
+
+; Generate the size required for a uniform table to store this attribute.
+; Needs numVerts.
+{e2}	ai	uniformSize, numVerts, 4			
+{e4}	shli	uniformSize, uniformSize, 4			
+
+; Allocate uniform table.
+; Needs uniformSize
+	{nop}							{o6}	lqd	pUniform, kStaticWorkFreeStart(pStaticMem)
+{e2}	a	newWorkStart, pUniform, uniformSize		
+	{nop}							{o6}	stqd	newWorkStart, kStaticWorkFreeStart(pStaticMem)
+
+; Set pFirstUniform to pUniform the first time through the loop.
+{e2}	ceqi	first, pFirstUniform, 0				
+{e2}	selb	pFirstUniform, pFirstUniform, pUniform, first	
+
+; Get the current unfiform table index and increment it.
+	{nop}							{o6}	lqd	uniformIndex, kStaticUniformCount(pStaticMem)
+{e2}	ai	uniformCount, uniformIndex, 1			
+	{nop}							{o6}	stqd	uniformCount, kStaticUniformCount(pStaticMem)
+
+; Store the uniform table pointer into table of uniform table pointers in static memory.
+; Needs pUniform, uniformIndex.
+{e4}	shli	uniformOffset, uniformIndex, 2			
+{e2}	a	pStaticUniform, pStaticMem, uniformOffset	
+	{nop}							{o6}	lqd	uniformPtrs, kStaticUniformPtr(pStaticUniform)
+	{nop}							{o4}	cwd	s_uniInsert, 0x00(uniformOffset)
+	{nop}							{o4}	shufb	uniformPtrs, pUniform, uniformPtrs, s_uniInsert
+	{nop}							{o6}	stqd	uniformPtrs, kStaticUniformPtr(pStaticUniform)
+
+; Store the current attribute id into the table of attribute ids stored by uniform table.
+; Needs attribId, uniformIndex.
+	{nop}							{o6}	lqd	attribIds, kStaticAttributeId(pStaticMem)
+	{nop}							{o4}	cbd	s_attribInsert, 0x00(uniformIndex)
+	{nop}							{o4}	shufb	attribIds, attribId, attribIds, s_attribInsert
+	{nop}							{o6}	stqd	attribIds, kStaticAttributeId(pStaticMem)
+
+; Store uniform pointer for skinning attributes, if this attribute is a skinning attribute.
+; Needs pUniform, attribId, s_AAAA.
+	{nop}							{o6}	lqd	pUniSkin, kStaticUniformPosPtr(pStaticMem)
+{e2}	ai	attribIndex, attribId, -1			
+{e4}	shli	attribIndex, attribIndex, 2			
+	{nop}							{o4}	cwd	s_uniSkinInsert, 0x00(attribIndex)
+	{nop}							{o4}	shufb	pUniNewSkin, pUniform, pUniSkin, s_uniSkinInsert
+	{nop}							{o4}	shufb	attribId, attribId, attribId, s_AAAA
+{e2}	cgti	attribNotSkin, attribId, kDispNormalId		
+{e2}	selb	pUniSkin, pUniNewSkin, pUniSkin, attribNotSkin	
+	{nop}							{o6}	stqd	pUniSkin, kStaticUniformPosPtr(pStaticMem)
+
+; Get scale and bias for the current attribute.
+; If scale and bias are not used for this attribute, then scale is set to 1.0 and bias to 0.0.
+; Needs attribInfo, pSabLocs, s_AAAA.
+{e4}	rotmi	sabFlags, attribInfo, -8			
+{e2}	andi	sabOn, sabFlags, kScaleAndBiasOn		
+{e2}	cgti	sabOn, sabOn, 0					
+	{nop}							{o4}	shufb	sabOn, sabOn, sabOn, s_AAAA
+{e2}	andi	sabVar, sabFlags, kScaleAndBiasVariable		
+{e2}	cgti	sabVar, sabVar, 0				
+	{nop}							{o6}	lqd	pFixedFormat, kStaticFixedFormatPtr(pStaticMem)
+	{nop}							{o4}	rotqbyi	pVarFormat, pFixedFormat, 4
+{e2}	selb	sabBase, pFixedFormat, pVarFormat, sabVar	
+{e2}	andi	sabLocOffset, sabFlags, 0xF			
+{e2}	a	sabLocOffset, sabLocOffset, sabLocOffset	
+{e2}	a	pSabLoc, pSabLocs, sabLocOffset			
+	{nop}							{o6}	lqd	sabLoc, 0x00(pSabLoc)
+	{nop}							{o4}	rotqby	sabLoc, sabLoc, pSabLoc
+{e4}	rotmi	sabLoc, sabLoc, -16				
+{e2}	a	pScale, sabBase, sabLoc				
+{e4}	shli	biasOffset, componentCount, 2			
+{e2}	a	pBias, pScale, biasOffset			
+{e2}	andi	scaleOffset, pScale, 0xF			
+{e2}	andi	biasOffset, pBias, 0xF				
+	{nop}							{o4}	shufb	scaleMaskOffset, scaleOffset, scaleOffset, s_DDDDDDDDDDDDDDDD
+	{nop}							{o4}	shufb	biasMaskOffset, biasOffset, biasOffset, s_DDDDDDDDDDDDDDDD
+	{nop}							{o6}	lqr	s_ABCD, m_ABCD
+{e2}	a	s_scale, s_ABCD, scaleMaskOffset		
+{e2}	a	s_bias, s_ABCD, biasMaskOffset			
+	{nop}							{o6}	lqd	scale0, 0x00(pScale)
+	{nop}							{o6}	lqd	scale1, 0x10(pScale)
+	{nop}							{o6}	lqd	bias0, 0x00(pBias)
+	{nop}							{o6}	lqd	bias1, 0x10(pBias)
+	{nop}							{o4}	shufb	scale, scale0, scale1, s_scale
+	{nop}							{o4}	shufb	bias, bias0, bias1, s_bias
+{e2}	ilhu	oneF, 0x3F80					
+{e2}	selb	scale, oneF, scale, sabOn			
+{e2}	and	bias, bias, sabOn				
+
+; Setup the parameters to the decompression for the current attribute based upon its format.
+; This also loads a scale and bias for this particular format and folds them into the scale and bias for the attribute.
+; Needs s_DDDDDDDDDDDDDDDD, s_AAAA, formatType, scale, bias, pStream, offset, stride, numVerts.
+	{nop}							{o4}	shufb	maskOffset, formatType, formatType, s_DDDDDDDDDDDDDDDD
+{e2}	a	s_format, s_AAAA, maskOffset			
+	{nop}							{o6}	lqr	decompScale0, m_decomp_scale_0
+	{nop}							{o6}	lqr	decompScale1, m_decomp_scale_1
+	{nop}							{o6}	lqr	decompBias0, m_decomp_bias_0
+	{nop}							{o6}	lqr	decompBias1, m_decomp_bias_1
+	{nop}							{o6}	lqr	pDecompFunc0, m_decomp_func_0
+	{nop}							{o6}	lqr	pDecompFunc1, m_decomp_func_1
+	{nop}							{o4}	shufb	decompScale, decompScale0, decompScale1, s_format
+	{nop}							{o4}	shufb	decompBias, decompBias0, decompBias1, s_format
+	{nop}							{o4}	shufb	pDecompFunc, pDecompFunc0, pDecompFunc1, s_format
+{e6}	fma	decompBias, scale, decompBias, bias		
+{e6}	fm	decompScale, scale, decompScale			
+{e2}	a	pDecompSrc, pStream, offset			
+{e2}	ori	decompStride, stride, 0				
+{e2}	ori	decompNum, numVerts, 0				
+
+; The scale and bias need to be saved on the stack when a custom decompress routine is used.
+; Also, increment the pointer to the save scales and biases.
+; Needs decompScale, decompBias, pCustomSab.
+	{nop}							{o6}	stqd	decompScale, 0x00(pCustomSab)
+	{nop}							{o6}	stqd	decompBias, 0x10(pCustomSab)
+{e2}	ai	pCustomSab, pCustomSab, 0x20			
+
+; If a custom decompress routine is being used, then instead of calling the normal attribute decompress routine,
+; we simply jump back up to the top of the loop.
+; Needs pDecompFunc, doCustom.
+{e2}	ila	pCustomFunc, cmd_setup_nvstream_attrib_loop	
+{e2}	selb	pDecompFunc, pDecompFunc, pCustomFunc, doCustom	
+
+; Calls the decompression function for this attribute.
+; Needs pDecompFunc, pDecompSrc, decompStride, pUniform, componentCount, decompNum, decompScale, decompBias.
+	{nop}							{o?}	bisl	$lr, pDecompFunc	[#func]
+
+; If there are more attributes to decompress, go to the top of the loop.
+; Needs flags.
+	{nop}							{o?}	brnz	flags, cmd_setup_nvstream_attrib_loop
+.endif
+
+.end
+

@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern TryDumpAllStoreShareBufs
+.global WwsJob_TryDumpAllStoreShareBufs
+WwsJob_TryDumpAllStoreShareBufs:
+		{nop}									stqd $lr, 16($sp)
+		{nop}									stqd $sp, -32($sp)
+		ai $sp, $sp, -32							brsl $4, TryDumpAllStoreShareBufs [#TryDumpAllStoreShareBufsCC]
+		ai $sp, $sp, 32								lqd $lr, 16($sp)
+		nop									bi $lr
+.end
+.endif
+
+
+.start 
+.include "conventions.inl"
+.text
+.usecc TryDumpAllStoreShareBufsCC
+
+// static Bool32 WwsJob_TryDumpAllStoreShareBufs( void )
+.reg ongoingDma, lastStoreJobNum, pBufferSets, off1, off2, off3, pBuffer, firstFreeBufferNum, buffer, mask
+.reg shareable, lcond, bufferSetNum, bufferSetOff, pBufferSet, firstBufferNum, bufferSet, bufferNum, numPagesPerBuffer, bufferPageNum
+.reg returnTo, firstPageNum, jobData, jobHasShareableBuffers, bufferIndex, pJobDataArray
+.extern g_WwsJob_lastStoreJobNum
+.extern g_WwsJob_jobDataArray
+.extern StartTagSpecificBarrieredNullListWithInterrupt
+.extern TryDumpShareBuf
+.extern StoreAuditDataInitialU64
+.extern	StoreAuditDataParameterU64
+.global TryDumpAllStoreShareBufs
+TryDumpAllStoreShareBufs: // 50 instructions, 200 bytes
+		ila ongoingDma, 0							lqa lastStoreJobNum, g_WwsJob_lastStoreJobNum
+		shli bufferIndex, lastStoreJobNum, 5					lnop
+		shli off1, lastStoreJobNum, 6						{lnop}
+		shli off2, lastStoreJobNum, 8						{lnop}
+		{nop}									lqd jobData, g_WwsJob_jobDataArray(bufferIndex)
+		{nop}									rotqbyi	jobHasShareableBuffers, jobData, 4
+		ila pBufferSets, g_WwsJob_bufferSetArray				rotqbyi firstFreeBufferNum, jobData, 2
+		ila pBuffer, g_WwsJob_bufferArray					rotqbyi returnTo, $4, 0
+		a pBufferSets, pBufferSets, off1					{lnop}
+		a pBuffer, pBuffer, off2						brhz jobHasShareableBuffers, TdassbExit
+		{nop}							TdassbBranch3:	br TdassbLoop
+TdassbLoop2:	ai bufferIndex, bufferIndex, 1						hbra TdassbBranch, TdassbLoop2
+		ai pBuffer, pBuffer, 8							{lnop}
+		ceqh lcond, bufferIndex, firstFreeBufferNum				{lnop}
+		{nop}									brhnz lcond, TdassbExit2
+TdassbLoop:	{nop}									lqd $5, 0(pBuffer)
+		ilhu mask, 0x4000							rotqby $5, $5, pBuffer
+		and shareable, $5, mask					TdassbBranch:	brz shareable, TdassbLoop2
+		nop									hbra TdassbBranch2, TryDumpShareBuf
+		il $7, DmaTagId_kStoreJob_writeAllShareableBuffers			rotqbyi bufferSetNum, $5, 4
+		andi bufferSetNum, bufferSetNum, 0xF					shlqbii bufferSetOff, bufferSetNum, 2
+		a pBufferSet, pBufferSets, bufferSetOff					lqx $3, pBufferSets, bufferSetOff
+		ai $4, pBuffer, 0							rotqby $3, $3, pBufferSet
+		andi firstBufferNum, $3, 0xFF						rotqbyi firstPageNum, $3, 13
+		sf bufferNum, firstBufferNum, bufferIndex				rotqbyi numPagesPerBuffer, $3, 14
+		andi firstPageNum, firstPageNum, 0xFF					{lnop}
+		andi numPagesPerBuffer, numPagesPerBuffer, 0xFF				{lnop}
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_TryDumpAllStoreShareBufs_activeShareBuffer		shlqbyi	$75, bufferSetNum, 1
+		ila	$76, 1								lnop
+		or	$75, $75, bufferNum						brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		ai	$74, $5{buffer}, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		mpya $6, numPagesPerBuffer, bufferNum, firstPageNum	TdassbBranch2:	brsl $8, TryDumpShareBuf [#TryDumpShareBufCC]
+		orc ongoingDma, ongoingDma, $3						br TdassbLoop2
+TdassbExit2:	il $3, DmaTagId_kStoreJob_writeAllShareableBuffers			lnop
+		ai $4, returnTo, 0							brnz ongoingDma, StartTagSpecificBarrieredNullListWithInterrupt [#StartBarrieredNullListWithInterruptCC]
+TdassbExit:	nand $3, ongoingDma, ongoingDma						bi $4
+
+.end

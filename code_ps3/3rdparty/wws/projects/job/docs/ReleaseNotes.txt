@@ -1,0 +1,64 @@
+08 September 2006
+
+This version now includes an improved Spurs exception handler so that in the event of an SPU crash data will be output to TTY.  The Spurs kernel automatically outputs some data to TTY and then calls our callback to output more data.  Our data is currently just sent to TTY, but this function may be over-ridden by a user's own function by calling WwsJobSetExceptionHandlerCallbackFunction.
+
+You can now register a name for each joblist (up to 15 chars) to help with debugging.
+
+The ResetList function for joblists has been optimized.
+
+Added support for Nop-Jobs in the joblist.
+
+
+
+30/08/06
+It is no longer necessary for an application to call cellSysmoduleLoadModule(CELL_SYSMODULE_SPURS) before creating a SPURS instance as it is now loaded automatically by the OS in SDK 092.  The loading and unloading of the SPURS PRX has been removed from all of the samples.
+
+A nasty bug involving interrupts could occur when calling GetBufferTag with kAllocDmaTag.  This has been fixed.
+
+The "stopd" instructions used to halt execution when an assertion fails have been changed to each use different registers.  This will make it easier for an end user to determine which assert went off as the opcode for each one is now different (as oppoesed to just the address).
+
+
+21/08/06
+The SetNewPriorities function for a joblist has been reenabled.  It now uses the new built in Spurs function in SDK 091.
+
+Added workload audits to track the starting and stopping of workloads.  This is a truly minimal set of audits as it only emits two audits for each time a workload is started and stopped.  The first audit also emits the main memory address of the workload so the application can track which workloads are being used on which SPU and for how long.  Enable the defines for "ENABLE_WORKLOAD_AUDITS" in makeopts to turn these audits on.
+
+
+08/08/06
+
+The SetNewPriorities function for a joblist does not currently work on 090 so this function is temporarily not available.  Proper support for this should be coming in spurs in 091 which should come fairly soon.  If this function is needed urgently before then, let me know.
+
+
+
+04/08/06
+
+Before creating your spurs instance with cellSpursInitialize, remember to call cellSysmoduleLoadModule(CELL_SYSMODULE_SPURS) to initialize the prx on 090.
+
+Support for generating the unique IDs needed for SPU debugging has gone into the linker in 090.  The build process for WWS Jobs has been updated to reflect this.  You no longer need to set kSnUniqueId1 or kSnUniqueId2 on the command line of the linker.  In other words, you can delete the following from your build commands:
+-Wl,--defsym,kSnUniqueId1=`printf "0x%04x%04x" $$RANDOM $$RANDOM` -Wl,--defsym,kSnUniqueId2=`printf "0x%04x%04x" $$RANDOM $$RANDOM`
+
+In ProDG, add the path to the folder your debuginfo elfs are in to the "Options->Search Directories->SPURS elf files" path, rather than the "Options->Search Directories->SPU module files" path.
+
+The function WwsJob_JobApiSetReadyCount on SPU no longer needs an eaSpurs parameter.  This function now requires just 2 parameters.  The 3 parameter version is deprecated.
+
+
+
+13/07/06
+
+In this version, the audit system for WWS Job has changed.  Previously, the Audit Manager was a singleton.  This meant that if you happened to want to set up two separate spurs instances running on two separate SPU Thread Groups, then the audits for SPU0 of each group would over-write the same buffer.  The Audit Manager has now been changed so that the user now creates their own instance of an AuditManager which can be attached to the workload on the Spurs instance.
+
+Note that AttachToSpurs now takes an (optional) extra parameter which is a pointer to the AuditManager instance.
+
+The prototype of the ProcessAuditFunction user callback has changed to receive an extra parameter of the approrpiate AuditManager instance.
+
+The EventHandler can take an extra parameter for which AuditManager to use if audits are being sent out in immediate mode for debugging purposes.  The order of parameters for the EventHandler::EventHandler and EventHandler::InstallEventHandler has also changed to be in a more sensible order for what is likely to be over-ridden by a user, rather than just taking the default values when called.
+
+The effect of these changes should be fairly minor to update.  All the samples have been updated appropriately.
+
+If you aren't setting up the audits system then, rather than calling AuditManager::InitAuditsDisabled(), you now just don't bother to create yourself an instance of the AuditManager at all, and the relevant functions all just automatically take NULL as a default parameter for the pointer to the AuditManager so will just disable the audits system by default.
+
+To use the audits system, create an AuditManager instance and give it a main memory buffer to work with.  Then pass the pointer to this instance into the AttachToSpurs function and when you create the EventHandler instance.
+
+Also, the static function AuditManager::ProcessAllAuditBuffers() no longer exists.  This only existed so that it could be manually run from the debugger after a crash.  A game team should create their own suitable function for their own AuditManager(s) if they desire this function.
+
+Although this change does now allow multiple separate spurs instances, each of which can be running the WWS Job Manager, sharing workloads across the spurs instances isn't (currently) well supported since the spurs concept of a Ready Count doesn't share well.

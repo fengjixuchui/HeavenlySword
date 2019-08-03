@@ -1,0 +1,354 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global DecompressX11Y11Z10
+; Implements DecompressX11Y11Z10() in ice/mesh/icemeshdecompress.cpp
+; void DecompressX11Y11Z10( U32* pSrc, U32 srcStride, F32* pDst, U32 numComponents, U32 numVerts,
+;         VF32 scale, VF32 bias );
+; 
+; Decompresses a series of 10-11-11 fixed point values from an input vertex stream into VF32s in a uniform
+; table.  The resulting range of the values is -1.0f <= x, y, z <= 1.0f, which is then multiplied by scale and has bias added to it.
+; The expected bit pattern of the 10-11-11 is:
+;    0  9: z value
+;   10 20: y value
+;   21 31: x value
+; For the z value, the bit pattern 0x1FF maps to 1.0f and the bit pattern 0x200 maps to -1.0f.
+; For the x and y values, the bit pattern 0x3FF maps to 1.0f and the bit pattern 0x400 maps to 1.0f.
+;
+; NOTE: numComponents is present, but not actually used here.  This is to keep compatibility between this and the
+; other decompression routines.
+; This rountine will only write the required data.  No data is trashed.
+
+.extern m_strideShifts
+
+; Shuffle mask for getting the bytes from the 10-11-11 into the correct fields
+.extern m_CD00BC00AB000000 
+
+; Shuffle mask for delaying output offset for two loops
+.extern m_BCCD 
+
+; Bit mask to mask off unused bits from the fixed point value.
+.extern m_x11y11z10_decomp_mask
+
+; Constants to shift fixed point values into the MSBs of their respective fields.
+.extern m_x11y11z10_decomp_shifts
+
+; Scales and biases for the individual components.
+.extern m_x11y11z10_decomp_scale
+.extern m_x11y11z10_decomp_bias
+
+.text
+
+; Arguments
+.reg pSrc		3
+.reg srcStride		4
+.reg pDst		5	; Must be 16 byte aligned.
+.reg numElements	6	; not actually used for this function, but it is here so all of the decompress
+				; functions have the same prototype
+.reg numVerts		7
+.reg scale		8	; Value by which to scale all data.
+.reg bias		9	; Value by which to bias all data.
+
+.reg bitMask			; Bit mask to mask off unused bits from the fixed point value.
+.reg boundOffset		; Source offset from a quad word.
+.reg bReturn			; Set if function is completed
+.reg cData0			; Input data that has had its bytes shuffled into the correct fields.
+.reg cData1			; Input data that has had its bytes shuffled into the correct fields.
+.reg cData2			; Input data that has had its bytes shuffled into the correct fields.
+.reg cData3			; Input data that has had its bytes shuffled into the correct fields.
+.reg countShift
+.reg dstStride
+.reg dstStride4			; Four times the destination stride.
+.reg dstStrideAdd		; Value to add to the destination offset every loop
+.reg fData0			; Data freshly converted to a float.
+.reg fData1			; Data freshly converted to a float.
+.reg fData2			; Data freshly converted to a float.
+.reg fData3			; Data freshly converted to a float.
+.reg inData0
+.reg inData0_2
+.reg inData1
+.reg inData1_2
+.reg inData2
+.reg inData2_2
+.reg inData3
+.reg inData3_2
+.reg innerCount			; Count for the inner loop.
+.reg innerStride
+.reg innerStride4		; Four times the inner stride.
+.reg kAdd			; Constant to be added to all floats.
+.reg kMul			; Constant by which to multiply all floats.
+.reg loopCount			; Remaining loop count.
+.reg loopMoreThanTwice		; Set if there are less than 4 values to decompress.
+.reg mData0			; Masked fixed point data.
+.reg mData1			; Masked fixed point data.
+.reg mData2			; Masked fixed point data.
+.reg mData3			; Masked fixed point data.
+.reg one
+.reg outData0
+.reg outData1
+.reg outData2
+.reg outData3
+.reg outerBranch		; Do we need to re-enter function (is every part of stream accounted for?) or return
+.reg outerCount
+.reg outerLoop			; Address of outer_loop
+.reg pDst1
+.reg pDst1_2
+.reg pDst2
+.reg pDst2_2
+.reg pDst3
+.reg pDst3_2
+.reg pDstOffset
+.reg pSrc0
+.reg pSrc0_2
+.reg pSrc1
+.reg pSrc1_2
+.reg pSrc2
+.reg pSrc2_2
+.reg pSrc3
+.reg pSrc3_2
+.reg pSrcOffset
+.reg s_AAAA
+.reg s_BCCD			; Shuffle mask for delaying output offset for two loops
+.reg s_CD00BC00AB000000		; Shuffle mask for getting the bytes from the 10-11-11 into the correct fields
+.reg sData0			; Fixed point data shifted into the MSBs
+.reg sData1			; Fixed point data shifted into the MSBs
+.reg sData2			; Fixed point data shifted into the MSBs
+.reg sData3			; Fixed point data shifted into the MSBs
+.reg s_DDDDDDDDDDDDDDDD	
+.reg shift
+.reg shiftValues		; Constants to shift fixed point values into the MSBs of their respective fields.
+.reg shufOffset			; Offset of the input stream shuffled to every byte.
+.reg s_mask			; Resultant shuffle mask for getting the bytes from 10-11-11 into the correct fields after the
+				; input stream offset is taken into consideration.
+.reg strideShift
+.reg strideShifts
+.reg totalSize			; Total size of the input stream.
+.reg write1			; Do we write just one entry on exit?
+.reg write2			; Do we write just two entries on exit?
+.reg write3			; Do we write just three entries on exit?
+.reg writeVerts
+
+.align 7
+
+DecompressX11Y11Z10:
+{e2}	il	one, 1						{o6}	lqr	strideShifts, m_strideShifts
+	{nop}							{o?}	biz	numVerts, $lr
+	{nop}							{o6}	lqr	kAdd, m_x11y11z10_decomp_bias
+	{nop}							{o6}	lqr	kMul, m_x11y11z10_decomp_scale
+	{nop}							{o6}	lqr	bitMask, m_x11y11z10_decomp_mask
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303			{o6}	lqr	s_CD00BC00AB000000, m_CD00BC00AB000000
+	{nop}							{o4}	rotqby	strideShift, strideShifts, srcStride
+	{nop}								{lnop}
+{e6}	fma	bias, scale, kAdd, bias					{lnop}
+{e6}	fm	scale, scale, kMul				{o6}	lqr	shiftValues, m_x11y11z10_decomp_shifts
+{e4}	shl	innerStride, srcStride, strideShift		{o4}	shlqbi	shift, one, strideShift
+{e2}	sfi	countShift, strideShift, 0				{lnop}
+	{nop}								{lnop}
+{e2}	ila	outerLoop, decomp_x11y11z10_outer_loop			{lnop}
+{e2}	ai	outerCount, shift, -1				{o4}	shlqbii	dstStride, shift, 4
+{e4}	shli	innerStride4, innerStride, 2			{o4}	shlqbii dstStride4, shift, 6
+
+decomp_x11y11z10_outer_loop:
+{e2 L}	a	innerCount, numVerts, outerCount			{lnop}
+{e2 L}	andi	boundOffset, pSrc, 0xF					{lnop}
+{e2 L}	ceqi	bReturn, outerCount, 0				{o4 L}	rotqmbi innerCount, innerCount, countShift
+{e2 L}	a	pDst1_2, pDst, dstStride			{o4 L}	shufb	shufOffset, boundOffset, boundOffset, s_DDDDDDDDDDDDDDDD
+{e2 L}	ai	outerCount, outerCount, -1				{lnop}
+{e2 L}	a	pDst2_2, pDst1_2, dstStride				{lnop}
+{e2 L}	ai	loopCount, innerCount, 7			{o? L}	biz	innerCount, $lr
+{e2 L}	andi	writeVerts, innerCount, 0x3			{o4 L}	fsmbi	pDstOffset, 0
+{e2 L}	a	pDst3_2, pDst2_2, dstStride			{o4 L}	rotqmbii loopCount, loopCount, -2
+{e2 L}	ceqi	write1, writeVerts, 1				{o4}	rotqmbyi dstStrideAdd, dstStride4, -8
+{e2 L}	ceqi	write2, writeVerts, 2				{o}	hbrr	decomp_x11y11z10_branch, decomp_x11y11z10_loop
+{e2 L}	ceqi	write3, writeVerts, 3				{o6}	lqr	s_BCCD, m_BCCD
+{e7 L}	mpy	totalSize, loopCount, innerStride4			{lnop}
+{e2 L}	cgti	loopMoreThanTwice, loopCount, 2				{lnop}
+{e2 L}	selb	outerBranch, outerLoop, $lr, bReturn			{lnop}
+{e2 L}	selb	pDst1, pDst, pDst1_2, loopMoreThanTwice			{lnop}
+{e2 L}	selb	pDst2, pDst, pDst2_2, loopMoreThanTwice			{lnop}
+{e2 L}	selb	pDst3, pDst, pDst3_2, loopMoreThanTwice			{lnop}
+{e2 L}	a	s_mask, shufOffset, s_CD00BC00AB000000			{lnop}
+{e2 L}	a	pSrc0, pSrc, totalSize					{lnop}
+{e2 L}	sfi	pSrcOffset, totalSize, 0				{lnop}
+{e2 L}	a	pSrc1, pSrc0, innerStride				{lnop}
+{e2 L}	ai	pSrc0_2, pSrc0, 0x10					{lnop}
+{e2 L}	a	pSrc2, pSrc1, innerStride				{lnop}
+{e2 L}	ai	pSrc1_2, pSrc1, 0x10					{lnop}
+{e2 L}	a	pSrc3, pSrc2, innerStride				{lnop}
+{e2 L}	ai	pSrc2_2, pSrc2, 0x10					{lnop}
+{e2 L}	ai	pSrc3_2, pSrc3, 0x10					{lnop}
+.cset outData0, outData1, outData2, outData3
+.cset sData0, sData1
+.cset cData2, cData3
+
+decomp_x11y11z10_loop:
+{e4 2}	shl	sData3, cData3, shiftValues			{o6 1}	lqx	inData1_2, pSrc1_2, pSrcOffset
+{e2 2}	and	mData1, sData1, bitMask				{o6 1}	lqx	inData1, pSrc1, pSrcOffset
+{e4 2}	shl	sData2, cData2, shiftValues			{o6 1}	lqx	inData2, pSrc2, pSrcOffset
+{e2 2}	and	mData0, sData0, bitMask				{o6 1}	lqx	inData3_2, pSrc3_2, pSrcOffset
+{e2 2}	and	mData3, sData3, bitMask				{o6 1}	lqx	inData0, pSrc0, pSrcOffset
+{e7 2}	csflt	fData0, mData0, 31				{o6 1}	lqx	inData0_2, pSrc0_2, pSrcOffset
+{e2 2}	and	mData2, sData2, bitMask				{o6 1}	lqx	inData2_2, pSrc2_2, pSrcOffset
+{e7 2}	csflt	fData3, mData3, 31				{o4 1}	shufb	cData1, inData1, inData1_2, s_mask
+{e7 2}	csflt	fData2, mData2, 31				{o6 1}	lqx	inData3, pSrc3, pSrcOffset
+{e7 2}	csflt	fData1, mData1, 31				{o6 3}	stqx	outData0, pDst, pDstOffset
+{e2 1}	a	pSrcOffset, pSrcOffset, innerStride4		{o6 3}	stqx	outData3, pDst3, pDstOffset
+{e4 1}	shl	sData1, cData1, shiftValues			{o6 3}	stqx	outData2, pDst2, pDstOffset
+{e6 2}	fma	outData0, fData0, scale, bias			{o6 3}	stqx	outData1, pDst1, pDstOffset
+{e2 3}	a	pDstOffset, pDstOffset, dstStrideAdd		{o4 1}	shufb	cData0, inData0, inData0_2, s_mask
+{e6 2}	fma	outData3, fData3, scale, bias			{o4 1}	shufb	cData3, inData3, inData3_2, s_mask
+{e6 2}	fma	outData2, fData2, scale, bias			{o4 1}	shufb	cData2, inData2, inData2_2, s_mask
+{e6 2}	fma	outData1, fData1, scale, bias			{o4 3}	shufb	dstStrideAdd, dstStrideAdd, dstStrideAdd, s_BCCD
+{e4 1}	shl	sData0, cData0, shiftValues				; Branch is on next line.
+				decomp_x11y11z10_branch:	{o? 3}	brnz	pSrcOffset, decomp_x11y11z10_loop
+
+{e2 L}	a	pSrc, pSrc, srcStride				{o6 3}	stqx	outData0, pDst, pDstOffset
+{e2 L}	ai	pDst, pDst, 0x10			        {o? L}	binz	write1, outerBranch	[decomp_x11y11z10_outer_loop]
+	{nop}							{o6 3}	stqx	outData1, pDst1_2, pDstOffset
+	{nop}							{o? L}	binz	write2, outerBranch	[decomp_x11y11z10_outer_loop]
+	{nop}							{o6 3}	stqx	outData2, pDst2_2, pDstOffset
+	{nop}							{o? L}	binz	write3, outerBranch	[decomp_x11y11z10_outer_loop]
+	{nop}							{o6 3}	stqx	outData3, pDst3_2, pDstOffset
+	{nop}							{o? L}	bi	outerBranch	[decomp_x11y11z10_outer_loop]
+
+
+
+.if 0
+; If the input data is straddled between two quadwords, then we first need to load the data from the second
+; quadword for each of the four vertexes.
+	{nop}							{o6 1}	lqx	inData0_2, pSrc0_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData1_2, pSrc1_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData2_2, pSrc2_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData3_2, pSrc3_2, pSrcOffset
+
+; unrolled loop -- won't actually work as number of times through the loop is different.
+decomp_x11y11z10_loop:
+	{nop}							{o6 1}	lqx	inData0, pSrc0, pSrcOffset
+	{nop}							{o6 1}	lqx	inData1, pSrc1, pSrcOffset
+	{nop}							{o6 1}	lqx	inData2, pSrc2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData3, pSrc3, pSrcOffset
+
+; Increment the source offset by the source stride times four.
+{e2 1}	a	pSrcOffset, pSrcOffset, innerStride4		
+
+; Shuffles the bytes from the from the input 10-11-11 to be in the correct word fields.
+	{nop}							{o4 1}	shufb	cData0, inData0, inData0_2, s_mask
+	{nop}							{o4 1}	shufb	cData1, inData1, inData1_2, s_mask
+	{nop}							{o4 1}	shufb	cData2, inData2, inData2_2, s_mask
+	{nop}							{o4 1}	shufb	cData3, inData3, inData3_2, s_mask
+
+; Shift the bits into the MSBs of each field and mask all unncessary bits.
+{e4 1}	shl	sData0, cData0, shiftValues			
+{e4 1}	shl	sData1, cData1, shiftValues			
+{e4 1}	shl	sData2, cData2, shiftValues			
+{e4 2}	shl	sData3, cData3, shiftValues			
+{e2 2}	and	mData0, sData0, bitMask				
+{e2 2}	and	mData1, sData1, bitMask				
+{e2 2}	and	mData2, sData2, bitMask				
+{e2 2}	and	mData3, sData3, bitMask				
+
+; Convert the fixed point values into floats between -1.0 and just less than 1.0.
+{e7 2}	csflt	fData0, mData0, 31				
+{e7 2}	csflt	fData1, mData1, 31				
+{e7 2}	csflt	fData2, mData2, 31				
+{e7 2}	csflt	fData3, mData3, 31				
+
+; Scale and bias the resultant floats.
+{e6 2}	fma	outData0, fData0, scale, bias			
+{e6 2}	fma	outData1, fData1, scale, bias			
+{e6 2}	fma	outData2, fData2, scale, bias			
+{e6 2}	fma	outData3, fData3, scale, bias			
+	{nop}							{o6 3}	stqx	outData0, pDst, pDstOffset
+	{nop}							{o6 3}	stqx	outData1, pDst1, pDstOffset
+	{nop}							{o6 3}	stqx	outData2, pDst2, pDstOffset
+	{nop}							{o6 3}	stqx	outData3, pDst3, pDstOffset
+
+; Increment the destination offset.  The first two times through the loop do dummy increments.
+{e2 3}	a	pDstOffset, pDstOffset, dstStrideAdd		{o4 3}	shufb	dstStrideAdd, dstStrideAdd, dstStrideAdd, s_BCCD
+	{nop}			decomp_x11y11z10_branch:	{o? 3}	brnz	pSrcOffset, decomp_x11y11z10_loop
+
+.endif
+
+
+
+.if TEST
+
+.data
+
+.align 12
+m_float:	.df 1.0, 0.0, 0.0, 0.0
+
+m_in_stream:	.dw 0x11234567, 0x89abcdef, 0x11223344, 0x55667788
+		.dw 0x21234567, 0x89abcdef, 0x21223344, 0x55667788
+		.dw 0x31234567, 0x89abcdef, 0x31223344, 0x55667788
+		.dw 0x41234567, 0x89abcdef, 0x41223344, 0x55667788
+		.dw 0x51234567, 0x89abcdef, 0x51223344, 0x55667788
+		.dw 0x61234567, 0x89abcdef, 0x61223344, 0x55667788
+		.dw 0x71234567, 0x89abcdef, 0x71223344, 0x55667788
+		.dw 0x81234567, 0x89abcdef, 0x81223344, 0x55667788
+		.dw 0x91234567, 0x89abcdef, 0x91223344, 0x55667788
+		.dw 0xa1234567, 0x89abcdef, 0xa1223344, 0x55667788
+		.dw 0xb1234567, 0x89abcdef, 0xb1223344, 0x55667788
+		.dw 0xc1234567, 0x89abcdef, 0xc1223344, 0x55667788
+		.dw 0xd1234567, 0x89abcdef, 0xd1223344, 0x55667788
+		.dw 0xe1234567, 0x89abcdef, 0xe1223344, 0x55667788
+		.dw 0xf1234567, 0x89abcdef, 0xf1223344, 0x55667788
+
+m_out_stream:	.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+
+.text
+
+.global _start
+_start:	
+{e2}	ila	pSrc, m_in_stream					{lnop}
+{e2}	il	srcStride, 0x12						{lnop}
+{e2}	ila	pDst, m_out_stream					{lnop}
+{e2}	il	numVerts, 119						{lnop}
+	{nop}							{o?}	brsl	$lr, DecompressX11Y11Z10 [#func]
+	{nop}	 							stop
+
+.endif
+
+.end
+

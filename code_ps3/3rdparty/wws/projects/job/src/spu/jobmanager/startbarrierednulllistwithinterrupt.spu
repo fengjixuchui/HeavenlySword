@@ -1,0 +1,65 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.define ABIWRAPPER 0
+
+///////////////////////////////////
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern StartTagAgnosticBarrieredNullListWithInterrupt
+.global WwsJob_StartTagAgnosticBarrieredNullListWithInterrupt
+WwsJob_StartTagAgnosticBarrieredNullListWithInterrupt:
+		ai $4, $lr, 0								br StartTagAgnosticBarrieredNullListWithInterrupt
+.end
+.endif
+
+///////////////////////////////////
+
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern StartTagSpecificBarrieredNullListWithInterrupt
+.global WwsJob_StartTagSpecificBarrieredNullListWithInterrupt
+WwsJob_StartTagSpecificBarrieredNullListWithInterrupt:
+		ai $4, $lr, 0								br StartTagSpecificBarrieredNullListWithInterrupt
+.end
+.endif
+
+///////////////////////////////////
+
+.start
+.include "conventions.inl"
+.text
+.usecc StartBarrieredNullListWithInterruptCC
+
+// void WwsJob_StartTagAgnosticBarrieredNullListWithInterrupt( uint32_t dmaTagId )
+// void WwsJob_StartTagSpecificBarrieredNullListWithInterrupt( uint32_t dmaTagId )
+.reg zero
+.reg nullDmaInterrupt
+.reg size
+.reg MFC_GETLB_CMD
+.reg MFC_BARRIER_CMD
+.extern g_nullDmaInterrupt
+.global StartTagAgnosticBarrieredNullListWithInterrupt
+.global StartTagSpecificBarrieredNullListWithInterrupt
+StartTagAgnosticBarrieredNullListWithInterrupt: // 14 instructions, 56 bytes
+		il	MFC_BARRIER_CMD, 0xC0						wrch	$ch20, $3
+		{nop}									wrch	$ch21, MFC_BARRIER_CMD
+StartTagSpecificBarrieredNullListWithInterrupt:
+		{nop}									hbr	Branch, $4
+		il	zero, 0								wrch	$ch20, $3
+		ila	nullDmaInterrupt, g_nullDmaInterrupt				wrch	$ch16, zero
+		il	size, 0x10							wrch	$ch18, nullDmaInterrupt
+		il	MFC_GETLB_CMD, 69						wrch	$ch19, size
+		{nop}									wrch	$ch21, MFC_GETLB_CMD
+		{nop}								Branch:	bi	$4
+
+.end

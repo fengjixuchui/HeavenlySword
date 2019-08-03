@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern IsDmaTagMaskDone
+.global WwsJob_IsDmaTagMaskDone
+WwsJob_IsDmaTagMaskDone: // 6 instructions, 24 bytes
+		.cset $3
+		{nop}									stqd $lr, 16($sp)
+		{nop}									stqd $sp, -32($sp)
+		ai $sp, $sp, -32							brsl $4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		ai $sp, $sp, 32								lqd $lr, 16($sp)
+		nop									bi $lr
+.end
+.endif
+
+
+.start
+.include "conventions.inl"
+.usecc IsDmaTagMaskDoneCC
+.text
+
+.reg tmp
+.global IsDmaTagMaskDoneED
+IsDmaTagMaskDoneED:
+		ila	tmp, Bie							bie	tmp [Bie]
+Bie:		ila	tmp, Bid							bid	tmp [Bid]
+Bid:		
+/* !!intentional fallthrough!! */
+
+// static bool WwsJob_IsDmaTagMaskDone( U32 dmaTagMask )
+.reg zero
+.reg tagMask
+.reg count
+.global IsDmaTagMaskDone
+IsDmaTagMaskDone:
+		il	zero, 0								hbr	IsDmaTagMaskDone_Return, $4
+		nop									wrch	$ch23, zero
+ChannelStillEmpty:
+		{nop}									rchcnt	count, $ch23
+		{nop}									brz	count, ChannelStillEmpty
+		{nop}									rdch	tagMask, $ch24
+											.cuse	tagMask
+		{nop}									wrch	$ch22, $3
+		{nop}									wrch	$ch23, zero
+		{nop}									rdch	tagMask, $ch24
+		ceq	$3, $3, tagMask			IsDmaTagMaskDone_Return:	bi	$4
+
+.end

@@ -1,0 +1,251 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global SelectVerts4Byte
+; void SelectVerts4Byte(U8 *pSrc, U8 *pDst, U16 *pIndexes, U32 numVerts);
+;
+; pIndexes is a pointer a reindex table, while numVerts is the number of entries in this table.
+; Each value in the reindex table refers to a vertex in the vertex buffers pointed to by pSrc.
+; For each value in the reindex table, the appropriate vertex is read in from the vertex buffer and
+; placed in sequence in the destination buffer, pointed to by pDst.  Thus, by using the reindex table
+; a vertex buffer can be trimmed of unneeded vertexes.
+; NOTE: The values in the reindex table have been multiplied by 16.
+;
+; This routine handles vertexs that are 4 bytes in size.  A multiple of four vertexes are always output,
+; so the last vertexes in the output buffer may be garbage.
+
+
+
+.data
+
+.align 4
+
+; Values to add to the four input indexes to get the input vertex data into the correct fields to be selected together.
+m_indexOffsets:	.dh	0, 12, 8, 4, 0, 12, 8, 4
+
+
+
+.text
+
+; Parameters
+.reg pSrc		3	; Must be 16 byte aligned.
+.reg pDst		4	; Must be 16 byte aligned.
+.reg pIndexes		5	; Must be 8 byte aligned.
+.reg numVerts		6	; Can be any value, but will be automatically rounded up to a multiple of 4.
+
+.reg inData0			; Input data for vertex 0.
+.reg inData1			; Input data for vertex 1.
+.reg inData2			; Input data for vertex 2.
+.reg inData3			; Input data for vertex 3.
+.reg index0			; The first index turned into the correct byte offset (index * 4).
+.reg index1			; The second index turned into the correct byte offset (index * 4).
+.reg index2			; The third index turned into the correct byte offset (index * 4).
+.reg index3			; The fourth index turned into the correct byte offset (index * 4).
+.reg indexes			; A quadword of indexes.
+.reg indexes2			; indexes >> 2 -- Used to turn indexes into the correct byte offsets.
+.reg kIndexOffsets		; Offsets to add to the indexes to roatate the input data to the correct fields.
+.reg loopCount
+.reg outData			; Four vertexes worth of output data: x0 x1 x2 x3.
+.reg outData02			; Output data for vertexes 0 and 2: x0 -- x2 --.
+.reg outData13			; Output data for vertexes 1 and 3: -- x1 -- x3.
+.reg pDst_			; Destination pointer delay.
+.reg pDst__			; Destination pointer delay.
+.reg pDst___			; Destination pointer delay.
+.reg pSrc4			; pSrc - 12.
+.reg pSrc8			; pSrc - 8.
+.reg pSrcC			; pSrc - 4.
+.reg rotData0			; Vertex 0 data rotated into the correct field: x0 -- -- --.
+.reg rotData1			; Vertex 1 data rotated into the correct field: -- x1 -- --.
+.reg rotData2			; Vertex 2 data rotated into the correct field: -- -- x2 --.
+.reg rotData3			; Vertex 3 data rotated into the correct field: -- -- -- x3.
+.reg sel_AbCd			; Mask to select together vertex data.
+.reg sel_ABcd			; Mask to select together vertex data.
+
+.align 7
+
+SelectVerts4Byte:
+	{nop}							{o6 0}	lqd	indexes, 0x00(pIndexes)
+	{nop}							{o?}	biz	numVerts, $lr
+	{nop}							{o6}	lqr	kIndexOffsets, m_indexOffsets
+	{nop}							{o4}	fsmbi	sel_ABcd, 0x00FF
+{e2}	ori	pDst__, pDst, 0					{o4}	fsmbi	sel_AbCd, 0x0F0F
+{e2}	ori	pDst___, pDst, 0				{o}	hbrr	sv_4_branch, sv_4_loop
+{e2}	ai	pSrc4, pSrc, -12				{o4 0}	rotqby	indexes, indexes, pIndexes
+{e2 0}	ai	pIndexes, pIndexes, 8					{lnop}
+{e2}	ai	pSrc8, pSrc, -8						{lnop}
+{e2}	ai	loopCount, numVerts, 7					{lnop}
+{e4 0}	rothmi	indexes2, indexes, -2					{lnop}
+{e4}	rotmi	loopCount, loopCount, -2				{lnop}
+{e2}	ai	pSrcC, pSrc, -4						{lnop}
+.cset inData0, inData2, inData3
+.cset index0, index2, index3
+.cset outData
+.cset rotData1
+
+sv_4_loop:
+{e2 3}	ori	pDst_, pDst__, 0				{o6 0}	lqd	indexes, 0x00(pIndexes)
+{e2 1}	ah	index1, indexes2, kIndexOffsets			{o4 2}	rotqby	rotData0, inData0, index0
+{e2 2}	ori	pDst__, pDst___, 0				{o4 2}	rotqby	rotData3, inData3, index3
+{e4 1}	roti	index0, index1, 16				{o4 1}	rotqbyi	index3, index1, 4
+{e2 2}	ai	loopCount, loopCount, -1			{o6 1}	lqx	inData1, pSrc4, index1
+{e2 1}	ai	pDst___, pDst___, 0x10				{o4 2}	rotqby	rotData2, inData2, index2
+{e2 2}	selb	outData13, rotData1, rotData3, sel_ABcd		{o4 0}	rotqby	indexes, indexes, pIndexes
+{e4 1}	roti	index2, index3, 16				{o6 3}	stqd	outData, 0x00(pDst)
+{e2 0}	ai	pIndexes, pIndexes, 8				{o6 1}	lqx	inData0, pSrc, index0
+{e2 2}	selb	outData02, rotData0, rotData2, sel_ABcd		{o6 1}	lqx	inData3, pSrcC, index3
+{e4 0}	rothmi	indexes2, indexes, -2				{o4 1}	rotqby	rotData1, inData1, index1
+{e2 2}	selb	outData, outData02, outData13, sel_AbCd		{o6 1}	lqx	inData2, pSrc8, index2
+{e2 3}	ori	pDst, pDst_, 0			sv_4_branch:	{o? 2}	brnz	loopCount, sv_4_loop
+
+	{nop}								{lnop}
+	{nop}							{o6 3}	stqd	outData, 0x00(pDst)
+	{nop}							{o?}	bi	$lr
+
+
+
+.if 0
+; Unrolled loop
+
+; Load four indexes and place them into the first four halfword fields, and increment the index pointer.
+	nop							{o6 0}	lqd	indexes, 0x00(pIndexes)
+{e2 0}	ai	pIndexes, pIndexes, 8					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+	nop							{o4 0}	rotqby	indexes, indexes, pIndexes
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; The indexes are stored as index * 16, but we need index * 4, so we compute (index >> 2)
+{e4 0}	rothmi	indexes2, indexes, -2					lnop
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; In order to get the four verts into one output quadword, we first need to get the verts into distinct fields as follows:
+; x0 -- -- --
+; -- x1 -- --
+; -- -- x2 --
+; -- -- -- x3
+; If the vertex data is in the preferred word, then we can get this by rotating vertex1 by 12 bytes, vertex2 by 8 bytes,
+; and vertex3 by 4 bytes.  However, we can rotate directly to the correct spot by adding 0, 12, 8, and 4 to the indexes.
+; However, doing that neccistates that 0, 12, 8, and 4 are subtracted from the corresponding source pointers in order to
+; get the correct data to load.
+;
+; The values 0, 12, 8, and 4 are added to indexes 0, 1, 2, and 3 respectively here.
+{e2 1}	ah	index1, indexes2, kIndexOffsets				lnop
+	nop								lnop
+
+; Now index1 is in the preferred halfword, so get the other three indexes into preferred halfwords too.
+{e4 1}	roti	index0, index1, 16				{o4 1}	rotqbyi	index3, index1, 4
+	nop								lnop
+	nop								lnop
+	nop								lnop
+{e4 1}	roti	index2, index3, 16					lnop
+
+; Load the four vertexes.  Note that the source pointers are offset as stated above.
+	nop							{o6 1}	lqx	inData1, pSrc4, index1
+	nop							{o6 1}	lqx	inData3, pSrcC, index3
+	nop							{o6 1}	lqx	inData0, pSrc, index0
+	nop							{o6 1}	lqx	inData2, pSrc8, index2
+	nop								lnop
+	nop								lnop
+
+; Rotate the four vertexes into the fields as stated above.
+	nop							{o4 1}	rotqby	rotData1, inData1, index1
+	nop							{o4 2}	rotqby	rotData3, inData3, index3
+	nop							{o4 2}	rotqby	rotData0, inData0, index0
+	nop							{o4 2}	rotqby	rotData2, inData2, index2
+	nop								lnop
+	nop								lnop
+
+; Select the four fields together to get x0 x1 x2 x3 into one quadword.
+{e2 2}	selb	outData13, rotData1, rotData3, sel_ABcd			lnop
+{e2 2}	selb	outData02, rotData0, rotData2, sel_ABcd			lnop
+	nop								lnop
+{e2 2}	selb	outData, outData02, outData13, sel_AbCd			lnop
+	nop								lnop
+
+; Store the four vertexes into the output buffer and increment the pointer.
+	nop							{o6 3}	stqd	outData, 0x00(pDst)
+{e2 3}	ai	pDst, pDst, 0x10				
+
+; Decrement loop counter and test for exit.
+{e2 2}	ai	loopCount, loopCount, -1				lnop
+	nop								lnop
+	nop					sv_4_branch:	{o? 2}	brnz	loopCount, sv_4_loop
+.endif
+
+
+
+.if TEST
+
+.data
+
+.align 12
+
+m_outD:		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+		.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+m_inD:		.dw 0x00000000
+		.dw 0x00000001
+		.dw 0x00000002
+		.dw 0x00000003
+		.dw 0x00000004
+		.dw 0x00000005
+		.dw 0x00000006
+		.dw 0x00000007
+		.dw 0x00000008
+		.dw 0x00000009
+		.dw 0x0000000A
+		.dw 0x0000000B
+		.dw 0x0000000C
+		.dw 0x0000000D
+		.dw 0x0000000E
+		.dw 0x0000000F
+
+; Test rename table
+; Essentially Reverse the List, Stripping out 5 & 10, and placing them at the end
+m_inRT:		.dh 0xB0, 0x90, 0x80, 0x70, 0x60, 0x40, 0x30, 0x20
+		.dh 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x50, 0xA0
+
+m_NumElems:	.dw 16, 0, 0, 0		// 16 elements in the rename table
+
+
+
+.text
+
+.global _start
+_start:
+{e2}	ila	pSrc, m_inD					{o6}	lqr	numVerts, m_NumElems
+{e2}	ila	pDst, m_outD						lnop
+{e2}	ila	pIndexes, m_inRT				{o?}	brsl	$lr, SelectVerts4Byte	[#func]
+	nop								stop
+
+.endif
+
+.end
+

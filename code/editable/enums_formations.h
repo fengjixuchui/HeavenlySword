@@ -1,0 +1,51 @@
+/***************************************************************************************************
+*
+*	Enum delarations for formations. 
+*
+*	CHANGES		
+*
+*	NOTES:		When creating a new enum file, don't forget to add header include to enums.cpp and 
+*				lua_enums.cpp
+*
+*	13/06/2005	Gavin	Created
+*
+***************************************************************************************************/
+
+
+#ifndef _ENUMS_FORMATIONS_H
+#define _ENUMS_FORMATIONS_H
+
+#include "editable/enums_ai.h"
+
+// Formations have exceptions, here they are defined
+ENUM_STARTEX_PUBLISH_AS(FORMATION_EXCEPTIONS, ENUM_LUA, FEH )
+	ENUM_AUTO_AS(FEH_NONE,							NONE)
+	ENUM_AUTO_AS(FEH_NO_TROOPS,						NO_TROOPS)
+	ENUM_AUTO_AS(FEH_NO_ATTACKS,					NO_ATTACKS)
+	ENUM_AUTO_AS(FEH_NO_VALID_PLAYER,				NO_VALID_PLAYER)
+	ENUM_AUTO_AS(FEH_NO_WAITING_FOR_PLAYER_RISE,	NO_WAITING_FOR_PLAYER_RISE)
+	ENUM_AUTO_AS(FEH_NO_WAITING_FOR_TROOPS,			NO_WAITING_FOR_TROOPS)
+	ENUM_AUTO_AS(FEH_NOT_ENOUGH_TROOPS_IN_POS,		NOT_ENOUGH_TROOPS_IN_POS)
+	ENUM_AUTO_AS(FEH_NOT_ENOUGH_VALID_TROOPS,		NOT_ENOUGH_VALID_TROOPS)
+	ENUM_AUTO_AS(FEH_NOT_ENOUGH_TROOPS,				NOT_ENOUGH_TROOPS)
+	ENUM_AUTO_AS(FEH_NO_VALID_ATTACKS,				NO_VALID_ATTACKS)
+ENUM_END()
+
+// Formations have attacks too, 
+ENUM_STARTEX_PUBLISH_AS(AI_FORMATION_ATTACK_TYPE, ENUM_LUA, ATF )
+	ENUM_SET_AS(ATF_NONE,					AAT_COUNT,		NONE)
+	ENUM_AUTO_AS(ATF_ENTER_1ON1,							ENTER_1ON1)
+	ENUM_AUTO_AS(ATF_ENTER_1ON1_KO,							ENTER_1ON1_KO)
+	ENUM_AUTO_AS(ATF_ENTER_1ON1_DEAD,						ENTER_1ON1_DEAD)
+	ENUM_AUTO_AS(ATF_ENTER_1ON1_LOWNRG,						ENTER_1ON1_LOWNRG)
+	ENUM_AUTO_AS(ATF_RET_FORMATION,							RET_FORMATION)
+	ENUM_AUTO_AS(ATF_SEND_MSG,								SEND_MSG)
+	ENUM_AUTO_AS(ATF_LOCKON_MOVE,							LOCKON_MOVE)
+	ENUM_AUTO_AS(ATF_LOCKON_ATTACK,							LOCKON_ATTACK)
+	ENUM_AUTO_AS(ATF_SYNC_POINT,							SYNC_POINT)
+	ENUM_AUTO_AS(ATF_DIRECT_ATTACK,							DIRECT_ATTACK)
+
+ENUM_END()
+
+
+#endif // _ENUMS_FORMATIONS_H

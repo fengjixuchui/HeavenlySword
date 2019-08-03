@@ -1,0 +1,313 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global DecompressU8
+; Implements DecompressU8 in ice/mesh/icemeshdecompress.cpp
+; void DecompressU8( I16* pSrc, U32 srcStride, F32* pDst, U32 numComponents, U32 numVerts, VF32 scale, VF32 bias );
+;
+; Decompresses 8 bit integer values into an f32 uniform table
+
+.global DecompressI16
+; Implements DecompressI16 in ice/mesh/icemeshdecompress.cpp
+; void DecompressI16( I16* pSrc, U32 srcStride, F32* pDst, U32 numComponents, U32 numVerts, VF32 scale, VF32 bias );
+;
+; Decompresses 16 bit integer values into an f32 uniform table
+
+.extern m_strideShifts
+.extern m_A0B0C0D0 
+.extern m_0A000B000C000D00
+
+.text
+.reg pSrc		3
+.reg srcStride		4
+.reg pDst		5	; Must be qword aligned.
+.reg numElements	6	; Must lie in the range [1..4], number of components per vertx
+.reg numVerts		7
+.reg scale		8
+.reg bias		9
+        
+.reg boundOffset		; Number of bytes off of qword boundary source pointer is offset
+.reg bReturn			; Set if function is completed
+.reg countShift
+.reg crossBound			; Whether or not source data crosses a qword boundary
+.reg dstStride
+.reg dstStride4
+.reg dstStrideAdd		; Value which to increment the destination pointer
+.reg dstStrideDelay2		; Delay the store until valid data is ready
+.reg dstStrideDelay		; Delay the store until valid data is ready
+.reg elementSize		; Size of the individual vertex elements in bytes
+.reg fData0			; Intermediate data after conversion to float
+.reg fData1			; Intermediate data after conversion to float
+.reg fData2			; Intermediate data after conversion to float
+.reg fData3			; Intermediate data after conversion to float
+.reg hwData0			; Intermediate data, input data shuffled into the proper place in qword
+.reg hwData1			; Intermediate data, input data shuffled into the proper place in qword
+.reg hwData2			; Intermediate data, input data shuffled into the proper place in qword
+.reg hwData3			; Intermediate data, input data shuffled into the proper place in qword
+.reg inData0_2			; Qword cross case requires loading 2 qwords
+.reg inData0			; Untouched data, right after load
+.reg inData1_2			; Qword cross case requires loading 2 qwords
+.reg inData1			; Untouched data, right after load
+.reg inData2_2			; Qword cross case requires loading 2 qwords
+.reg inData2			; Untouched data, right after load
+.reg inData3_2			; Qword cross case requires loading 2 qwords
+.reg inData3			; Untouched data, right after load
+.reg innerCount			; Count for the inner loop.
+.reg innerStride
+.reg innerStride4		; Inner stride times 4, operate on 4 vertexes per loop
+.reg jumpTarget			; Based on crossBound, determines loop
+.reg loopAddr			; Non-boundary cross loop start address
+.reg loopCount			; Counts current number of iterations through loop
+.reg loopMoreThanTwice		; Use to keep track of loop count so no actual writing happens past one qword in the case that count is fewer than 4 vertexes
+.reg one
+.reg outData0			; Final data written to destination
+.reg outData1			; Final data written to destination
+.reg outData2			; Final data written to destination
+.reg outData3			; Final data written to destination
+.reg outerBranch		; Do we need to re-enter function (is every part of stream accounted for?) or return
+.reg outerCount
+.reg outerLoop			; Address of outer_loop
+.reg pDst1
+.reg pDst1_2
+.reg pDst2
+.reg pDst2_2
+.reg pDst3
+.reg pDst3_2
+.reg pDstOffset
+.reg pSrc0
+.reg pSrc0_2
+.reg pSrc1
+.reg pSrc1_2
+.reg pSrc2
+.reg pSrc2_2
+.reg pSrc3
+.reg pSrc3_2
+.reg pSrcOffset
+.reg s_DDDDDDDDDDDDDDDD		; Used to make final shuffle mask based on how far source pointer is offset from qword boundary
+.reg shift
+.reg shufOffset			; Amount to offset the shuffle mask by, depends on how far off source pointer is from qword boundary
+.reg sLoopAddr			; Beginning of loop in the boundary cross case
+.reg s_mask			; Final shuffle mask to pull vertex elements into place
+.reg s_shufMask			; Original shuffle mask for pulling vertex elements into place, will be modified by shuf_offset
+.reg strideShift
+.reg strideShifts
+.reg totalSize			; Total size of memory read
+.reg write1			; Keeps memory from being trashed in case vertex count is not a multiple of 4, write 1 vertex on exit
+.reg write2			; Keeps memory from being trashed in case vertex count is not a multiple of 4, write 2 vertexes on exit
+.reg write3			; Keeps memory from being trashed in case vertex count is not a multiple of 4, write 3 vertexes on exit
+.reg writeVerts
+
+.align 7
+
+DecompressU8:
+{e4}	shli	elementSize, numElements, 0			{o6}	lqr	s_shufMask, m_0A000B000C000D00
+	nop							{o?}	br	decomp_i16_u8_entry
+
+DecompressI16:
+{e4}	shli	elementSize, numElements, 1			{o6}	lqr	s_shufMask, m_A0B0C0D0
+
+decomp_i16_u8_entry:
+{e2}	il	one, 1						{o6}	lqr	strideShifts, m_strideShifts
+	nop	{to remove prefetch stall}				{lnop}
+	nop	{to remove prefetch stall}				{lnop}
+	{nop}								{lnop}
+{e2}	ila	loopAddr, decomp_i16_u8_loop				{lnop}
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303				{lnop}
+{e2}	ila	sLoopAddr, decomp_i16_u8_straddle_loop		{o4}	rotqby	strideShift, strideShifts, srcStride
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e4}	shl	innerStride, srcStride, strideShift		{o4}	shlqbi	shift, one, strideShift
+{e2}	sfi	countShift, strideShift, 0				{lnop}
+	{nop}								{lnop}
+{e2}	ila	outerLoop, decomp_i16_u8_outer_loop			{lnop}
+{e2}	ai	outerCount, shift, -1				{o4}	shlqbii	dstStride, shift, 4
+{e4}	shli	innerStride4, innerStride, 2			{o4}	shlqbii dstStride4, shift, 6
+
+decomp_i16_u8_outer_loop:
+{e2 L}	a	innerCount, numVerts, outerCount			{lnop}
+{e2 L}	andi	boundOffset, pSrc, 0xF					{lnop}
+{e2 L}	ceqi	bReturn, outerCount, 0				{o4 L}	rotqmbi innerCount, innerCount, countShift
+{e2 L}	a	crossBound, boundOffset, elementSize		{o4 L}	shufb	shufOffset, boundOffset, boundOffset, s_DDDDDDDDDDDDDDDD
+{e2 L}	a	pDst1_2, pDst, dstStride				{lnop}
+{e2 L}	cgti	crossBound, crossBound, 0x10				{lnop}
+{e2 L}	ai	loopCount, innerCount, 7			{o? L}	biz	innerCount, $lr
+{e2 L}	a	pDst2_2, pDst1_2, dstStride			{o4 L}	fsmbi	pDstOffset, 0
+{e2 L}	selb	jumpTarget, loopAddr, sLoopAddr, crossBound	{o4 L}	rotqmbii loopCount, loopCount, -2
+{e2 L}	andi	writeVerts, innerCount, 0x3			{o4 L}	fsmbi	dstStrideDelay2, 0
+{e2 L}	a	pDst3_2, pDst2_2, dstStride			{o  L}	hbr	decomp_i16_u8_branch, jumpTarget
+{e2 L}	ai	outerCount, outerCount, -1			{o4 L}	fsmbi	dstStrideAdd, 0
+{e7 L}	mpy	totalSize, loopCount, innerStride4			{lnop}
+{e2 L}	cgti	loopMoreThanTwice, loopCount, 2				{lnop}
+{e2 L}	selb	outerBranch, outerLoop, $lr, bReturn			{lnop}
+{e2 L}	selb	pDst1, pDst, pDst1_2, loopMoreThanTwice			{lnop}
+{e2 L}	selb	pDst2, pDst, pDst2_2, loopMoreThanTwice			{lnop}
+{e2 L}	selb	pDst3, pDst, pDst3_2, loopMoreThanTwice			{lnop}
+{e2 L}	a	s_mask, shufOffset, s_shufMask			  	{lnop}
+{e2 L}	a	pSrc0, pSrc, totalSize					{lnop}
+{e2 L}	sfi	pSrcOffset, totalSize, 0				{lnop}
+{e2 L}	a	pSrc1, pSrc0, innerStride				{lnop}
+{e2 L}	ai	pSrc0_2, pSrc0, 0x10					{lnop}
+{e2 L}	a	pSrc2, pSrc1, innerStride				{lnop}
+{e2 L}	ai	pSrc1_2, pSrc1, 0x10					{lnop}
+{e2 L}	a	pSrc3, pSrc2, innerStride				{lnop}
+.cset outData0, outData1, outData2, outData3
+.cset hwData0, hwData1, hwData2, hwData3
+
+decomp_i16_u8_straddle_loop:
+{e2 L}	ai	pSrc2_2, pSrc2, 0x10				{o6 1}	lqx	inData0_2, pSrc0_2, pSrcOffset
+{e2 L}	ai	pSrc3_2, pSrc3, 0x10				{o6 1}	lqx	inData1_2, pSrc1_2, pSrcOffset
+{e2 L}	ceqi	write1, writeVerts, 1				{o6 1}	lqx	inData2_2, pSrc2_2, pSrcOffset
+{e2 L}	ceqi	write2, writeVerts, 2				{o6 1}	lqx	inData3_2, pSrc3_2, pSrcOffset
+
+decomp_i16_u8_loop:
+{e7 2}	csflt	fData0, hwData0, 16				{o6 1}	lqx	inData0, pSrc0, pSrcOffset
+{e7 2}	csflt	fData1, hwData1, 16				{o6 1}	lqx	inData1, pSrc1, pSrcOffset
+{e7 2}	csflt	fData2, hwData2, 16				{o6 1}	lqx	inData2, pSrc2, pSrcOffset
+{e7 2}	csflt	fData3, hwData3, 16				{o6 1}	lqx	inData3, pSrc3, pSrcOffset
+{e2 1}	a	pSrcOffset, pSrcOffset, innerStride4		{o6 3}	stqx	outData0, pDst, pDstOffset
+{e2 1}	ori	dstStrideDelay, dstStrideDelay2, 0		{o6 3}	stqx	outData1, pDst1, pDstOffset
+{e2 1}	ori	dstStrideDelay2, dstStride4, 0			{o4 1}	shufb	hwData0, inData0, inData0_2, s_mask
+{e6 2}	fma	outData0, fData0, scale, bias			{o4 1}	shufb	hwData1, inData1, inData1_2, s_mask
+{e6 2}	fma	outData1, fData1, scale, bias			{o6 3}	stqx	outData2, pDst2, pDstOffset
+{e6 2}	fma	outData2, fData2, scale, bias			{o6 3}	stqx	outData3, pDst3, pDstOffset
+{e6 2}	fma	outData3, fData3, scale, bias			{o4 1}	shufb	hwData2, inData2, inData2_2, s_mask
+{e2 1}	a	pDstOffset, pDstOffset, dstStrideAdd		{o4 1}	shufb	hwData3, inData3, inData3_2, s_mask
+{e2 1}	ori	dstStrideAdd, dstStrideDelay, 0				; Branch is on next line.
+					decomp_i16_u8_branch:	{o? 1}	binz	pSrcOffset, jumpTarget	[decomp_i16_u8_straddle_loop decomp_i16_u8_loop]
+
+{e2 L}	a	pSrc, pSrc, srcStride				{o6 3}	stqx	outData0, pDst, pDstOffset
+{e2 L}	ai	pDst, pDst, 0x10				{o? L}	binz	write1, outerBranch	[decomp_i16_u8_outer_loop]
+{e2 L}	ceqi	write3, writeVerts, 3				{o6 3}	stqx	outData1, pDst1_2, pDstOffset
+	nop							{o? L}	binz	write2, outerBranch	[decomp_i16_u8_outer_loop]
+	{nop}							{o6 3}	stqx	outData2, pDst2_2, pDstOffset
+	{nop}							{o? L}	binz	write3, outerBranch	[decomp_i16_u8_outer_loop]
+	{nop}							{o6 3}	stqx	outData3, pDst3_2, pDstOffset
+	{nop}							{o? L}	bi	outerBranch	[decomp_i16_u8_outer_loop]
+
+
+
+.if TEST
+
+.data
+
+.align 12
+m_in_stream:	.dh	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+		.dh	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+		.dh	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+		.dh	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+		.dh	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+		.dh	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57
+		.dh	0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
+		.dh	0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77
+		.dh	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87
+		.dh	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97
+		.dh	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
+		.dh	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7
+		.dh	0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+		.dh	0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7
+		.dh	0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7
+		.dh	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+		.dh	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+		.dh	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+		.dh	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+		.dh	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+		.dh	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57
+		.dh	0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
+		.dh	0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77
+		.dh	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87
+		.dh	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97
+		.dh	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
+		.dh	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7
+		.dh	0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+		.dh	0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7
+		.dh	0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7
+		.dh	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+		.dh	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+		.dh	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+		.dh	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+		.dh	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+		.dh	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57
+		.dh	0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
+		.dh	0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77
+		.dh	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87
+		.dh	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97
+		.dh	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
+		.dh	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7
+		.dh	0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+		.dh	0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7
+		.dh	0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7
+		.dh	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+		.dh	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+		.dh	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+		.dh	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+		.dh	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
+		.dh	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57
+		.dh	0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67
+		.dh	0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77
+		.dh	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87
+		.dh	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97
+		.dh	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7
+		.dh	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7
+		.dh	0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7
+		.dh	0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7
+		.dh	0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7
+
+m_out_stream:	.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+		.dw	0x13371337, 0x13371337, 0x13371337, 0x13371337
+
+m_mul:		.df	1, 0, 0, 0
+m_add:		.df	0.5, 0.3, 0.4, 0.6
+
+.text
+
+.global _start
+_start:
+	;;  Give fake inputs, this is all temporary
+	ila	pSrc, m_in_stream					{lnop}
+	il	srcStride, 0x1F						{lnop}
+	ai	pSrc, pSrc, 12						{lnop}	;; Force straddle condition
+	il	numElements, 3						{lnop}
+	il	numVerts, 412						{lnop}
+	ila	pDst, m_out_stream					{lnop}
+	{nop}								lqr	scale, m_mul
+	{nop}								lqr	bias, m_add
+	{nop}								brsl	$lr, DecompressU8 [#func]
+	{nop}								stop
+
+.endif
+
+.end
+

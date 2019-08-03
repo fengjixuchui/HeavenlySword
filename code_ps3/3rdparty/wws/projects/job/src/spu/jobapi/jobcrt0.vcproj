@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="jobcrt0"
+	ProjectGUID="{47DD661A-7610-4C12-9ACD-744FB3BB2535}"
+	RootNamespace="jobcrt0"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make -f jobcrt0.makefile VERSION=debug"
+				ReBuildCommandLine="make -f jobcrt0.makefile all VERSION=debug"
+				CleanCommandLine="make -f jobcrt0.makefile clean VERSION=debug"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make -f jobcrt0.makefile VERSION=release"
+				ReBuildCommandLine="make -f jobcrt0.makefile all VERSION=release"
+				CleanCommandLine="make -f jobcrt0.makefile clean VERSION=release"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{D95B87C3-AD5A-470D-8A67-949A06CB7F0D}">
+			<File
+				RelativePath=".\jobcrt0.spu.s">
+			</File>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{0ADCBB36-8B8E-4DB5-9AFB-DCBAB3BBED80}">
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{4AC8371C-10D7-438F-A508-5BBE58FDA129}">
+			<File
+				RelativePath=".\jobcrt0.makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

@@ -1,0 +1,523 @@
+################################################################################################
+##
+##	Copyright (c) 2003-2006 Sony Computer Entertainment.
+##	Use and distribution without consent strictly prohibited.
+##
+################################################################################################
+
+
+################################################################################################
+##
+##	This file contains the rules for actually building everything
+##
+################################################################################################
+
+SHELL=/bin/sh
+
+ifeq ($(MAKE_VERSION),3.81)
+$(error ERROR: make v3.81 is not supported)
+endif
+
+ifeq ($(WWSJOB_COMPILER),kWWSJOB_SNC)
+ifeq ($(filter %ps3make.exe,$(MAKE)),)
+#Note that SNC generates dependency files that contain "C:\A Window Path\foo\bar" 
+#which cygwin make doesn't know how to interpret when it's part of the makefile.
+#You should use ps3make when working with SNC.
+#Note that you could actually use ps3make all the time.  It's faster than cygwin make.
+$(error ERROR: When using SNC, please call ps3make.exe)
+endif
+endif
+
+################################################################################################
+##	Add in the default libraries needed by whatever our target type is
+################################################################################################
+
+ifneq ($(strip $(filter %.spu.mod,$(TARGET))),)
+SPU_LIBS += $(SPU_DEFAULT_JOB_LIBS)
+endif
+
+ifneq ($(strip $(filter %.spu.plugin,$(TARGET))),)
+SPU_LIBS += $(SPU_DEFAULT_PLUGIN_LIBS)
+endif
+
+
+################################################################################################
+##	Calculate variables with pathed names to the objs and libs
+################################################################################################
+
+#Remap %.cpp to $(PPU_TEMP_DIR)/%.ppu.o
+#Remap %.spu.mod to $(PPU_TEMP_DIR)/%.sj.o
+#Remap %.pmbin to $(PPU_TEMP_DIR)/%.pm.o
+PPU_PATHED_OBJS0 := $(patsubst %.cpp,$(PPU_TEMP_DIR)/%.ppu.o,$(PPU_SOURCES))
+PPU_PATHED_OBJS1 := $(patsubst %.spu.mod,$(PPU_TEMP_DIR)/%.sj.o,$(PPU_PATHED_OBJS0))
+PPU_PATHED_OBJS2 := $(patsubst %.spu.plugin,$(PPU_TEMP_DIR)/%.sp.o,$(PPU_PATHED_OBJS1))
+PPU_PATHED_OBJS := $(patsubst %.pmbin,$(PPU_TEMP_DIR)/%.pm.o,$(PPU_PATHED_OBJS2))
+
+#Remap %.cpp to $(SPU_TEMP_DIR)/%.spu.o
+#Remap %.spu to $(SPU_TEMP_DIR)/%.spuo
+#Remap %.spu.s to $(SPU_TEMP_DIR)/%.spu.o
+SPU_PATHED_OBJS0 := $(patsubst %.cpp,$(SPU_TEMP_DIR)/%.spu.o,$(SPU_SOURCES))
+SPU_PATHED_OBJS1 := $(patsubst %.spu,$(SPU_TEMP_DIR)/%.spuo,$(SPU_PATHED_OBJS0))
+SPU_PATHED_OBJS := $(patsubst %.s,$(SPU_TEMP_DIR)/%.o,$(SPU_PATHED_OBJS1))
+
+PPU_PATHED_LIBS := $(patsubst %.a,$(PPU_LIB_DIR)/%.a,$(PPU_LIBS))
+
+SPU_PATHED_LIBS0 := $(patsubst %.spu.o,$(SPU_LIB_DIR)/%.spu.o,$(SPU_LIBS))
+SPU_PATHED_LIBS := $(patsubst %.spu.a,$(SPU_LIB_DIR)/%.spu.a,$(SPU_PATHED_LIBS0))
+
+PATHED_TARGET	= $(patsubst %.spu.a,$(SPU_LIB_DIR)/%.spu.a,$(filter %.spu.a,$(TARGET)))
+PATHED_TARGET	+= $(patsubst %.pmbin,$(SPU_TEMP_DIR)/jobbin/%.pmbin,$(filter %.pmbin,$(TARGET)))
+PATHED_TARGET	+= $(patsubst %.a,$(PPU_LIB_DIR)/%.a,$(filter %.a,$(filter-out %.spu.a,$(TARGET))))
+PATHED_TARGET	+= $(patsubst %.ppu.self,$(IMAGES_DIR)/%.ppu.self,$(filter %.ppu.self,$(TARGET)))
+PATHED_TARGET	+= $(patsubst %.spu.mod,$(SPU_TEMP_DIR)/jobbin/%.spu.mod,$(filter %.spu.mod,$(TARGET)))
+PATHED_TARGET	+= $(patsubst %.spu.o,$(SPU_LIB_DIR)/%.spu.o,$(filter %.spu.o,$(TARGET)))
+PATHED_TARGET	+= $(patsubst %.spu.plugin,$(SPU_TEMP_DIR)/jobbin/%.spu.plugin,$(filter %.spu.plugin,$(TARGET)))
+
+TARGET_BASE0	= $(patsubst %.spu.a,%,$(filter %.spu.a,$(TARGET)))
+TARGET_BASE0	+= $(patsubst %.pmbin,%,$(filter %.pmbin,$(TARGET)))
+TARGET_BASE0	+= $(patsubst %.a,%,$(filter %.a,$(filter-out %.spu.a,$(TARGET))))
+TARGET_BASE0	+= $(patsubst %.ppu.self,%,$(filter %.ppu.self,$(TARGET)))
+TARGET_BASE0	+= $(patsubst %.spu.mod,%,$(filter %.spu.mod,$(TARGET)))
+TARGET_BASE0	+= $(patsubst %.spu.o,%,$(filter %.spu.o,$(TARGET)))
+TARGET_BASE0	+= $(patsubst %.spu.plugin,%,$(filter %.spu.plugin,$(TARGET)))
+
+TARGET_BASE	:= $(strip $(TARGET_BASE0))
+
+
+################################################################################################
+##	Hmm... This might move
+################################################################################################
+
+.PHONY : alltargets
+alltargets : $(PATHED_TARGET) $(SUBDIRS)
+
+
+################################################################################################
+##	Set up the options for passing to the compiler or to the linker
+################################################################################################
+
+PPU_LINKER_OPTIONS		+= -g
+PPU_LINKER_OPTIONS		+= -L$(PPU_LIB_DIR)
+ifeq ($(WWSJOB_COMPILER),kWWSJOB_SNC)
+PPU_LINKER_OPTIONS		+= -L"C:\Program Files\SN Systems\PS3\scesdk\092\target\ppu\lib"
+PPU_LINKER_OPTIONS		+= -oformat=elf
+endif
+PPU_LINKER_OPTIONS		+= -lsysmodule_stub -lspurs_stub
+
+
+PPU_COMPILE_OPTIONS		+= -I. -I$(CODE_DIR)/job/include/ppu -I$(CODE_DIR)/job/include/common
+PPU_COMPILE_OPTIONS		+= -I$(CODE_DIR)/system/include/ppu -I$(CODE_DIR)/system/include/common
+PPU_COMPILE_OPTIONS		+= -g $(PPU_OPTIMISATION_OPTIONS)
+PPU_COMPILE_OPTIONS		+= $(PPU_DEFINES) $(COMMON_DEFINES)
+PPU_COMPILE_OPTIONS		+= -MD
+ifeq ($(WWSJOB_COMPILER),kWWSJOB_SNC)
+PPU_COMPILE_OPTIONS		+= -Xaltivec=1
+else
+PPU_COMPILE_OPTIONS		+= -Wextra -Wall -Winline -Wshadow -Wpointer-arith -Wcast-qual -Wwrite-strings
+PPU_COMPILE_OPTIONS		+= -Wsign-compare -Wmissing-noreturn -Werror -Wundef
+PPU_COMPILE_OPTIONS		+= -Wreturn-type -Wunused -Wchar-subscripts -Wconversion -Wendif-labels -Wformat -Winit-self -Wmissing-braces
+PPU_COMPILE_OPTIONS		+= -Wstrict-aliasing=2
+#PPU_COMPILE_OPTIONS		+= -Wcast-align -Weffc++
+endif
+
+PPU_OBJCOPY_OPTIONS		+= -I binary -O elf64-powerpc-celloslv2 -B powerpc
+PPU_OBJCOPY_OPTIONS		+= --set-section-align .data=7 --set-section-pad .data=128 --rename-section .data=.bin_objs.jobmanager.bin
+
+
+SPU_COMPILE_OPTIONS		+= -I. -I$(CODE_DIR)/job/include/spu -I$(CODE_DIR)/job/include/common
+SPU_COMPILE_OPTIONS		+= -I$(CODE_DIR)/system/include/spu -I$(CODE_DIR)/system/include/common
+SPU_COMPILE_OPTIONS		+= -g $(SPU_OPTIMISATION_OPTIONS)
+ifeq ($(SPU_UPLOAD_ADDRESS),0)
+SPU_COMPILE_OPTIONS		+= -fpic
+endif
+SPU_COMPILE_OPTIONS		+= $(SPU_DEFINES) $(COMMON_DEFINES)
+SPU_COMPILE_OPTIONS		+= -Wextra -Wall -Winline -Wshadow -Wpointer-arith -Wcast-qual -Wwrite-strings
+SPU_COMPILE_OPTIONS		+= -Wsign-compare -Wmissing-noreturn -Werror -Wundef
+SPU_COMPILE_OPTIONS		+= -Wreturn-type -Wunused -Wchar-subscripts -Wconversion -Wendif-labels -Wformat -Winit-self -Wmissing-braces
+SPU_COMPILE_OPTIONS		+= -Wstrict-aliasing=2
+#SPU_COMPILE_OPTIONS		+= -Wcast-align -Weffc++
+
+#SPU_COMPILE_OPTIONS		+= -Wpadded -Wswitch -Wswitch-default -Wswitch-enum
+#SPU_COMPILE_OPTIONS		+= -Wuninitialized 
+#SPU_COMPILE_OPTIONS		+= -Wparentheses -Wpointer-arith -Wredundant-decls
+
+
+SPU_PM_LINK_OPTIONS		+= -g
+SPU_PM_LINK_OPTIONS		+= -nostdlib -Ttext=$(SPU_UPLOAD_ADDRESS) -e cellSpursPolicyEntry
+SPU_PM_LINK_OPTIONS		+= -lspurs -lc -ldma -lsputhread
+SPU_PM_LINK_OPTIONS		+= -Wl,--warn-constructors
+
+
+SPU_JOB_LINK_OPTIONS	+= -g
+SPU_JOB_LINK_OPTIONS	+= -Wl,--defsym,kJobMemoryBaseAddr=$(SPU_UPLOAD_ADDRESS)
+ifeq ($(SPU_UPLOAD_ADDRESS),0)
+SPU_JOB_LINK_OPTIONS	+= -fpic
+SPU_JOB_LINK_OPTIONS	+= -Wl,-q
+endif
+SPU_JOB_LINK_OPTIONS	+= $(SPU_JOB_SYS_LIBS)
+SPU_JOB_LINK_OPTIONS	+= -nostdlib
+SPU_JOB_LINK_OPTIONS	+= -Wl,--warn-constructors
+
+ifeq ($(WWSJOB_COMPILER),kWWSJOB_SNC)
+PPU_CC = ps3ppusnc
+PPU_LD = ps3ppusnc
+PPU_AR = ps3snarl
+else
+PPU_CC = ppu-lv2-gcc
+PPU_LD = ppu-lv2-gcc
+PPU_AR = ppu-lv2-ar
+endif
+
+################################################################################################
+##	SPU Rules
+################################################################################################
+
+$(SPU_TEMP_DIR)/%.spu.s_temp	: $(CODE_DIR)/job/src/spu/%.spu
+	@echo Creating $@ for SPU from $< by frontend
+	@mkdir -p $(@D)
+	$(BIN_DIR)/frontend -dwarf -silent $(FRONTEND_DEFINES) $< -o $@
+
+
+$(SPU_TEMP_DIR)/%.spuo		: $(SPU_TEMP_DIR)/%.spu.s_temp
+	@echo Compiling $@ for SPU from $<
+	@mkdir -p $(@D)
+	spu-lv2-gcc $(SPU_COMPILE_OPTIONS) -x assembler -c $< -o $@
+	echo compiled $@
+
+
+$(SPU_TEMP_DIR)/%.spu.o		: $(CODE_DIR)/job/src/spu/%.cpp
+	@echo Compiling $@ for SPU from $<
+	@mkdir -p $(@D)
+	spu-lv2-gcc $(SPU_COMPILE_OPTIONS) -MD -c $< -o $@
+
+
+$(SPU_TEMP_DIR)/%.spu.o		: $(CODE_DIR)/job/src/common/%.cpp
+	@echo Compiling $@ for SPU from $<
+	@mkdir -p $(@D)
+	spu-lv2-gcc $(SPU_COMPILE_OPTIONS) -MD -c $< -o $@
+
+
+$(SPU_TEMP_DIR)/%.spu.o		: $(SAMPLES_DIR)/%.cpp
+	@echo Compiling $@ for SPU from $<
+	@mkdir -p $(@D)
+	spu-lv2-gcc $(SPU_COMPILE_OPTIONS) -MD -c $< -o $@
+
+
+$(SPU_TEMP_DIR)/%.spu.o		: $(SAMPLES_DIR)/%.spu.s
+	@echo Compiling $@ for SPU from $<
+	@mkdir -p $(@D)
+	spu-lv2-gcc $(SPU_COMPILE_OPTIONS) -x assembler-with-cpp -c $< -o $@
+
+
+$(SPU_TEMP_DIR)/%.spu.o		: $(CODE_DIR)/job/src/spu/%.spu.s
+	@echo Compiling $@ for SPU from $<
+	@mkdir -p $(@D)
+	spu-lv2-gcc $(SPU_COMPILE_OPTIONS) -x assembler-with-cpp -c $< -o $@
+
+
+$(SPU_LIB_DIR)/$(TARGET_BASE).spu.a			: $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+	@echo Linking $@ for SPU from $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+	@mkdir -p $(@D)
+	spu-lv2-ar -ruc $@ $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+
+
+#This rule is needed because of the ctr0
+$(SPU_LIB_DIR)/%.spu.o		: %.spu.s
+	@echo Compiling $@ for SPU from $<
+	@mkdir -p $(@D)
+	spu-lv2-gcc $(SPU_COMPILE_OPTIONS) -x assembler-with-cpp -c $< -o $@
+
+################
+
+##NOTE: This build process now assumes the user has a suitable version of perl installed, and that they have
+##	$(CELL_SDK)/$(HOST_DIR)/bin/replace_hbr.pl
+##NOTE: The following rules have all been modified to now run the replace_hbr.pl script on each elf after
+##	it is linked but before embedding.  If I implemented it directly as part of the link rule, then if
+##	the script fails (eg. the user didn't have their machine suitably setup) a second run of the rule
+##	wouldn't be triggered since the target file already exists.  This has already caught me out once.
+##	I've requested the script be changed, but for the time being I've hacked arount it's inout file
+##	problems below.
+
+#Link together to first make the unsafe version of the elf
+$(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).pm.unsafe.elf		: $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+	@echo Linking $@ for SPU relocation info pm from $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+	@mkdir -p $(@D)
+ifeq ($(filter %cmd.exe,$(SHELL)),$(SHELL))
+	$(SHELL) /C "spu-lv2-gcc $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS) $(SPU_PM_LINK_OPTIONS) -T $(SPU_PM_LINKER_SCRIPT) -o $@"
+else
+	spu-lv2-gcc $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS) $(SPU_PM_LINK_OPTIONS) -T $(SPU_PM_LINKER_SCRIPT) -o $@
+endif
+
+
+#Then patch the elf to remove dodgy (and not so dodgy) hint instructions
+#This elf is used by the debugger for relocation info - Must be called ".elf" or ".dbg"
+$(DEBUG_INFO_DIR)/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).pm.elf : $(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).pm.unsafe.elf
+	@echo Patching $@ from $<
+	@mkdir -p $(@D)
+	rm -f $@.temp
+	cp $< $@.temp
+	perl "$(CELL_SDK)/$(HOST_DIR)/bin/replace_hbr.pl" -v $@.temp
+	mv $@.temp $@
+	rm -f $@.temp.orig
+
+
+#And create the minimal binary file
+$(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE).pmbin		: $(DEBUG_INFO_DIR)/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).pm.elf
+	@echo Creating $@ for SPU from $< by objcopy
+	@mkdir -p $(@D)
+	spu-lv2-objcopy -O binary $< $@
+
+################
+
+#Link together to first make the unsafe version of the elf
+$(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).spujob.unsafe.elf	: $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+ifeq ($(SPU_UPLOAD_ADDRESS),0)
+	@echo Linking $@ position independent job for SPU from $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+else
+	@echo Linking $@ at fixed address $(SPU_UPLOAD_ADDRESS) for SPU from $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+endif
+	@mkdir -p $(@D)
+ifeq ($(filter %cmd.exe,$(SHELL)),$(SHELL))
+	$(SHELL) /C "spu-lv2-gcc $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS) $(SPU_JOB_LINK_OPTIONS) -T $(CODE_DIR)/job/src/spu/job_module.ld -o $@"
+else
+	spu-lv2-gcc $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS) $(SPU_JOB_LINK_OPTIONS) -T $(CODE_DIR)/job/src/spu/job_module.ld -o $@
+endif
+
+
+#Then patch the elf to remove dodgy (and not so dodgy) hint instructions
+#This elf is used by the debugger for relocation info - Must be called ".elf" or ".dbg"
+$(DEBUG_INFO_DIR)/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).spujob.elf : $(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).spujob.unsafe.elf
+	@echo Patching $@ from $<
+	@mkdir -p $(@D)
+	rm -f $@.temp
+	cp $< $@.temp
+	perl "$(CELL_SDK)/$(HOST_DIR)/bin/replace_hbr.pl" -v $@.temp
+	mv $@.temp $@
+	rm -f $@.temp.orig
+
+
+#And create the minimal binary file
+$(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE).spu.mod		: $(DEBUG_INFO_DIR)/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).spujob.elf
+	@echo Creating $@ for SPU from $< by objcopy
+	@mkdir -p $(@D)
+	spu-lv2-objcopy -O binary -S $< $@
+
+################
+
+#Link together to first make the unsafe version of the elf
+$(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).spuplugin.unsafe.elf	: $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+	@echo Linking $@ for SPU from $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS)
+	@mkdir -p $(@D)
+ifeq ($(filter %cmd.exe,$(SHELL)),$(SHELL))
+	$(SHELL) /C "spu-lv2-gcc $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS) $(SPU_JOB_LINK_OPTIONS) -T $(CODE_DIR)/job/src/spu/job_plugin.ld -o $@"
+else
+	spu-lv2-gcc $(SPU_PATHED_OBJS) $(SPU_PATHED_LIBS) $(SPU_JOB_LINK_OPTIONS) -T $(CODE_DIR)/job/src/spu/job_plugin.ld -o $@
+endif
+
+
+#Then patch the elf to remove dodgy (and not so dodgy) hint instructions
+#This elf is used by the debugger for relocation info - Must be called ".elf" or ".dbg"
+$(DEBUG_INFO_DIR)/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).spuplugin.elf : $(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).spuplugin.unsafe.elf
+	@echo Patching $@ from $<
+	@mkdir -p $(@D)
+	rm -f $@.temp
+	cp $< $@.temp
+	perl "$(CELL_SDK)/$(HOST_DIR)/bin/replace_hbr.pl" -v $@.temp
+	mv $@.temp $@
+	rm -f $@.temp.orig
+
+
+#And create the minimal binary file
+$(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE).spu.plugin	: $(DEBUG_INFO_DIR)/$(TARGET_BASE)_$(BUILD_FOLDER_NAME).spuplugin.elf
+	@echo Creating $@ for SPU from $< by objcopy
+	@mkdir -p $(@D)
+	spu-lv2-objcopy -O binary -S $< $@
+
+################
+
+#This is is temporary, but might be interesting in the future.
+#It objcopies out all sections that are *not* ".text", ".bss", ".rodata" or ".snTextGUID".
+#The reaminder should be a zero file.  If it's non-zero that means the user has non-zero initialised data that is non-const.
+#This hints at probably being a bug and the user should either make it zero initialized, or make it const.
+#Maybe I should integrate this into the build process?  Or maybe it should be an external tool?
+#%.rbadsec : %.elf
+#	spu-lv2-objcopy --remove-section=.text --remove-section=.bss --remove-section=.rodata --remove-section=.snTextGUID $< -O binary $@
+#	test ! -s $@
+
+
+
+################################################################################################
+##	PPU Rules
+################################################################################################
+
+$(IMAGES_DIR)/$(TARGET_BASE).ppu.self		: $(PPU_TEMP_DIR)/jobbin/$(TARGET_BASE).ppu.elf
+	@echo Signing $@ for PPU from $<
+	@mkdir -p $(@D)
+	make_fself $< $@
+
+
+$(PPU_TEMP_DIR)/jobbin/$(TARGET_BASE).ppu.elf		: $(PPU_PATHED_OBJS) $(PPU_PATHED_LIBS)
+	@echo Linking $@ for PPU from $(PPU_PATHED_OBJS) $(PPU_PATHED_LIBS) with $(PPU_LD)
+	@mkdir -p $(@D)
+	$(PPU_LD) $(PPU_PATHED_OBJS) $(PPU_PATHED_LIBS) $(PPU_LINKER_OPTIONS) -o $@
+
+
+$(PPU_LIB_DIR)/$(TARGET_BASE).a			: $(PPU_PATHED_OBJS) $(PPU_PATHED_LIBS)
+	@echo Linking $@ for PPU from $(PPU_PATHED_OBJS) $(PPU_PATHED_LIBS)
+	@mkdir -p $(@D)
+	$(PPU_AR) -ruc $@ $(PPU_PATHED_OBJS) $(PPU_PATHED_LIBS)
+
+
+$(PPU_TEMP_DIR)/%.ppu.o			: $(CODE_DIR)/job/src/ppu/%.cpp
+	@echo Compiling $@ for PPU from $< with $(PPU_CC)
+	@mkdir -p $(@D)
+	$(PPU_CC) $(PPU_COMPILE_OPTIONS) -c $< -o $@
+
+
+$(PPU_TEMP_DIR)/%.ppu.o			: $(CODE_DIR)/job/src/common/%.cpp
+	@echo Compiling $@ for PPU from $< with $(PPU_CC)
+	@mkdir -p $(@D)
+	$(PPU_CC) $(PPU_COMPILE_OPTIONS) -c $< -o $@
+
+
+$(PPU_TEMP_DIR)/%.ppu.o			: $(SAMPLES_DIR)/%.cpp
+	@echo Compiling $@ for PPU from $< with $(PPU_CC)
+	@mkdir -p $(@D)
+	$(PPU_CC) $(PPU_COMPILE_OPTIONS) -c $< -o $@
+
+
+#:HACK: We can't build straight from $(SPU_TEMP_DIR)/jobbin/%.pmbin or the name will have 'debug' or 'release embdedd in it :(
+#So instead we take a copy of it into the local folder and build with that instead
+$(PPU_TEMP_DIR)/%.pm.o			: $(SPU_TEMP_DIR)/jobbin/%.pmbin
+	@echo Creating $@ for PPU from $< by objcopy
+	cp $< $*_file
+	ppu-lv2-objcopy $(PPU_OBJCOPY_OPTIONS) $*_file $@
+	rm -f $*_file
+
+
+#If we were actually in a makefile that was building a .spu.mod file, then the $(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE).spu.mod
+#rule above would have done it.  Instead, the reason we'd hit this rule is because we're trying to embed a .spu.mod into a ppu
+#file.  As such, we should make sure we chain off to do $(SUBDIRS) first before we actually build this file, in order to ensure
+#the file we're embedding has actually been built.
+$(SPU_TEMP_DIR)/jobbin/%.spu.mod : $(SUBDIRS)
+	true
+
+$(PPU_TEMP_DIR)/%.sj.o			: $(SPU_TEMP_DIR)/jobbin/%.spu.mod
+	@echo Creating $@ for PPU from $< by objcopy
+	cp $< $*_file
+	ppu-lv2-objcopy $(PPU_OBJCOPY_OPTIONS) $*_file $@
+	rm -f $*_file
+
+
+#If we were actually in a makefile that was building a .spu.plugin file, then the $(SPU_TEMP_DIR)/jobbin/$(TARGET_BASE).spu.plugin
+#rule above would have done it.  Instead, the reason we'd hit this rule is because we're trying to embed a .spu.plugin into a ppu
+#file.  As such, we should make sure we chain off to do $(SUBDIRS) first before we actually build this file, in order to ensure
+#the file we're embedding has actually been built.
+$(SPU_TEMP_DIR)/jobbin/%.spu.plugin : $(SUBDIRS)
+	true
+
+#Support embedding plugins
+$(PPU_TEMP_DIR)/%.sp.o			: $(SPU_TEMP_DIR)/jobbin/%.spu.plugin
+	@echo Creating $@ for PPU from $< by objcopy
+	cp $< $*_file
+	ppu-lv2-objcopy $(PPU_OBJCOPY_OPTIONS) $*_file $@
+	rm -f $*_file
+
+
+################################################################################################
+##	Keep all the temporary files
+################################################################################################
+
+.SECONDARY :
+
+
+################################################################################################
+##	Include relevant dependency files
+################################################################################################
+
+SPU_PATHED_DEPS =
+SPU_PATHED_DEPS += $(patsubst %.o,%.d,$(filter %.o, $(SPU_PATHED_OBJS)))
+-include $(SPU_PATHED_DEPS)
+
+PPU_PATHED_DEPS =
+PPU_PATHED_DEPS += $(patsubst %.o,%.d,$(PPU_PATHED_OBJS))
+-include $(PPU_PATHED_DEPS)
+
+
+################################################################################################
+##	Call make for any required subdirectories
+################################################################################################
+
+.PHONY: $(SUBDIRS)
+$(SUBDIRS):
+	$(MAKE) -C $@
+
+
+################################################################################################
+##	Work out any extra files that will need cleaning
+################################################################################################
+
+#Filter out to only files of the name libFOO.spu.a, then add $(CODE_DIR)/job/src/spu/FOO to the CLEAN_DIRS
+CLEAN_DIRS += $(patsubst lib%.spu.a, $(CODE_DIR)/job/src/spu/%, $(filter lib%.spu.a, $(SPU_LIBS)))
+
+#Filter out to only files of the name libFOO.a, then add $(CODE_DIR)/job/src/spu/FOO to the CLEAN_DIRS
+CLEAN_DIRS += $(patsubst lib%.a, $(CODE_DIR)/job/src/ppu/%, $(filter lib%.a, $(PPU_LIBS)))
+
+#If there's a .ppu.self in the targets, then delete the .ppu.elf as well
+CLEAN_FILES += $(patsubst %.ppu.self, $(PPU_TEMP_DIR)/jobbin/$(TARGET_BASE).ppu.elf, $(filter %.ppu.self, $(TARGET)))
+
+#If there's a .spuo in the $(SPU_PATHED_OBJS), then delete the .spu.s_temp as well
+CLEAN_FILES += $(patsubst %.spuo, $(SPU_TEMP_DIR)/%.spu.s_temp, $(filter %.spuo, $(SPU_PATHED_OBJS)))
+
+#If there's a .pmbin in the targets, then delete the .pm.elf as well
+CLEAN_FILES += $(patsubst %.pmbin, $(DEBUG_INFO_DIR)/%_$(BUILD_FOLDER_NAME).pm.elf, $(filter %.pmbin, $(TARGET)))
+
+#If there's a $(SPU_TEMP_DIR)/jobbin/FOO.spu.mod in the targets, then delete the $(DEBUG_INFO_DIR)/FOO_$(BUILD_FOLDER_NAME).spujob.elf as well
+CLEAN_FILES += $(patsubst %.spu.mod, $(DEBUG_INFO_DIR)/%_$(BUILD_FOLDER_NAME).spujob.elf, $(filter %.spu.mod, $(TARGET)))
+
+#If there's a $(SPU_TEMP_DIR)/jobbin/FOO.spu.plugin in the targets, then delete the $(DEBUG_INFO_DIR)/FOO_$(BUILD_FOLDER_NAME).spuplugin.elf as well
+CLEAN_FILES += $(patsubst %.spu.plugin, $(DEBUG_INFO_DIR)/%_$(BUILD_FOLDER_NAME).spuplugin.elf, $(filter %.spu.plugin, $(TARGET)))
+
+#Filter out to only files of the name FOO.spu.o, then add $(CODE_DIR)/job/src/spu/jobapi/FOO.makefile to the CLEAN_MAKEFILES list
+CLEAN_MAKEFILES += $(patsubst %.spu.o, %.makefile, $(filter %.spu.o, $(SPU_LIBS)))
+
+
+################################################################################################
+##	Clean everything
+################################################################################################
+
+.PHONY : clean
+clean :
+	rm -f $(PATHED_TARGET)
+	rm -f $(CLEAN_FILES)
+	rm -f $(SPU_PATHED_OBJS)
+	rm -f $(SPU_PATHED_DEPS)
+	rm -f $(PPU_PATHED_OBJS)
+	rm -f $(PPU_PATHED_DEPS)
+ifeq ($(filter %cmd.exe,$(SHELL)),$(SHELL))
+ifneq ($(strip $(CLEAN_DIRS)),)
+	$(SHELL) /C FOR %d IN ($(CLEAN_DIRS)) DO @"$(MAKE)" -C %d clean
+endif
+ifneq ($(strip $(SUBDIRS)),)
+	$(SHELL) /C FOR %d IN ($(SUBDIRS)) DO @"$(MAKE)" -C %d clean
+endif
+ifneq ($(strip $(CLEAN_MAKEFILES)),)
+	$(SHELL) /C FOR %f IN ($(CLEAN_MAKEFILES)) DO @"$(MAKE)" -C $(CODE_DIR)/job/src/spu/jobapi/ -f %f clean
+endif
+else
+ifneq ($(strip $(CLEAN_DIRS)),)
+	for dir in $(CLEAN_DIRS) ; do $(MAKE) -C $$dir clean ;	done
+endif
+ifneq ($(strip $(SUBDIRS)),)
+	for dir in $(SUBDIRS) ; do $(MAKE) -C $$dir clean ;	done
+endif
+ifneq ($(strip $(CLEAN_MAKEFILES)),)
+	for file in $(CLEAN_MAKEFILES) ; do $(MAKE) -C $(CODE_DIR)/job/src/spu/jobapi/ -f $$file clean ;	done
+endif
+endif
+
+
+#This almost works for being OS agnostic, but windows is confused by the semi-colons :(
+#$(foreach dir,$(CLEAN_DIRS),$(MAKE) -C $(dir) clean ; )
+#$(foreach dir,$(SUBDIRS),$(MAKE) -C $(dir) clean ; )
+#$(foreach file,$(CLEAN_MAKEFILES),$(MAKE) -C $(CODE_DIR)/job/src/spu/jobapi/ -f $(file) clean ; )

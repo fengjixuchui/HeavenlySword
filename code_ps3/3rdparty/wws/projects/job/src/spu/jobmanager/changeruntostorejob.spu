@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+
+.start
+.include "conventions.inl"
+.text
+
+// NOTE: We can save a few instructions here when were under 16k
+//static void WwsJob_ChangeRunToStoreJob( void )
+.reg runJobNum
+.reg negOne
+.reg runJobState
+.reg loadJobState
+.reg storeJobNum, pBufferSet, bufferSetNum, bufferSet, nbufferSet, rmask, reserved, shuf, mask, rpm1, rpm2
+.extern g_WwsJob_runJobNum
+.extern g_WwsJob_storeJobNum
+.extern g_WwsJob_lastStoreJobNum
+.extern g_WwsJob_runJobState
+.extern g_WwsJob_reservedPageMask
+.extern GetPageMasks
+.extern WwsJob_TryChangeStoreToFreeJob
+.extern WwsJob_TryExecuteLoadCmds
+.extern StartBarrieredNullListWithInterrupt
+.extern ChangeRunToStoreJob_AssertReservePageMasks
+.global WwsJob_ChangeRunToStoreJob
+WwsJob_ChangeRunToStoreJob: // 54 instructions, 216 bytes
+		il	negOne, -1							lnop
+		ila	runJobState, WwsJob_RunJobState_kNone				lqa	runJobNum, g_WwsJob_runJobNum
+		ila	bufferSetNum, 16						stqa	negOne, g_WwsJob_runJobNum
+		{nop}									stqd	$lr, 16($sp)
+		{nop}									stqd	$sp, -32($sp)
+		ai	$sp, $sp, -32							stqa	runJobState, g_WwsJob_runJobState
+		shli	pBufferSet, runJobNum, 6					stqa	runJobNum, g_WwsJob_lastStoreJobNum
+		{nop}									stqa	runJobNum, g_WwsJob_storeJobNum
+		{nop}							CrtsjBranch2:	br	Loop
+Loop2:		ai	pBufferSet, pBufferSet, 4					hbra	CrtsjBranch, Loop2
+		nop									brz	bufferSetNum, Exit3
+		
+Loop:		ila	rmask, 0x8000							lqd	bufferSet, g_WwsJob_bufferSetArray(pBufferSet)
+		ai	bufferSetNum, bufferSetNum, -1					rotqby	nbufferSet, bufferSet, pBufferSet
+		and	reserved, nbufferSet, rmask					cwd	shuf, 0(pBufferSet)
+		andc	nbufferSet, nbufferSet, rmask					rotqmbyi $5, nbufferSet, -1
+		rotmi	$4, nbufferSet, -16				CrtsjBranch:	brhz	reserved, Loop2
+		andi	$5, $5, 0x7F							hbra	CrtsjBranch3, GetPageMasks
+		andi	$4, $4, 0xFF							{lnop}
+		rotmi	$3, nbufferSet, -24						{lnop}
+		mpy	$4, $4, $5							shufb	bufferSet, nbufferSet, bufferSet, shuf
+		{nop}									stqd	bufferSet, g_WwsJob_bufferSetArray(pBufferSet)
+		{nop}									lqa	rpm1, g_WwsJob_reservedPageMask
+		{nop}									lqa	rpm2, g_WwsJob_reservedPageMask+0x10
+		{nop}							CrtsjBranch3:	brsl	$5, GetPageMasks [#GetPageMasksCC]
+.if ASSERTS_ENABLED
+.reg	mask_reservedPageMasksOk, rpmOk1, rpmOk2
+		and	rpmOk1, rpm1, $3{pageMask1}					{lnop}
+		and	rpmOk2, rpm2, $4{pageMask2}					{lnop}
+		ceq	rpmOk1, rpmOk1, $3{pageMask1}					{lnop}
+		ceq	rpmOk2, rpmOk2, $4{pageMask2}					{lnop}
+		and	mask_reservedPageMasksOk, rpmOk1, rpmOk2			gb	mask_reservedPageMasksOk, mask_reservedPageMasksOk
+		ceqi	mask_reservedPageMasksOk, mask_reservedPageMasksOk, 0xF		brz	mask_reservedPageMasksOk, ChangeRunToStoreJob_AssertReservePageMasks
+.endif
+		andc	rpm1, rpm1, $3{pageMask1}					lnop
+		andc	rpm2, rpm2, $4{pageMask2}					stqa	rpm1, g_WwsJob_reservedPageMask
+		{nop}									stqa	rpm2, g_WwsJob_reservedPageMask+0x10
+		{nop}									br	Loop2
+Exit3:		{nop}									brsl	$lr, WwsJob_TryChangeStoreToFreeJob [#func]
+		{nop}									brz	$3, Exit1
+		ila	$lr, Exit1							lqa	loadJobState, g_WwsJob_loadJobState
+		ceqhi	loadJobState, loadJobState, LoadJobState_kExecuteCommands	brhnz	loadJobState, WwsJob_TryExecuteLoadCmds [#func]
+Exit1:		
+		nop									lqd	$lr, 48($sp)
+		ai	$sp, $sp, 32							bi	$lr
+
+.end

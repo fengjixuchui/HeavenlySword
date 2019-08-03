@@ -1,0 +1,491 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "heavenly_sword", "heavenly_sword.vcproj", "{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060} = {3E4D8706-8D1D-4EE9-88E2-98999C9C4060}
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937} = {57FE0A11-1057-4E12-9334-07AF6F2AB937}
+		{DF32B418-DB64-440B-86C0-F54A311DD778} = {DF32B418-DB64-440B-86C0-F54A311DD778}
+		{5DBA181B-5581-48A1-B44C-A7152802F10D} = {5DBA181B-5581-48A1-B44C-A7152802F10D}
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0} = {B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9} = {BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186} = {BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}
+		{9F121F36-793A-4C0C-A972-31E31F2903B6} = {9F121F36-793A-4C0C-A972-31E31F2903B6}
+		{9F121F36-793A-4C0C-B979-31E31F2903B6} = {9F121F36-793A-4C0C-B979-31E31F2903B6}
+		{9F121F36-893A-4C0C-A971-31E31F2903B6} = {9F121F36-893A-4C0C-A971-31E31F2903B6}
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8} = {E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E} = {DCCB5447-D4D1-484F-85CD-1E732F811B1E}
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E} = {DCCB5447-D4D1-484F-87CD-1E732F811B1E}
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111} = {DCCB5447-D4D1-EEEE-CCCC-1E732F811111}
+		{BEE21250-66F3-48E7-84F2-7860BF424896} = {BEE21250-66F3-48E7-84F2-7860BF424896}
+		{407C6F73-6A52-4B44-B603-DF48212B74E7} = {407C6F73-6A52-4B44-B603-DF48212B74E7}
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379} = {B636FC81-E6A2-42D2-BF34-85FAEA09D379}
+		{D04B248F-2F78-4033-96E3-B802F13FF888} = {D04B248F-2F78-4033-96E3-B802F13FF888}
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A} = {F9F7AF8F-596C-4D91-BE43-EB9649DF275A}
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E} = {D1352491-F3EA-4F25-9EB3-AF883164B53E}
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E} = {A025249B-83E0-4F25-AAB3-3F88F104B53E}
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C} = {B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553} = {5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3} = {C7BB9DD1-796A-472F-A67E-84545B7518B3}
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3} = {C7BB9DD1-896A-472F-A67E-84545B7518B3}
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05} = {8B8322E1-A382-4C53-8C13-30CF8CCC3A05}
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1} = {3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "core_ps3", "core_ps3.vcproj", "{5DBA181B-5581-48A1-B44C-A7152802F10D}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gfx_ps3", "gfx_ps3.vcproj", "{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "audio_ps3", "audio_ps3.vcproj", "{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ai_ps3", "ai_ps3.vcproj", "{DCCB5447-D4D1-484F-85CD-1E732F811B1E}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "armies_ps3", "armies_ps3.vcproj", "{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "objectdatabase_ps3", "objectdatabase_ps3.vcproj", "{DF32B418-DB64-440B-86C0-F54A311DD778}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jamnet_ps3", "jamnet_ps3.vcproj", "{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "expat_ps3", "expat_ps3.vcproj", "{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "physics_ps3", "physics_ps3.vcproj", "{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "effects_ps3", "effects_ps3.vcproj", "{407C6F73-6A52-4B44-B603-DF48212B74E7}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "exec_ps3", "exec_ps3.vcproj", "{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ntlib_spu_ps3", "ntlib_spu_ps3.vcproj", "{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "anim_ps3", "anim_ps3.vcproj", "{C7BB9DD1-796A-472F-A67E-84545B7518B3}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "speedtree_ps3", "speedtree_ps3.vcproj", "{C7BB9DD1-896A-472F-A67E-84545B7518B3}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "clipper_spu_ps3", "clipper_spu_ps3.vcproj", "{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C} = {2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "flags_spu_ps3", "flags_spu_ps3.vcproj", "{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C} = {2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "blendshapes_ps3", "blendshapes_ps3.vcproj", "{DCCB5447-D4D1-484F-87CD-1E732F811B1E}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bs_spu_ps3", "blendshapes_spu_ps3.vcproj", "{9F121F36-793A-4C0C-A972-31E31F2903B6}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C} = {2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "heresy_ps3", "heresy_ps3.vcproj", "{D04B248F-2F78-4033-96E3-B802F13FF888}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hair_spu_ps3", "hair_spu_ps3.vcproj", "{9F121F36-893A-4C0C-A971-31E31F2903B6}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C} = {2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "army_spu_ps3", "army_spu_ps3.vcproj", "{57FE0A11-1057-4E12-9334-07AF6F2AB937}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C} = {2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "bren_spu_ps3", "bren_spu_ps3.vcproj", "{D1352491-F3EA-4F25-9EB3-AF883164B53E}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "movies_ps3", "movies_ps3.vcproj", "{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "water_ps3", "water_ps3.vcproj", "{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "water_spu_ps3", "water_spu_ps3.vcproj", "{9F121F36-793A-4C0C-B979-31E31F2903B6}"
+	ProjectSection(ProjectDependencies) = postProject
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C} = {2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "updateskin_spu_ps3", "updateskin_spu_ps3.vcproj", "{BEE21250-66F3-48E7-84F2-7860BF424896}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "renderer_spu_ps3", "renderer_spu_ps3.vcproj", "{A025249B-83E0-4F25-AAB3-3F88F104B53E}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "army2_spu_ps3", "army2_spu_ps3.vcproj", "{B636FC81-E6A2-42D2-BF34-85FAEA09D379}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SourceCodeControl) = preSolution
+		SccNumberOfProjects = 30
+		SccProjectName0 = Perforce\u0020Project
+		SccLocalPath0 = .
+		SccProvider0 = MSSCCI:Perforce\u0020SCM
+		CanCheckoutShared = true
+		SolutionUniqueID = {3CEE14C9-ACAF-4054-BC57-BC2C4772F66D}
+		SccProjectUniqueName1 = heavenly_sword.vcproj
+		SccLocalPath1 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName2 = core_ps3.vcproj
+		SccLocalPath2 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName3 = gfx_ps3.vcproj
+		SccLocalPath3 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName4 = audio_ps3.vcproj
+		SccLocalPath4 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName5 = ai_ps3.vcproj
+		SccLocalPath5 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName6 = armies_ps3.vcproj
+		SccLocalPath6 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName7 = objectdatabase_ps3.vcproj
+		SccLocalPath7 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName8 = jamnet_ps3.vcproj
+		SccLocalPath8 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName9 = expat_ps3.vcproj
+		SccLocalPath9 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName10 = physics_ps3.vcproj
+		SccLocalPath10 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName11 = effects_ps3.vcproj
+		SccLocalPath11 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName12 = exec_ps3.vcproj
+		SccLocalPath12 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName13 = ntlib_spu_ps3.vcproj
+		SccLocalPath13 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName14 = anim_ps3.vcproj
+		SccLocalPath14 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName15 = speedtree_ps3.vcproj
+		SccLocalPath15 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName16 = clipper_spu_ps3.vcproj
+		SccLocalPath16 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName17 = blendshapes_ps3.vcproj
+		SccLocalPath17 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName18 = blendshapes_spu_ps3.vcproj
+		SccLocalPath18 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName19 = heresy_ps3.vcproj
+		SccLocalPath19 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName20 = hair_spu_ps3.vcproj
+		SccLocalPath20 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName21 = flags_spu_ps3.vcproj
+		SccLocalPath21 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName22 = army_spu_ps3.vcproj
+		SccLocalPath22 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName23 = bren_spu_ps3.vcproj
+		SccLocalPath23 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName24 = movies_ps3.vcproj
+		SccLocalPath24 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName25 = water_ps3.vcproj
+		SccLocalPath25 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName26 = water_spu_ps3.vcproj
+		SccLocalPath26 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName27 = updateskin_spu_ps3.vcproj
+		SccLocalPath27 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName28 = renderer_spu_ps3.vcproj
+		SccLocalPath28 = .
+		CanCheckoutShared = true
+		SccProjectUniqueName29 = army2_spu_ps3.vcproj
+		SccLocalPath29 = .
+		CanCheckoutShared = true
+	EndGlobalSection
+	GlobalSection(SolutionConfiguration) = preSolution
+		dbg_ps3 = dbg_ps3
+		dbgf_ps3 = dbgf_ps3
+		dev_ps3 = dev_ps3
+		rel_ps3 = rel_ps3
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}.dev_ps3.Build.0 = dev_ps3|Win32
+		{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{D529E17A-88ED-408B-88EE-DCB7A5F39FA2}.rel_ps3.Build.0 = rel_ps3|Win32
+		{5DBA181B-5581-48A1-B44C-A7152802F10D}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{5DBA181B-5581-48A1-B44C-A7152802F10D}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{5DBA181B-5581-48A1-B44C-A7152802F10D}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{5DBA181B-5581-48A1-B44C-A7152802F10D}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{5DBA181B-5581-48A1-B44C-A7152802F10D}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{5DBA181B-5581-48A1-B44C-A7152802F10D}.dev_ps3.Build.0 = dev_ps3|Win32
+		{5DBA181B-5581-48A1-B44C-A7152802F10D}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{5DBA181B-5581-48A1-B44C-A7152802F10D}.rel_ps3.Build.0 = rel_ps3|Win32
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}.dev_ps3.Build.0 = dev_ps3|Win32
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{F9F7AF8F-596C-4D91-BE43-EB9649DF275A}.rel_ps3.Build.0 = rel_ps3|Win32
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}.dev_ps3.Build.0 = dev_ps3|Win32
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{3E4D8706-8D1D-4EE9-88E2-98999C9C4060}.rel_ps3.Build.0 = rel_ps3|Win32
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E}.dev_ps3.Build.0 = dev_ps3|Win32
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{DCCB5447-D4D1-484F-85CD-1E732F811B1E}.rel_ps3.Build.0 = rel_ps3|Win32
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}.dev_ps3.Build.0 = dev_ps3|Win32
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{5974B4B0-6FC3-4EE5-A40E-FC45EF59C553}.rel_ps3.Build.0 = rel_ps3|Win32
+		{DF32B418-DB64-440B-86C0-F54A311DD778}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{DF32B418-DB64-440B-86C0-F54A311DD778}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{DF32B418-DB64-440B-86C0-F54A311DD778}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{DF32B418-DB64-440B-86C0-F54A311DD778}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{DF32B418-DB64-440B-86C0-F54A311DD778}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{DF32B418-DB64-440B-86C0-F54A311DD778}.dev_ps3.Build.0 = dev_ps3|Win32
+		{DF32B418-DB64-440B-86C0-F54A311DD778}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{DF32B418-DB64-440B-86C0-F54A311DD778}.rel_ps3.Build.0 = rel_ps3|Win32
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}.dev_ps3.Build.0 = dev_ps3|Win32
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{B420D623-F2CA-4ED7-AB3D-CE49BCB050F0}.rel_ps3.Build.0 = rel_ps3|Win32
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}.dev_ps3.Build.0 = dev_ps3|Win32
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{3780F5FF-EA6F-457C-95A1-1C59A3D1E5C1}.rel_ps3.Build.0 = rel_ps3|Win32
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}.dev_ps3.Build.0 = dev_ps3|Win32
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{BFC8BF34-AE41-4C5E-ACE8-079A0BB47186}.rel_ps3.Build.0 = rel_ps3|Win32
+		{407C6F73-6A52-4B44-B603-DF48212B74E7}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{407C6F73-6A52-4B44-B603-DF48212B74E7}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{407C6F73-6A52-4B44-B603-DF48212B74E7}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{407C6F73-6A52-4B44-B603-DF48212B74E7}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{407C6F73-6A52-4B44-B603-DF48212B74E7}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{407C6F73-6A52-4B44-B603-DF48212B74E7}.dev_ps3.Build.0 = dev_ps3|Win32
+		{407C6F73-6A52-4B44-B603-DF48212B74E7}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{407C6F73-6A52-4B44-B603-DF48212B74E7}.rel_ps3.Build.0 = rel_ps3|Win32
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}.dev_ps3.Build.0 = dev_ps3|Win32
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{8B8322E1-A382-4C53-8C13-30CF8CCC3A05}.rel_ps3.Build.0 = rel_ps3|Win32
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}.dev_ps3.Build.0 = dev_ps3|Win32
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{2A2F3BFF-12B7-4E36-BED1-3579C14D7D8C}.rel_ps3.Build.0 = rel_ps3|Win32
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3}.dev_ps3.Build.0 = dev_ps3|Win32
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{C7BB9DD1-796A-472F-A67E-84545B7518B3}.rel_ps3.Build.0 = rel_ps3|Win32
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3}.dev_ps3.Build.0 = dev_ps3|Win32
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{C7BB9DD1-896A-472F-A67E-84545B7518B3}.rel_ps3.Build.0 = rel_ps3|Win32
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}.dev_ps3.Build.0 = dev_ps3|Win32
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{B0B681AE-AE40-4A8F-94D2-28F7FE18B42C}.rel_ps3.Build.0 = rel_ps3|Win32
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}.dev_ps3.Build.0 = dev_ps3|Win32
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{E9CC083F-7EE6-4DEC-B52B-EB05BF314FC8}.rel_ps3.Build.0 = rel_ps3|Win32
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E}.dev_ps3.Build.0 = dev_ps3|Win32
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{DCCB5447-D4D1-484F-87CD-1E732F811B1E}.rel_ps3.Build.0 = rel_ps3|Win32
+		{9F121F36-793A-4C0C-A972-31E31F2903B6}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{9F121F36-793A-4C0C-A972-31E31F2903B6}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{9F121F36-793A-4C0C-A972-31E31F2903B6}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{9F121F36-793A-4C0C-A972-31E31F2903B6}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{9F121F36-793A-4C0C-A972-31E31F2903B6}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{9F121F36-793A-4C0C-A972-31E31F2903B6}.dev_ps3.Build.0 = dev_ps3|Win32
+		{9F121F36-793A-4C0C-A972-31E31F2903B6}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{9F121F36-793A-4C0C-A972-31E31F2903B6}.rel_ps3.Build.0 = rel_ps3|Win32
+		{D04B248F-2F78-4033-96E3-B802F13FF888}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{D04B248F-2F78-4033-96E3-B802F13FF888}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{D04B248F-2F78-4033-96E3-B802F13FF888}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{D04B248F-2F78-4033-96E3-B802F13FF888}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{D04B248F-2F78-4033-96E3-B802F13FF888}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{D04B248F-2F78-4033-96E3-B802F13FF888}.dev_ps3.Build.0 = dev_ps3|Win32
+		{D04B248F-2F78-4033-96E3-B802F13FF888}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{D04B248F-2F78-4033-96E3-B802F13FF888}.rel_ps3.Build.0 = rel_ps3|Win32
+		{9F121F36-893A-4C0C-A971-31E31F2903B6}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{9F121F36-893A-4C0C-A971-31E31F2903B6}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{9F121F36-893A-4C0C-A971-31E31F2903B6}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{9F121F36-893A-4C0C-A971-31E31F2903B6}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{9F121F36-893A-4C0C-A971-31E31F2903B6}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{9F121F36-893A-4C0C-A971-31E31F2903B6}.dev_ps3.Build.0 = dev_ps3|Win32
+		{9F121F36-893A-4C0C-A971-31E31F2903B6}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{9F121F36-893A-4C0C-A971-31E31F2903B6}.rel_ps3.Build.0 = rel_ps3|Win32
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937}.dev_ps3.Build.0 = dev_ps3|Win32
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{57FE0A11-1057-4E12-9334-07AF6F2AB937}.rel_ps3.Build.0 = rel_ps3|Win32
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E}.dev_ps3.Build.0 = dev_ps3|Win32
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{D1352491-F3EA-4F25-9EB3-AF883164B53E}.rel_ps3.Build.0 = rel_ps3|Win32
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}.dev_ps3.Build.0 = dev_ps3|Win32
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{BFCD7C31-A53D-4E4A-BD57-488E76FD2AB9}.rel_ps3.Build.0 = rel_ps3|Win32
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}.dev_ps3.Build.0 = dev_ps3|Win32
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{DCCB5447-D4D1-EEEE-CCCC-1E732F811111}.rel_ps3.Build.0 = rel_ps3|Win32
+		{9F121F36-793A-4C0C-B979-31E31F2903B6}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{9F121F36-793A-4C0C-B979-31E31F2903B6}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{9F121F36-793A-4C0C-B979-31E31F2903B6}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{9F121F36-793A-4C0C-B979-31E31F2903B6}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{9F121F36-793A-4C0C-B979-31E31F2903B6}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{9F121F36-793A-4C0C-B979-31E31F2903B6}.dev_ps3.Build.0 = dev_ps3|Win32
+		{9F121F36-793A-4C0C-B979-31E31F2903B6}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{9F121F36-793A-4C0C-B979-31E31F2903B6}.rel_ps3.Build.0 = rel_ps3|Win32
+		{BEE21250-66F3-48E7-84F2-7860BF424896}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{BEE21250-66F3-48E7-84F2-7860BF424896}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{BEE21250-66F3-48E7-84F2-7860BF424896}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{BEE21250-66F3-48E7-84F2-7860BF424896}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{BEE21250-66F3-48E7-84F2-7860BF424896}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{BEE21250-66F3-48E7-84F2-7860BF424896}.dev_ps3.Build.0 = dev_ps3|Win32
+		{BEE21250-66F3-48E7-84F2-7860BF424896}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{BEE21250-66F3-48E7-84F2-7860BF424896}.rel_ps3.Build.0 = rel_ps3|Win32
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E}.dev_ps3.Build.0 = dev_ps3|Win32
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{A025249B-83E0-4F25-AAB3-3F88F104B53E}.rel_ps3.Build.0 = rel_ps3|Win32
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379}.dbg_ps3.ActiveCfg = dbg_ps3|Win32
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379}.dbg_ps3.Build.0 = dbg_ps3|Win32
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379}.dbgf_ps3.ActiveCfg = dbgf_ps3|Win32
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379}.dbgf_ps3.Build.0 = dbgf_ps3|Win32
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379}.dev_ps3.ActiveCfg = dev_ps3|Win32
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379}.dev_ps3.Build.0 = dev_ps3|Win32
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379}.rel_ps3.ActiveCfg = rel_ps3|Win32
+		{B636FC81-E6A2-42D2-BF34-85FAEA09D379}.rel_ps3.Build.0 = rel_ps3|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

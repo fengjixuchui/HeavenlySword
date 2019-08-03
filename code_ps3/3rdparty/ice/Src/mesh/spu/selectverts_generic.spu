@@ -1,0 +1,683 @@
+/*
+ * Copyright (c) 2003-2005 Naughty Dog, Inc. 
+ * A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+ * Use and distribution without consent strictly prohibited
+ * 
+ * Revision History:
+ *  - Created 8/30/05
+ */
+
+.start
+
+.define TEST 0
+
+.global SelectVertsGeneric
+
+// Implements SelectVerts() for arbitrary vertex sizes.
+// void SelectVerts(const U8 *pIn, U8 *pOut, const U16 *pReindex, const U32 renameCount, const U32 size);
+// {
+//	U32 loopCount = renameCount;
+//	do
+// 	{
+// 		memcpy(pDst+size*(i+0), pSrc+size*(pReindex[i+0]), size);
+// 	}
+//	while (--loopCount);
+// }
+
+// This function copies renameCount vertexes from pIn to pOut, using the pReindex mapping table
+// to determine which source vertex maps to each destination vertex.
+//
+// NOTE: all pointer parameters are quadword-aligned.
+// inputBase: The input vertex buffer.  Contains an unknown number of tightly-packed vertexes, each with size
+//            bytes.
+// pOut: The output vertex buffer.  This function may write an extra quadword, so pOut must be padded with
+//       an extra 16 bytes.writes eight vertexes at a time, so pOut must be
+// renameBase: The reindex table.  Contains renameCount entries, 2 bytes per entry.  pReindex[i]
+//             gives the input byte offset (in pIn) of the vertex that should be written to pOut[i].
+// renameCount: The number of 2-byte entries in pReindex; must be non-zero.
+// size: The number of bytes per vertex.  Must be a multiple of 4!
+
+/*
+numVtxs = (numVtxs + 0xF) & ~0xF;
+startLoc = 0;
+endLoc = size;
+sizeX4 = size << 2;
+sizeX8 = size << 3;
+sizeX12 = sizeX4 + sizeX8;
+sizeX16 = size << 4;
+numQuads = ((size + 0xF) & 0xF) >> 4;
+shiftNum = 0x1370;
+pOut1 = pOut + sizeX4;
+pOut2 = pOut + sizeX8;
+pOut3 = pOut + sizeX12;
+renameShift0 = m_0A0A0A0A
+rnameShift1 = renameShift0 + 0x0808;
+for(repeat = 0; repeat < 4; ++repeat)
+{
+	offset = startLoc & 0xF;
+	quadOffset = startLoc;
+	delta = offset - startLoc;
+	pIn = inputBase + delta;
+	pIn2 = inputBase + delta + 0x10;
+	shiftMe = shiftNum >> offset;
+	shiftMe &= 0xF;
+	mask = fsm(shiftMe);
+	curQuad = numQuads;
+	adjust = 0;
+	if(offset != 0)
+	{
+		// Unaligned
+		shuffy = s_ABCD + offset;
+		curOffset = quadOff;
+		idx = numVtxs;
+		pRename = renameBase;
+		do
+		{
+			rename0 = pRename[0x00];
+			rename1 = pRename[0x10];
+			srcVtx0 = shufb(rename0, rename0, renameShift0) >> 4;
+			srcVtx1 = shufb(rename0, rename0, renameShift1) >> 4;
+			srcVtx2 = shufb(rename1, rename0, renameShift0) >> 4;
+			srcVtx3 = shufb(rename1, rename0, renameShift1) >> 4;
+			srcOff0 = srcVtx0 * size;
+			srcOff1 = srcVtx1 * size;
+			srcOff2 = srcVtx2 * size;
+			srcOff3 = srcVtx3 * size;
+			data00 = pIn[srcOff0];
+			data01 = pIn2[srcOff0];
+			data10 = pIn[srcOff1];
+			data11 = pIn2[srcOff1];
+			data20 = pIn[srcOff2];
+			data21 = pIn2[srcOff2];
+			data30 = pIn[srcOff3];
+			data31 = pIn2[srcOff3];
+			save0 = pOut[curOffset];
+			save1 = pOut1[curOffset];
+			save2 = pOut2[curOffset];
+			save3 = pOut3[curOffset];
+			srcNibble0 = srcOff0 & 0xF;
+			srcNibble1 = srcOff1 & 0xF;
+			srcNibble2 = srcOff2 & 0xF;
+			srcNibble3 = srcOff3 & 0xF;
+			srcMask0 = shuffy + srcNibble0;
+			srcMask1 = shuffy + srcNibble1;
+			srcMask2 = shuffy + srcNibble2;
+			srcMask3 = shuffy + srcNibble3;
+			outData0 = shufb(srcMask0, data00, data01);
+			outData1 = shufb(srcMask1, data10, data11);
+			outData2 = shufb(srcMask2, data20, data21);
+			outData3 = shufb(srcMask2, data30, data31);
+			pOut[curOffset] = selb(save0, outData0, mask);
+			pOut1[curOffset] = selb(save1, outData1, mask);
+			pOut2[curOffset] = selb(save2, outData2, mask);
+			pOut3[curOffset] = selb(save3, outData3, mask);
+			pRename += 0x20;
+			curOffset += sizeX16;
+			idx -= 0x10;
+		} while(idx != 0)
+		quadOff += 0x10;
+		adjust = 0x10 - offset;
+		--curQuad;
+		if(curQuad == 0)
+		{
+			continue;
+		}
+	}
+	
+	// Aligned
+	do
+	{
+		curOffset = quadOff;
+		idx = numVtxs;
+		pRename = renameBase;
+		do
+		{
+			rename0 = pRename[0x00];
+			rename1 = pRename[0x10];
+			srcVtx0 = shufb(rename0, rename0, renameShift0) >> 4;
+			srcVtx1 = shufb(rename0, rename0, renameShift1) >> 4;
+			srcVtx2 = shufb(rename1, rename0, renameShift0) >> 4;
+			srcVtx3 = shufb(rename1, rename0, renameShift1) >> 4;
+			srcOff0 = srcVtx0 * size + adjust;
+			srcOff1 = srcVtx1 * size + adjust;
+			srcOff2 = srcVtx2 * size + adjust;
+			srcOff3 = srcVtx3 * size + adjust;
+			data00 = pIn[srcOff0];
+			data01 = pIn2[srcOff0];
+			data10 = pIn[srcOff1];
+			data11 = pIn2[srcOff1];
+			data20 = pIn[srcOff2];
+			data21 = pIn2[srcOff2];
+			data30 = pIn[srcOff3];
+			data31 = pIn2[srcOff3];
+			srcNibble0 = srcOff0 & 0xF;
+			srcNibble1 = srcOff1 & 0xF;
+			srcNibble2 = srcOff2 & 0xF;
+			srcNibble3 = srcOff3 & 0xF;
+			srcMask0 = s_ABCD + srcNibble0;
+			srcMask1 = s_ABCD + srcNibble1;
+			srcMask2 = s_ABCD + srcNibble2;
+			srcMask3 = s_ABCD + srcNibble3;
+			pOut[curOffset] = shufb(srcMask0, data00, data01);
+			pOut1[curOffset] = shufb(srcMask1, data10, data11);
+			pOut2[curOffset] = shufb(srcMask2, data20, data21);
+			pOut3[curOffset] = shufb(srcMask2, data30, data31);
+			pRename += 0x20;
+			curOffset += sizeX16;
+			idx -= 0x10;
+		} while(idx != 0);
+		quadOff += 0x10;
+		pIn += 0x10;
+		pIn2 += 0x10;
+		--curQuad;
+	} while(curQuad != 0);
+	startLoc += size;
+	endLoc += size;
+	renameShift0 += 0x0202;
+	renameShift1 += 0x0202;
+}
+
+Unrolled Loops
+--------------
+
+IdxLoop_Unaligned:
+		// Loop 2
+		mpyh	upperAdd1, c_01010000, srcNibble1				lqx	data20, pIn, srcOff2
+		mpyh	upperAdd3, c_01010000, srcNibble3				lqx	data30, pIn, srcOff3
+		mpya	maskAdd0, c_00000101, srcNibble0, upperAdd0			lqx	data21, pIn2, srcOff2
+		mpya	maskAdd2, c_00000101, srcNibble2, upperAdd2			lqx	data31, pIn2, srcOff3
+		{nop}									{lnop}
+		{nop}									{lnop}
+		nop									{lnop}
+		mpya	maskAdd1, c_00000101, srcNibble1, upperAdd1			{lnop}
+		mpya	maskAdd3, c_00000101, srcNibble3, upperAdd3			{lnop}
+		a	srcMask0, shuffy, maskAdd0					{lnop}
+		a	srcMask2, shuffy, maskAdd2					lnop
+		{nop}									shufb	outData0, data00, data01, srcMask0
+		{nop}									shufb	outData2, data20, data21, srcMask2
+		nop									{lnop}
+		a	srcMask1, shuffy, maskAdd1					{lnop}
+		a	srcMask3, shuffy, maskAdd3					lnop
+		selb	out0, save0, outData0, mask					shufb	outData1, data10, data11, srcMask1
+		selb	out2, save2, outData2, mask					shufb	outData3, data30, data31, srcMask3
+		{nop}									stqx	out0, pOutC, curOffset
+		{nop}									stqx	out2, pOutC2, curOffset
+		selb	out1, save1, outData1, mask					{lnop}
+		selb	out3, save3, outData3, mask					{lnop}
+		{nop}									stqx	out1, pOutC1, curOffset
+		{nop}									stqx	out3, pOutC3, curOffset
+						
+		// Loop 1
+		{nop}									shufb	srcVtx2, rename1, rename1, renameShift0
+		{nop}									shufb	srcVtx1, rename0, rename0, renameShift1
+		{nop}									lqd	rename0_, 0x00(pRename)
+		{nop}									shufb	srcVtx0, rename0, rename0, renameShift0
+		mpy	srcOff2, srcVtx2, size						lqd	rename1_, 0x10(pRename)
+		mpy	srcOff1, srcVtx1, size						shufb	srcVtx3, rename1, rename1, renameShift1
+		ai	pRename, pRename, 0x20						lqx	save2, pOutC2, curOffset_
+		mpy	srcOff0, srcVtx0, size						lqx	save1, pOutC1, curOffset_
+		rotmi	rename0, rename0_, -4						lqx	save0, pOutC, curOffset_
+		mpy	srcOff3, srcVtx3, size						lqx	save3, pOutC3, curOffset_
+		ai	curOffset, curOffset_, 0					rotqmbii rename1, rename1_, -4
+		andi	srcNibble2, srcOff2, 0xF					lnop
+		andi	srcNibble1, srcOff1, 0xF					lqx	data10, pIn, srcOff1
+		mpyh	upperAdd2, c_01010000, srcNibble2				lqx	data11, pIn2, srcOff1
+		andi	srcNibble0, srcOff0, 0xF					lqx	data01, pIn2, srcOff0
+		a	curOffset_, curOffset_, sizeX16					lqx	data00, pIn, srcOff0
+		mpyh	upperAdd0, c_01010000, srcNibble0				lnop
+		andi	srcNibble3, srcOff3, 0xF		IdxBranch_Unaligned:	brnz	curOffset, IdxLoop_Unaligned
+
+IdxLoop_Aligned:
+		// Loop 2
+		mpyh	upperAdd3, c_01010000, srcNibble3				lqx	data20, pIn, srcOff2
+		mpya	maskAdd0, c_00000101, srcNibble0, upperAdd0			lqx	data31, pIn2, srcOff3
+		mpya	maskAdd2, c_00000101, srcNibble2, upperAdd2			lqx	data21, pIn2, srcOff2
+		mpya	maskAdd1, c_00000101, srcNibble1, upperAdd1			{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		nop									{lnop}
+		mpya	maskAdd3, c_00000101, srcNibble3, upperAdd3			{lnop}
+		a	srcMask0, s_ABCD, maskAdd0					{lnop}
+		a	srcMask2, s_ABCD, maskAdd2					lnop
+		a	srcMask1, s_ABCD, maskAdd1					shufb	out0, data00, data01, srcMask0
+		{nop}									shufb	out2, data20, data21, srcMask2
+		{nop}									shufb	out1, data10, data11, srcMask1
+		nop									lnop
+		a	srcMask3, s_ABCD, maskAdd3					stqx	out0, pOutC, curOffset
+		{nop}									stqx	out2, pOutC2, curOffset
+		{nop}									shufb	out3, data30, data31, srcMask3
+		{nop}									stqx	out1, pOutC1, curOffset
+		{nop}									{lnop}
+		{nop}									{lnop}
+		{nop}									stqx	out3, pOutC3, curOffset
+				
+		// Loop 1
+		ai	curOffset, curOffset_, 0					shufb	srcVtx0, rename0, rename0, renameShift0
+		a	curOffset_, curOffset_, sizeX16					shufb	srcVtx2, rename1, rename1, renameShift0
+		{nop}									shufb	srcVtx1, rename0, rename0, renameShift1
+		{nop}									shufb	srcVtx3, rename1, rename1, renameShift1
+		mpya	srcOff0, srcVtx0, size, adjust					lqd	rename0_, 0x00(pRename)
+		mpya	srcOff2, srcVtx2, size, adjust					lqd	rename1_, 0x10(pRename)
+		mpya	srcOff1, srcVtx1, size, adjust					{lnop}
+		mpya	srcOff3, srcVtx3, size, adjust					{lnop}
+		ai	pRename, pRename, 0x20						{lnop}
+		nop									{lnop}
+		rotmi	rename0, rename0_, -4						lnop
+		andi	srcNibble0, srcOff0, 0xF					rotqmbii rename1, rename1_, -4
+		andi	srcNibble2, srcOff2, 0xF					lqx	data01, pIn2, srcOff0
+		andi	srcNibble1, srcOff1, 0xF					lqx	data10, pIn, srcOff1
+		andi	srcNibble3, srcOff3, 0xF					lqx	data30, pIn, srcOff3
+		mpyh	upperAdd0, c_01010000, srcNibble0				lqx	data11, pIn2, srcOff1
+		mpyh	upperAdd2, c_01010000, srcNibble2				lqx	data00, pIn, srcOff0
+		mpyh	upperAdd1, c_01010000, srcNibble1	IdxBranch_Aligned:	brnz	curOffset, IdxLoop_Aligned
+		*/
+	
+.data
+
+
+.extern m_ABCD 
+
+.text
+.align 7
+
+// Parameters
+.reg	inputBase 3	// input
+.reg	pOut 4		// output
+.reg	renameBase 5	// input
+.reg	renameCount 6	// input
+.reg	size 7		// input
+
+.reg pOut1, pOut2, pOut3
+.reg pOutC, pOutC1, pOutC2, pOutC3
+.reg pOutN, pOutN1, pOutN2, pOutN3
+.reg startLoc
+.reg repeat
+.reg m_0000000F
+.reg offset
+.reg numVtxs, numVtxsXsize, numVtxsXsizeN
+.reg numQuads
+.reg shiftNum
+.reg sizeX4, sizeX8, sizeX12, sizeX16
+.reg renameShift0, renameShift1
+.reg quadOffset
+.reg pIn, pIn2
+.reg shiftMe
+.reg mask
+.reg curQuad
+.reg noffset
+.reg curOffset
+.reg curOffset_
+.reg pRename
+.reg rename0, rename1
+.reg rename0_, rename1_
+.reg srcVtx0, srcVtx1, srcVtx2, srcVtx3
+.reg srcOff0, srcOff1, srcOff2, srcOff3
+.reg data00, data01
+.reg data10, data11
+.reg data20, data21
+.reg data30, data31
+.reg save0, save1, save2, save3
+.reg srcNibble0, srcNibble1, srcNibble2, srcNibble3
+.reg srcMask0, srcMask1, srcMask2, srcMask3
+.reg outData0, outData1, outData2, outData3
+.reg out0, out1, out2, out3
+.reg upperAdd0, upperAdd1, upperAdd2, upperAdd3
+.reg maskAdd0, maskAdd1, maskAdd2, maskAdd3
+.reg s_ABCD
+.reg c_00000101
+.reg c_01010000
+.reg c_0202, c_0808
+.reg s_DDDDDDDDDDDDDDDD
+.reg s_AAAA
+.reg shuffy
+.reg broadOffset
+.reg tmp1, tmp2, tmp3, tmp4
+.reg extraQuad
+.reg writeOff
+.reg adjust
+
+SelectVertsGeneric:
+		nop									biz	renameCount, $lr
+
+		.cset startLoc
+		.cset srcOff2, srcOff3
+		.cset data00, data01, data10, data11, data21, data30
+		.cset srcNibble0, srcNibble1, srcNibble2, srcNibble3
+		.cset upperAdd0, upperAdd1, upperAdd2
+		.cset adjust
+
+		ilhu	s_AAAA, 0x0001							lqa	s_ABCD, m_ABCD
+		iohl	s_AAAA, 0x0203							rotqmbyi startLoc, startLoc, -16
+		ila	shiftNum, 0x1370						lnop
+		ila	m_0000000F, 0xF							shufb	size, size, size, s_AAAA
+		ai	numVtxs, renameCount, 0xF					{lnop}
+		ila	repeat, 4							{lnop}
+		andc	numVtxs, numVtxs, m_0000000F					lnop
+		ai	numQuads, size, 0xF						shlqbii	sizeX4, size, 2
+		mpy	numVtxsXsize, numVtxs, size					shlqbii	sizeX8, size, 3
+		andc	numQuads, numQuads, m_0000000F					shlqbii	sizeX16, size, 4
+		ila	c_0808, 0x0808							{lnop}
+		rotmi	numQuads, numQuads, -4						{lnop}
+		a	sizeX12, sizeX4, sizeX8						{lnop}
+		ilhu	renameShift0, 0x8080						{lnop}
+		iohl	renameShift0, 0x0001						{lnop}
+		ila	c_00000101, 0x0101						{lnop}
+		a	renameShift1, renameShift0, c_0808				lnop
+		a	pOut1, pOut, sizeX4						shlqbyi	c_01010000, c_00000101, 2
+		sfi	numVtxsXsizeN, numVtxsXsize, 0					{lnop}
+		a	pOut2, pOut, sizeX8						{lnop}
+		a	pOut3, pOut, sizeX12						{lnop}
+		ila	c_0202, 0x0202							{lnop}
+		a	pOutN, pOut, numVtxsXsize					{lnop}
+		a	pOutN1, pOut1, numVtxsXsize					{lnop}
+		a	pOutN2, pOut2, numVtxsXsize					{lnop}
+		a	pOutN3, pOut3, numVtxsXsize					{lnop}
+		andi	tmp4, size, 0xF							{lnop}
+		ilhu	s_DDDDDDDDDDDDDDDD, 0x0303					{lnop}
+		iohl	s_DDDDDDDDDDDDDDDD, 0x0303					lnop
+								
+RepeatLoop:
+		andi	offset, startLoc, 0xF						rotqbyi pIn, inputBase, 0
+		andc	quadOffset, startLoc, m_0000000F				rotqbyi	curQuad, numQuads, 0
+		sfi	noffset, offset, 0						rotqmbyi adjust, adjust, -16
+		nop									shufb	broadOffset, offset, offset, s_DDDDDDDDDDDDDDDD
+		rotm	shiftMe, shiftNum, noffset					{lnop}
+		ai	pIn2, pIn, 0x10							{lnop}
+		a	writeOff, offset, tmp4						{lnop}
+		nop									{lnop}
+		andi	shiftMe, shiftMe, 0xF						{lnop}
+		{nop}									{lnop}
+		{nop}									fsm	mask, shiftMe
+		nop									brz	offset, OffsetLoop_Aligned
+								
+Start_Unaligned:
+		ai	curOffset, numVtxsXsizeN, 0					lqd	rename0_, 0x00(renameBase)
+		ai	pRename, renameBase, 0x20					lqd	rename1_, 0x10(renameBase)
+		cgti	extraQuad, writeOff, 0x10					hbrr	IdxBranch_Unaligned, IdxLoop_Unaligned
+		sf	shuffy, broadOffset, s_ABCD					lqx	save0, pOut, quadOffset
+		a	pOutC, pOutN, quadOffset					lqx	save1, pOut1, quadOffset
+		andi	extraQuad, extraQuad, 1						rotqmbyi curOffset_, curOffset, 0
+		a	pOutC1, pOutN1, quadOffset					rotqmbii rename0, rename0_, -4
+		a	curQuad, curQuad, extraQuad					rotqmbii rename1, rename1_, -4
+		a	pOutC2, pOutN2, quadOffset					lqx	save2, pOut2, quadOffset
+		a	pOutC3, pOutN3, quadOffset					lqx	save3, pOut3, quadOffset
+												
+IdxLoop_Unaligned:
+	{2}	mpyh	upperAdd3, c_01010000, srcNibble3			{1}	shufb	srcVtx0, rename0, rename0, renameShift0
+	{2}	mpya	maskAdd0, c_00000101, srcNibble0, upperAdd0		{1}	shufb	srcVtx1, rename0, rename0, renameShift1
+	{2}	mpyh	upperAdd1, c_01010000, srcNibble1			{1}	shufb	srcVtx2, rename1, rename1, renameShift0
+	{2}	mpya	maskAdd2, c_00000101, srcNibble2, upperAdd2		{2}	lqx	data20, pIn, srcOff2
+	{1}	mpy	srcOff0, srcVtx0, size					{2}	lqx	data30, pIn, srcOff3
+	{1}	mpy	srcOff1, srcVtx1, size					{2}	lqx	data21, pIn2, srcOff2
+	{1}	mpy	srcOff2, srcVtx2, size					{1}	lqd	rename1_, 0x10(pRename)
+	{2}	mpya	maskAdd3, c_00000101, srcNibble3, upperAdd3		{2}	lqx	data31, pIn2, srcOff3
+	{2}	a	srcMask0, shuffy, maskAdd0				{1}	lqd	rename0_, 0x00(pRename)
+	{2}	mpya	maskAdd1, c_00000101, srcNibble1, upperAdd1		{1}	shufb	srcVtx3, rename1, rename1, renameShift1
+	{2}	a	srcMask2, shuffy, maskAdd2				{2}	shufb	outData0, data00, data01, srcMask0
+	{1}	andi	srcNibble0, srcOff0, 0xF				{1}	lqx	data00, pIn, srcOff0
+	{1}	ai	pRename, pRename, 0x20					{2}	shufb	outData2, data20, data21, srcMask2
+	{1}	mpy	srcOff3, srcVtx3, size					{1}	rotqmbii rename1, rename1_, -4
+	{2}	selb	out0, save0, outData0, mask				{1}	lqx	save0, pOutC, curOffset_
+	{2}	a	srcMask3, shuffy, maskAdd3				{1}	lqx	data01, pIn2, srcOff0
+	{2}	a	srcMask1, shuffy, maskAdd1				{2}	stqx	out0, pOutC, curOffset
+	{2}	selb	out2, save2, outData2, mask				{2}	shufb	outData3, data30, data31, srcMask3
+	{1}	andi	srcNibble2, srcOff2, 0xF				{2}	shufb	outData1, data10, data11, srcMask1
+	{1}	mpyh	upperAdd0, c_01010000, srcNibble0			{1}	lqx	save2, pOutC2, curOffset_
+	{1}	mpyh	upperAdd2, c_01010000, srcNibble2			{2}	stqx	out2, pOutC2, curOffset
+	{2}	selb	out3, save3, outData3, mask				{1}	lqx	save3, pOutC3, curOffset_
+	{2}	selb	out1, save1, outData1, mask				{1}	lqx	save1, pOutC1, curOffset_
+	{1}	andi	srcNibble3, srcOff3, 0xF				{2}	stqx	out3, pOutC3, curOffset
+	{1}	rotmi	rename0, rename0_, -4					{2}	stqx	out1, pOutC1, curOffset
+	{1}	ai	curOffset, curOffset_, 0				{1}	lqx	data11, pIn2, srcOff1
+	{1}	andi	srcNibble1, srcOff1, 0xF				{1}	lqx	data10, pIn, srcOff1
+	{1}	a	curOffset_, curOffset_, sizeX16		IdxBranch_Unaligned:	brnz	curOffset, IdxLoop_Unaligned
+
+		ai	curQuad, curQuad, -1						{lnop}
+		ai	quadOffset, quadOffset, 0x10					{lnop}
+		sfi	adjust, offset, 0x10			OffsetBranch2:		brz	curQuad, RepeatEnd
+
+OffsetLoop_Aligned:
+		ai	curOffset, numVtxsXsizeN, 0					lqd	rename0_, 0x00(renameBase)
+		ai	pRename, renameBase, 0x20					lqd	rename1_, 0x10(renameBase)
+		a	pOutC, pOutN, quadOffset					hbrr	IdxBranch_Unaligned, IdxLoop_Unaligned
+		a	pOutC1, pOutN1, quadOffset					{lnop}
+		a	pOutC2, pOutN2, quadOffset					{lnop}
+		a	pOutC3, pOutN3, quadOffset					rotqmbyi curOffset_, curOffset, 0
+		{nop}									rotqmbii rename0, rename0_, -4
+		{nop}									rotqmbii rename1, rename1_, -4
+				
+IdxLoop_Aligned:
+	{2}	mpyh	upperAdd3, c_01010000, srcNibble3			{1}	shufb	srcVtx1, rename0, rename0, renameShift1
+	{2}	mpya	maskAdd0, c_00000101, srcNibble0, upperAdd0		{1}	shufb	srcVtx0, rename0, rename0, renameShift0
+	{2}	mpya	maskAdd1, c_00000101, srcNibble1, upperAdd1		{1}	shufb	srcVtx3, rename1, rename1, renameShift1
+	{2}	mpya	maskAdd2, c_00000101, srcNibble2, upperAdd2		{1}	lqd	rename1_, 0x10(pRename)
+	{1}	mpya	srcOff1, srcVtx1, size, adjust				{2}	lqx	data31, pIn2, srcOff3
+	{1}	mpya	srcOff0, srcVtx0, size, adjust				{1}	lqd	rename0_, 0x00(pRename)
+	{1}	mpya	srcOff3, srcVtx3, size, adjust				{2}	lqx	data20, pIn, srcOff2
+	{2}	mpya	maskAdd3, c_00000101, srcNibble3, upperAdd3		{1}	shufb	srcVtx2, rename1, rename1, renameShift0
+	{2}	a	srcMask0, s_ABCD, maskAdd0				{2}	lqx	data21, pIn2, srcOff2
+	{2}	a	srcMask1, s_ABCD, maskAdd1				{1}	rotqmbii rename1, rename1_, -4
+	{2}	a	srcMask2, s_ABCD, maskAdd2				{2}	shufb	out0, data00, data01, srcMask0
+	{1}	mpya	srcOff2, srcVtx2, size, adjust				{2}	shufb	out1, data10, data11, srcMask1
+	{1}	andi	srcNibble1, srcOff1, 0xF				{1}	lqx	data10, pIn, srcOff1
+	{1}	andi	srcNibble0, srcOff0, 0xF				{1}	lqx	data00, pIn, srcOff0
+	{2}	a	srcMask3, s_ABCD, maskAdd3				{2}	shufb	out2, data20, data21, srcMask2
+	{1}	mpyh	upperAdd0, c_01010000, srcNibble0			{2}	stqx	out0, pOutC, curOffset
+	{1}	mpyh	upperAdd1, c_01010000, srcNibble1			{2}	shufb	out3, data30, data31, srcMask3
+	{1}	rotmi	rename0, rename0_, -4					{1}	lqx	data30, pIn, srcOff3
+	{1}	andi	srcNibble2, srcOff2, 0xF				{2}	stqx	out2, pOutC2, curOffset
+	{1}	andi	srcNibble3, srcOff3, 0xF				{2}	stqx	out1, pOutC1, curOffset
+	{1}	mpyh	upperAdd2, c_01010000, srcNibble2			{2}	stqx	out3, pOutC3, curOffset
+	{1}	ai	curOffset, curOffset_, 0				{1}	lqx	data11, pIn2, srcOff1
+	{1}	ai	pRename, pRename, 0x20					{1}	lqx	data01, pIn2, srcOff0
+	{1}	a	curOffset_, curOffset_, sizeX16		IdxBranch_Aligned:	brnz	curOffset, IdxLoop_Aligned
+		
+		ai	quadOffset, quadOffset, 0x10					lnop
+		ai	curQuad, curQuad, -1						{lnop}
+		ai	pIn, pIn, 0x10							{lnop}
+		ai	pIn2, pIn2, 0x10			OffsetBranch1:		brnz	curQuad, OffsetLoop_Aligned
+		
+RepeatEnd:
+		a	startLoc, startLoc, size					hbrr	RepeatBranch1, RepeatLoop
+		ai	repeat, repeat, -1						{lnop}
+		a	renameShift0, renameShift0, c_0202				{lnop}
+		a	renameShift1, renameShift1, c_0202	RepeatBranch1:		brnz	repeat, RepeatLoop
+			
+		nop						SVG_END1:		bi	$lr
+
+
+// self-test code.
+.if TEST
+
+.data
+.align 12
+
+.align 4
+m_in4:	.dw 0x00000000
+	.dw 0x00000001
+	.dw 0x00000002
+	.dw 0x00000003
+	.dw 0x00000004
+	.dw 0x00000005
+	.dw 0x00000006
+	.dw 0x00000007
+
+.align 4
+m_in8:	.dw 0x00000000, 0x10000000
+	.dw 0x00000001, 0x10000001
+	.dw 0x00000002, 0x10000002
+	.dw 0x00000003, 0x10000003
+	.dw 0x00000004, 0x10000004
+	.dw 0x00000005, 0x10000005
+	.dw 0x00000006, 0x10000006
+	.dw 0x00000007, 0x10000007
+
+.align 4
+m_in12:	.dw 0x00000000, 0x10000000, 0x20000000
+	.dw 0x00000001, 0x10000001, 0x20000001
+	.dw 0x00000002, 0x10000002, 0x20000002
+	.dw 0x00000003, 0x10000003, 0x20000003
+	.dw 0x00000004, 0x10000004, 0x20000004
+	.dw 0x00000005, 0x10000005, 0x20000005
+	.dw 0x00000006, 0x10000006, 0x20000006
+	.dw 0x00000007, 0x10000007, 0x20000007
+	
+.align 4				
+m_in16:	.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000
+	.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001
+	.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002
+	.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003
+	.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004
+	.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005
+	.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006
+	.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007
+
+.align 4
+m_in20:	.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000, 0x40000000
+	.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001, 0x40000001
+	.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002, 0x40000002
+	.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003, 0x40000003
+	.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004, 0x40000004
+	.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005, 0x40000005
+	.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006, 0x40000006
+	.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007, 0x40000007
+
+.align 4
+m_in24:	.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000
+	.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001, 0x40000001, 0x50000001
+	.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002, 0x40000002, 0x50000002
+	.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003, 0x40000003, 0x50000003
+	.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004, 0x40000004, 0x50000004
+	.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005, 0x40000005, 0x50000005
+	.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006, 0x40000006, 0x50000006
+	.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007, 0x40000007, 0x50000007
+
+.align 4
+m_in28:	.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000, 0x60000000
+	.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001, 0x40000001, 0x50000001, 0x60000001
+	.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002, 0x40000002, 0x50000002, 0x60000002
+	.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003, 0x40000003, 0x50000003, 0x60000003
+	.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004, 0x40000004, 0x50000004, 0x60000004
+	.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005, 0x40000005, 0x50000005, 0x60000005
+	.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006, 0x40000006, 0x50000006, 0x60000006
+	.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007, 0x40000007, 0x50000007, 0x60000007
+
+.align 4
+m_in32:	.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000, 0x60000000, 0x70000000
+	.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001, 0x40000001, 0x50000001, 0x60000001, 0x70000001
+	.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002, 0x40000002, 0x50000002, 0x60000002, 0x70000002
+	.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003, 0x40000003, 0x50000003, 0x60000003, 0x70000003
+	.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004, 0x40000004, 0x50000004, 0x60000004, 0x70000004
+	.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005, 0x40000005, 0x50000005, 0x60000005, 0x70000005
+	.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006, 0x40000006, 0x50000006, 0x60000006, 0x70000006
+	.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007, 0x40000007, 0x50000007, 0x60000007, 0x70000007
+
+.align 4
+m_in36:	.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000, 0x60000000, 0x70000000, 0x80000000
+	.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001, 0x40000001, 0x50000001, 0x60000001, 0x70000001, 0x80000001
+	.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002, 0x40000002, 0x50000002, 0x60000002, 0x70000002, 0x80000002
+	.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003, 0x40000003, 0x50000003, 0x60000003, 0x70000003, 0x80000003
+	.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004, 0x40000004, 0x50000004, 0x60000004, 0x70000004, 0x80000004
+	.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005, 0x40000005, 0x50000005, 0x60000005, 0x70000005, 0x80000005
+	.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006, 0x40000006, 0x50000006, 0x60000006, 0x70000006, 0x80000006
+	.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007, 0x40000007, 0x50000007, 0x60000007, 0x70000007, 0x80000007
+
+.align 4
+m_in40:	.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000, 0x60000000, 0x70000000, 0x80000000, 0x90000000
+	.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001, 0x40000001, 0x50000001, 0x60000001, 0x70000001, 0x80000001, 0x90000001
+	.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002, 0x40000002, 0x50000002, 0x60000002, 0x70000002, 0x80000002, 0x90000002
+	.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003, 0x40000003, 0x50000003, 0x60000003, 0x70000003, 0x80000003, 0x90000003
+	.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004, 0x40000004, 0x50000004, 0x60000004, 0x70000004, 0x80000004, 0x90000004
+	.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005, 0x40000005, 0x50000005, 0x60000005, 0x70000005, 0x80000005, 0x90000005
+	.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006, 0x40000006, 0x50000006, 0x60000006, 0x70000006, 0x80000006, 0x90000006
+	.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007, 0x40000007, 0x50000007, 0x60000007, 0x70000007, 0x80000007, 0x90000007
+
+.align 4
+m_in44:	.dw 0x00000000, 0x10000000, 0x20000000, 0x30000000, 0x40000000, 0x50000000, 0x60000000, 0x70000000, 0x80000000, 0x90000000, 0xA0000000
+	.dw 0x00000001, 0x10000001, 0x20000001, 0x30000001, 0x40000001, 0x50000001, 0x60000001, 0x70000001, 0x80000001, 0x90000001, 0xA0000001
+	.dw 0x00000002, 0x10000002, 0x20000002, 0x30000002, 0x40000002, 0x50000002, 0x60000002, 0x70000002, 0x80000002, 0x90000002, 0xA0000002
+	.dw 0x00000003, 0x10000003, 0x20000003, 0x30000003, 0x40000003, 0x50000003, 0x60000003, 0x70000003, 0x80000003, 0x90000003, 0xA0000003
+	.dw 0x00000004, 0x10000004, 0x20000004, 0x30000004, 0x40000004, 0x50000004, 0x60000004, 0x70000004, 0x80000004, 0x90000004, 0xA0000004
+	.dw 0x00000005, 0x10000005, 0x20000005, 0x30000005, 0x40000005, 0x50000005, 0x60000005, 0x70000005, 0x80000005, 0x90000005, 0xA0000005
+	.dw 0x00000006, 0x10000006, 0x20000006, 0x30000006, 0x40000006, 0x50000006, 0x60000006, 0x70000006, 0x80000006, 0x90000006, 0xA0000006
+	.dw 0x00000007, 0x10000007, 0x20000007, 0x30000007, 0x40000007, 0x50000007, 0x60000007, 0x70000007, 0x80000007, 0x90000007, 0xA0000007
+
+.align 4
+m_out:	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+.align 4
+m_reindex:
+	.dh	0x10,	0x30,	0x50,	0x70,	0x00,	0x20,	0x40,	0x60
+	.dh	0x70,	0x60,	0x50,	0x40,	0x30,	0x20,	0x10,	0x00
+
+
+.text
+.align 7
+	
+.global _start
+_start:
+	ila	inputBase, m_in44			hbrr	CALL_SelectVerts, SelectVertsGeneric
+	il	size, 44				lnop
+	ila	pOut, m_out				lnop
+	il	renameCount, 16				lnop
+	ila	renameBase, m_reindex			lnop
+	nop			CALL_SelectVerts:	brsl	$lr, SelectVertsGeneric
+	nop						stop
+
+.endif ;; TEST	
+	
+.end
+
+

@@ -1,0 +1,95 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.global CmdSkinObject
+; Implements CmdSkinObject() in ice/mesh/icemeshskin.cpp
+; void CmdSkinObject(U32 *pStaticMem, Ice::IceQuadWord cmdQuad1, Ice::IceQuadWord cmdQuad2); 
+
+.include "icemeshinternal.spu.h"
+
+.text
+
+; Input
+.reg pStaticMemIn	3	; Pointer to static memory area.
+.reg cmdQuad1		4	; First 8 command halfwords.
+.reg cmdQuad2		5	; Last 8 command haflwords.
+
+; Call to skinning functions
+.reg pMatrices		3
+.reg pWeights		4
+.reg pSame		5
+.reg pDiff		6
+.reg pControl		7
+.reg pUniformPos	8
+.reg pUniformNorm	9
+.reg pUniformTan	10
+.reg pUniformDisp	11
+
+; Saved across call
+.reg pStaticMem		80
+
+.reg freeAddr
+.reg miscFlags
+.reg pDiscretePmInfo
+.reg pDmInfo
+.reg pSkinFunc
+.reg pSkinP
+.reg pSkinPN
+.reg pSkinPNT
+.reg pSkinPNTD
+.reg pSkinSkip
+.reg selDisp
+.reg selFree
+.reg selFuncP
+.reg selFuncPN
+.reg selFuncPNT
+.reg selFuncPNTD
+
+.align 7
+
+CmdSkinObject:
+{e2}	ori	$2, $sp, 0					{o4}	rotqmbyi miscFlags, cmdQuad1, -2
+{e2}	ai	$sp, $sp, -0x20						{lnop}
+{e2}	ila	pSkinSkip, cmd_skin_skip				{lnop}
+{e2}	ila	pSkinP, SkinPos					{o6}	stqd	$2, 0x00($sp)
+{e2}	ila	pSkinPN, SkinPosNorm				{o6}	stqd	$lr, 0x30($sp)
+{e2}	ila	pSkinPNT, SkinPosNormTan			{o6}	stqd	$80, 0x20($sp)
+{e2}	andi	miscFlags, miscFlags, 0xF			{o6}	lqd	pUniformPos, kStaticUniformPosPtr(pStaticMemIn)
+{e2}	ila	pSkinPNTD, SkinPosNormTanDisp			{o6}	lqd	pControl, kStaticSkinControlPtr(pStaticMemIn)
+{e2}	ceqi	selFuncPN, miscFlags, 0x3			{o4}	rotqbyi	pStaticMem, pStaticMemIn, 0
+{e2}	ceqi	selDisp, miscFlags, 0x9				{o6}	lqd	pMatrices, kStaticMatrixPtr(pStaticMemIn)
+{e2}	ceqi	selFuncP, miscFlags, 0x1				{lnop}
+{e2}	or	selFuncPN, selFuncPN, selDisp				{lnop}
+{e2}	selb	pSkinFunc, pSkinSkip, pSkinP, selFuncP		{o4}	rotqbyi	pUniformNorm, pUniformPos, kStaticUniformNormPtr
+{e2}	ceqi	selFuncPNT, miscFlags, 0x7			{o4}	rotqbyi	pUniformDisp, pUniformPos, kStaticUniformDnormPtr
+{e2}	selb	pSkinFunc, pSkinFunc, pSkinPN, selFuncPN	{o4}	rotqbyi	pUniformTan, pUniformPos, kStaticUniformTanPtr
+{e2}	ceqi	selFuncPNTD, miscFlags, 0xF			{o4}	rotqbyi	pWeights, pControl, kStaticSkinWeightPtr
+{e2}	selb	pSkinFunc, pSkinFunc, pSkinPNT, selFuncPNT	{o4}	rotqbyi	pSame, pControl, kStaticSkinSamePtr
+{e2}	selb	pUniformNorm, pUniformNorm, pUniformDisp, selDisp {o4}	rotqbyi	pDiff, pControl, kStaticSkinDiffPtr
+{e2}	selb	pSkinFunc, pSkinFunc, pSkinPNTD, selFuncPNTD		{lnop}
+	{nop}								{lnop}
+	{nop}							{o?}	bisl	$lr, pSkinFunc [cmd_skin_skip #func]
+
+cmd_skin_skip:
+	{nop}							{o6}	lqd	pDmInfo, kStaticDmInfoPtr(pStaticMem)
+	{nop}							{o6}	lqd	pDiscretePmInfo, kStaticDiscretePmInfoPtr(pStaticMem)
+	{nop}							{o6}	lqd	pControl, kStaticSkinControlPtr(pStaticMem)
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o6}	lqd	$lr, 0x30($sp)
+{e2}	ceqi	selFree, pDmInfo, 0					{lnop}
+	{nop}								{lnop}
+{e2}	selb	freeAddr, pDiscretePmInfo, pControl, selFree		{lnop}
+	{nop}								{lnop}
+	{nop}							{o6}	stqd	freeAddr, kStaticWorkFreeStart(pStaticMem)
+	{nop}							{o6}	lqd	$80, 0x20($sp)
+	{nop}							{o6}	lqd	$sp, 0x00($sp)
+	{nop}							{o?}	bi	$lr
+
+.end
+

@@ -1,0 +1,178 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.start
+.text
+//.data
+
+.align 4	//Note that the following only require 16 byte alignment each
+
+.global g_lsaAudits
+g_lsaAudits: .dw 0,0,0,0
+
+.global g_mmaAudits
+g_mmaAudits: .dw 0,0,0,0
+
+.global g_mmaAuditsBase
+g_mmaAuditsBase: .dw 0,0,0,0
+
+.global g_mmaAuditsEndLessAuditBlockSizePlus1
+g_mmaAuditsEndLessAuditBlockSizePlus1: .dw 0,0,0,0
+
+.global g_bJobAuditsEnabled
+g_bJobAuditsEnabled: .dw 0,0,0,0
+
+.global g_bJobManagerAuditsEnabled
+g_bJobManagerAuditsEnabled: .dw 0,0,0,0
+
+.global g_mmaAuditBufferOutputHeader
+g_mmaAuditBufferOutputHeader: .dw 0,0,0,0
+
+.global g_WwsJob_bufferSetArray
+g_WwsJob_bufferSetArray:	.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+				.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+				.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0
+
+.global g_WwsJob_bufferArray
+g_WwsJob_bufferArray:	.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+			.dw 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0  
+
+.global g_WwsJob_logicalToBufferNumArray
+g_WwsJob_logicalToBufferNumArray:	.dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+					.dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+					.dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+					.dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+					.dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+					.dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+
+;NOTE: the following masks must match the values of LsMemoryLimits::kJobAreaBasePageNum and kJobAreaEndPageNum (currently 16 and 256-8)!
+.global g_WwsJob_initialPageMask
+g_WwsJob_initialPageMask: .dw 0xFFFF0000,0x00000000,0x00000000,0x00000000, 0x00000000,0x00000000,0x00000000,0x000000FF
+
+.global g_WwsJob_usedPageMask
+g_WwsJob_usedPageMask: .dw 0xFFFF0000,0x00000000,0x00000000,0x00000000, 0x00000000,0x00000000,0x00000000,0x000000FF
+
+.global g_WwsJob_shareablePageMask
+g_WwsJob_shareablePageMask: .dw 0,0,0,0, 0,0,0,0
+
+.global g_WwsJob_reservedPageMask
+g_WwsJob_reservedPageMask: .dw 0xFFFF0000,0x00000000,0x00000000,0x00000000, 0x00000000,0x00000000,0x00000000,0x000000FF
+
+.global g_WwsJob_usedDmaTagMask
+g_WwsJob_usedDmaTagMask: .dw 0x000000FF,0x000000FF,0x000000FF,0x000000FF
+
+.global g_WwsJob_loadJobState	;NOTE: g_WwsJob_loadJobState is a halfword value in the prefered hword[1] - hword[0] may be non-zero!
+g_WwsJob_loadJobState: .dw 0,0,0,0
+
+.global g_WwsJob_runJobState
+g_WwsJob_runJobState: .dw 0,0,0,0
+
+.global g_WwsJob_nextLoadJobNum
+g_WwsJob_nextLoadJobNum: .dw 0,0,0,0
+
+.global g_WwsJob_loadJobNum
+g_WwsJob_loadJobNum: .dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+
+.global g_WwsJob_runJobNum
+g_WwsJob_runJobNum: .dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+
+.global g_WwsJob_storeJobNum
+g_WwsJob_storeJobNum: .dw 0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF
+
+.global g_WwsJob_lastStoreJobNum
+g_WwsJob_lastStoreJobNum: .dw 2,2,2,2
+
+.global g_WwsJob_pJobCodeBufferSet
+g_WwsJob_pJobCodeBufferSet: .dw 0,0,0,0
+
+.global g_WwsJob_pJobCodeBuffer
+g_WwsJob_pJobCodeBuffer: .dw 0,0,0,0
+
+.global g_WwsJob_lsaJobCodeBuffer
+g_WwsJob_lsaJobCodeBuffer: .dw 0,0,0,0
+
+.extern WwsJob_JobApi_kExecuteCommands
+.extern GetBufferTag
+.extern WwsJob_JobApi_kGetBufferTags
+.extern WwsJob_JobApi_kUseDmaTagId
+.extern WwsJob_JobApi_kFreeDmaTagId
+.extern WwsJob_JobApi_kLoadNextJob
+.extern WwsJob_JobApi_kFreeLogicalBuffer
+.extern WwsJob_JobApi_kFreeLogicalBuffers
+.extern WwsJob_JobApi_kStoreAudit
+.global g_WwsJob_dataForJob
+g_WwsJob_dataForJob:	.dw 0,0,0,0 // m_spuNum 0x00 0
+			.dw 0,0,0,0 // m_jobId 0x10 16
+			.dw 0,0,0,0 // m_pParameters 0x20 32
+			.dw WwsJob_JobApi_kExecuteCommands, GetBufferTag, WwsJob_JobApi_kGetBufferTags, WwsJob_JobApi_kUseDmaTagId // m_pJobApi[0], m_pJobApi[1], m_pJobApi[2], m_pJobApi[3]
+			.dw WwsJob_JobApi_kFreeDmaTagId, WwsJob_JobApi_kLoadNextJob, WwsJob_JobApi_kFreeLogicalBuffer, WwsJob_JobApi_kFreeLogicalBuffers // m_pJobApi[4], m_pJobApi[5], m_pJobApi[6], m_pJobApi[7]
+			.dw WwsJob_JobApi_kStoreAudit, 0, 0, 0 // m_pJobApi[8]
+			.dw 0,0,0,0 // m_bJobAuditsEnabled 0x60 96
+
+.global g_WwsJob_firstBufferNum
+g_WwsJob_firstBufferNum: .dw 0,0,0,0
+
+.global g_WwsJob_numFreeBuffers
+g_WwsJob_numFreeBuffers: .dw 0,0,0,0
+
+.global g_WwsJob_bBreakpointRequested
+g_WwsJob_bBreakpointRequested: .dw 0,0,0,0
+
+.global g_WwsJob_timeStamp
+g_WwsJob_timeStamp: .dw 0,0,0,0
+
+.global g_WwsJob_eaWorkLoad
+g_WwsJob_eaWorkLoad: .dw 0,0,0,0
+
+.global g_WwsJob_jobIndex
+g_WwsJob_jobIndex: .dw 0,0,0,0
+
+//Surely this only needs 1 qword, not 2?
+.global g_WwsJob_jobHeader
+g_WwsJob_jobHeader: .dw 0,0,0,0, 0,0,0,0
+
+.global g_WwsJob_jobDataArray
+g_WwsJob_jobDataArray:	.dw 0,0,0xFFFF,0, 0,0,0,0
+			.dw 0,0,0xFFFF,0, 0,0,0,0
+			.dw 0,0,0xFFFF,0, 0,0,0,0
+
+.global g_currentJobHeaderCacheEa
+g_currentJobHeaderCacheEa: .dw 0,0,0,0
+
+.global g_dependencyCache
+g_dependencyCache: .dw 0,0,0,0
+
+.global g_currentDependencyCacheEa
+g_currentDependencyCacheEa: .dw 0,0,0,0
+
+.global g_sideStack
+g_sideStack: .dw 0,0,0,0, 0,0,0,0
+
+.global g_cltrjLrStore
+g_cltrjLrStore:	.dw 0,0,0,0
+	
+.global g_nullDmaInterrupt
+g_nullDmaInterrupt: .dw 0x80000000, 0x00000000, 0x00000000, 0x00000000
+
+.global g_BisledRegisterStore
+g_BisledRegisterStore: .dw 0,0,0,0
+
+.global g_countToNextPoll
+g_countToNextPoll: .dw 0,0,0,0
+
+.global g_stackSetupValue
+g_stackSetupValue: .dw 0x3FFD0, 0x1FC0, 0, 0
+
+.end

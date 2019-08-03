@@ -1,0 +1,387 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+.start
+
+.define TEST 0
+
+.global SelectVerts16N
+	
+;; Implements SelectVerts() for 16*n-byte vertexes, for arbitrary n>0.
+;; void SelectVerts16N(const U8 *pIn, U8 *pOut, const U16 *pReindex, const U32 reindexCount, const U32 vertSize)
+;; {
+;;	U32 loopCount = reindexCount / 8;
+;;	do
+;; 	{
+;; 		memcpy(pDst+vertSize*(i+0), pSrc+vertSize*(pReindex[i+0]), vertSize);
+;; 		memcpy(pDst+vertSize*(i+1), pSrc+vertSize*(pReindex[i+1]), vertSize);
+;; 		memcpy(pDst+vertSize*(i+2), pSrc+vertSize*(pReindex[i+2]), vertSize);
+;; 		memcpy(pDst+vertSize*(i+3), pSrc+vertSize*(pReindex[i+3]), vertSize);
+;; 		memcpy(pDst+vertSize*(i+4), pSrc+vertSize*(pReindex[i+4]), vertSize);
+;; 		memcpy(pDst+vertSize*(i+5), pSrc+vertSize*(pReindex[i+5]), vertSize);
+;; 		memcpy(pDst+vertSize*(i+6), pSrc+vertSize*(pReindex[i+6]), vertSize);
+;; 		memcpy(pDst+vertSize*(i+7), pSrc+vertSize*(pReindex[i+7]), vertSize);
+;; 	}
+;;	while (--loopCount);
+;; }
+
+;; This function copies reindexCount 16*N-byte vertexes from pIn to pOut, using the pReindex mapping table
+;; to determine which source vertex maps to each destination vertex.
+;;
+;; NOTE: all pointer parameters are quadword-aligned.
+;; pIn:	The input vertex buffer.  Contains an unknown number of tightly-packed 16*N-byte vertexes.
+;; pOut: The output vertex buffer.  This function writes eight vertexes at a time, so pOut must be
+;;	 big enough to contain (reindexCount+7) & ~7 vertexes.
+;; pReindex: The reindex table.  Contains reindexCount entries, 2 bytes per entry.  pReindex[i]
+;;           gives the input byte offset (in pIn) of the vertex that should be written to pOut[i].
+;; reindexCount: The number of 2-byte entries in pReindex; must be a non-zero multiple of 8 (!).
+;; vertSize: The number of bytes per vertex.  Must be a multiple of 16!
+
+		
+.data
+
+.extern m_BBDDFFHH 
+	
+.text
+.align 7
+
+;; Parameters	
+.reg	pIn 3		; input
+.reg	pOut 4		; output
+.reg	pReindex 5	; input
+.reg	reindexCount 6	; input
+.reg	vertSize 7	; input
+	
+;; The quad currently being copied for each of the 8 verts.
+.reg	vert1, vert2, vert3, vert4, vert5, vert6, vert7, vert8
+
+;; Staggered output pointers.  pOut1 = pOut, and each pOutN = pOut(N-1) + vertSize.
+.reg	pOut1, pOut2, pOut3, pOut4, pOut5, pOut6, pOut7, pOut8
+
+;; Offsets into pIn for each of the 8 verts being copied.
+.reg	inOffset1, inOffset2, inOffset3, inOffset4, inOffset5, inOffset6, inOffset7, inOffset8
+
+.reg	reindexes, loopCount, outOffset, outOffsetFinal, reindexOffset
+.reg	kZero, k16, kToZero, k7S16, vOffset, vOffsetMax, strMask, vOffsetInc
+.reg	selMask0, selMask1, selMask2
+.reg	dOutOffset, dRIO, dInOffset
+.reg	vertSize2, quadsPerVert, reindexes2
+.reg	s_BBDDFFHH
+	
+SelectVerts16N:
+{e4}	rotmi	quadsPerVert, vertSize, -4			{o6 0}	lqd	reindexes, 0x00(pReindex)
+{e4}	shli	k7S16, vertSize, 3				{}	biz	reindexCount, $lr
+{e2}	ahi	vOffsetMax, vertSize, -16			{o6}	lqr	s_BBDDFFHH, m_BBDDFFHH
+{e4}	rotmi	loopCount, reindexCount, -3			{o4}	shufb	vOffsetMax, vOffsetMax, vOffsetMax, s_BBDDFFHH
+{e4}	sfhi	kToZero, vOffsetMax, 0				{o?}	hbrr	SV16N_LOOP_END, SV16N_LOOP
+{e2}	ilh	k16, 16							lnop
+{e7 0}	mpyh	reindexes2, reindexes, quadsPerVert			{lnop}
+{e7 0}	mpy	inOffset2, reindexes, quadsPerVert			{lnop}
+{e7 0}	mpy	loopCount, loopCount, quadsPerVert			{lnop}
+{e2}	ah	k7S16, k7S16, kToZero					{lnop}
+{e2}	ilh	vOffset, 0						{lnop}
+{e2 0}	ceqh	strMask, vOffset, vOffsetMax				{lnop}
+{e2}	ilh	kZero, 0						{lnop}
+{e2 0}	or	inOffset2, inOffset2, reindexes2			{lnop}
+{e2 0}	selb	vOffsetInc, k16, kToZero, strMask		{o4}	fsmbi	selMask1, 0xFFFF
+{e4 0}	roti	inOffset1, inOffset2, 16			{o4}	shufb	k7S16, k7S16, k7S16, s_BBDDFFHH
+{e2 0}	ah	vOffset, vOffset, vOffsetInc				{lnop}
+{e2}	a	vertSize2, vertSize, vertSize				{lnop}
+{e2 0}	ceqi	selMask0, vOffset, 0					{lnop}
+{e2}	il	outOffsetFinal, 0					{lnop}
+{e2 0 }	selb	reindexOffset, kZero, k16, selMask0			{lnop}
+{e2}	sfi	outOffset, k7S16, 0					{lnop}
+{e2}	ai	pOut1, pOut, 0					{o4 0}	rotqbyi	inOffset6, inOffset2, 8
+{e2}	a	pOut2, pOut, vertSize					{lnop}
+{e2}	a	pOut3, pOut1, vertSize2					{lnop}
+{e2}	a	pOut4, pOut2, vertSize2					{lnop}
+{e2}	a	pOut5, pOut3, vertSize2					{lnop}
+{e2}	a	pOut6, pOut4, vertSize2					{lnop}
+{e2}	a	pOut7, pOut5, vertSize2					{lnop}
+{e2}	a	pOut8, pOut6, vertSize2				{o6 0}	lqx	reindexes, reindexOffset, pReindex
+
+	.cset	vert1, vert2, vert3, vert4, vert5, vert6, vert7, vert8
+SV16N_LOOP: ; 21 cycles / 8 quads =============================================================
+{e2 1}	ceqh	strMask, vOffset, vOffsetMax			{o6 2}	stqx	vert2, outOffsetFinal, pOut2
+{e2 1}	orhi	dInOffset, vOffset, 0				{o6 2}	stqx	vert6, outOffsetFinal, pOut6
+{e4 1}	roti	inOffset5, inOffset6, 16			{o6 2}	stqx	vert1, outOffsetFinal, pOut1
+{e2 1}	selb	vOffsetInc, k16, kToZero, strMask		{o4 1}	rotqbyi	inOffset4, inOffset2, 4
+{e2 1}	ori	selMask2, selMask1, 0				{o6 2}	stqx	vert5, outOffsetFinal, pOut5
+{e2 1}	ah	vOffset, vOffset, vOffsetInc			{o6 2}	stqx	vert4, outOffsetFinal, pOut4
+{e2 1}	ori	selMask1, selMask0, 0				{o6 2}	stqx	vert8, outOffsetFinal, pOut8
+{e7 1}	mpyh	reindexes2, reindexes, quadsPerVert		{o6 1}	lqx	vert2, inOffset2, pIn
+{e7 1}	mpy	inOffset2, reindexes, quadsPerVert		{o6 2}	stqx	vert3, outOffsetFinal, pOut3
+{e2 1}	ceqi	selMask0, vOffset, 0				{o4 1}	rotqbyi	inOffset8, inOffset6, 4
+{e4 1}	roti	inOffset3, inOffset4, 16			{o6 2}	stqx	vert7, outOffsetFinal, pOut7
+{e2 1}	selb	dOutOffset, k16, k7S16, selMask2		{o6 1}	lqx	vert6, inOffset6, pIn
+{e2 1}	selb	dRIO, kZero, k16, selMask0			{o6 1}	lqx	vert1, inOffset1, pIn
+{e4 1}	roti	inOffset7, inOffset8, 16			{o6 1}	lqx	vert5, inOffset5, pIn
+{e2 1}	a	reindexOffset, reindexOffset, dRIO		{o6 1}	lqx	vert4, inOffset4, pIn
+{e2 1}	or	inOffset2, inOffset2, reindexes2		{o6 1}	lqx	vert8, inOffset8, pIn
+{e2 1}	a	outOffset, outOffset, dOutOffset		{o6 1}	lqx	vert3, inOffset3, pIn
+{e2 1}	a	inOffset2, inOffset2, dInOffset			{o6 1}	lqx	reindexes, reindexOffset, pReindex
+{e2 1}	ai	loopCount, loopCount, -1			{o6 1}	lqx	vert7, inOffset7, pIn
+{e2 1}	ori	outOffsetFinal, outOffset, 0			{o4 1}	rotqbyi	inOffset6, inOffset2, 8
+{e4 1}	roti	inOffset1, inOffset2, 16		SV16N_LOOP_END:	brnz	loopCount, SV16N_LOOP
+;; ============================================================================================
+	{nop}							{o?}	hbr	SV16N_END, $lr
+	{nop}							{o6 2}	stqx	vert2, outOffsetFinal, pOut2
+	{nop}							{o6 2}	stqx	vert6, outOffsetFinal, pOut6
+	{nop}							{o6 2}	stqx	vert1, outOffsetFinal, pOut1
+	{nop}							{o6 2}	stqx	vert5, outOffsetFinal, pOut5
+	{nop}							{o6 2}	stqx	vert4, outOffsetFinal, pOut4
+	{nop}							{o6 2}	stqx	vert8, outOffsetFinal, pOut8
+	{nop}							{o6 2}	stqx	vert3, outOffsetFinal, pOut3
+	{nop}							{o6 2}	stqx	vert7, outOffsetFinal, pOut7
+	{nop}						SV16N_END:	bi	$lr
+
+
+.if 0 ; unrolled loop
+
+;; Remember the current vertex offset; we'll use it to adjust the
+;; input offsets we load later.
+{e2 1}	orhi	dInOffset, vOffset, 0				{}	lnop
+	
+;; Determine if we're about to copy the last quad in the current set of verts.
+;; This information is used to determine whether to increment vOffset by 16 or
+;; return it to zero.
+{e2 1}	ceqh	strMask, vOffset, vOffsetMax			{}	lnop
+{}	nop							{}	lnop
+{e2 1}	selb	vOffsetInc, k16, kToZero, strMask		{}	lnop
+{}	nop						{}	lnop
+{e2 1}	ah	vOffset, vOffset, vOffsetInc			{}	lnop
+{}	nop						{}	lnop
+	
+;; Load the next quad of reindex table entries.
+{}	nop						{o6 1}	lqx	reindexes, reindexOffset, pReindex
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+
+;; Multiply the reindexes by the number of quads per vert, to get byte offsets into the input vertex buffer.
+;; Remember that reindex table entries are already scaled up by 16!  The results have the 2nd input offset
+;; in the preferred halfword, so we store them in inOffset2.  We also add the vertex offset we stored
+;; earlier to get the byte offset of the next quad to copy within each vertex.
+{e7 1}	mpyh	reindexes2, reindexes, quadsPerVert	{}	lnop
+{e7 1}	mpy	inOffset2, reindexes, quadsPerVert	{}	lnop
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+{}	nop						{}	lnop
+{e2 1}	or	inOffset2, inOffset2, reindexes2	{}	lnop
+{}	nop						{}	lnop
+{e2 1}	a	inOffset2, inOffset2, dInOffset			{}	lnop
+{}	nop							{}	lnop
+
+;; Rotate the remaining 7 offsets into the preferred halfwords of inOffset1-8.  Technically we should be
+;; worried that the first halfword of each offset has data in it, but we know that the offsets are all
+;; multiples of 16, so their low 4 bits will be zero.  Since our address space is 18 bits, we're safe.
+{e4 1}	roti	inOffset1, inOffset2, 16			{o4 1}	rotqbyi	inOffset6, inOffset2, 8
+{}	nop							{o4 1}	rotqbyi	inOffset4, inOffset2, 4
+{}	nop							{}	lnop
+{}	nop							{}	lnop
+{e4 1}	roti	inOffset5, inOffset6, 16			{o4 1}	rotqbyi	inOffset8, inOffset6, 4
+{e4 1}	roti	inOffset3, inOffset4, 16			{}	lnop
+{}	nop							{}	lnop
+{e4 1}	roti	inOffset7, inOffset8, 16			{}	lnop
+	
+;; Load the next quad from all eight verts	
+{}	nop							{o6 1}	lqx	vert2, inOffset2, pIn
+{}	nop							{o6 1}	lqx	vert6, inOffset6, pIn
+{}	nop							{o6 1}	lqx	vert1, inOffset1, pIn
+{}	nop							{o6 1}	lqx	vert5, inOffset5, pIn
+{}	nop							{o6 1}	lqx	vert4, inOffset4, pIn
+{}	nop							{o6 1}	lqx	vert8, inOffset8, pIn
+{}	nop							{o6 1}	lqx	vert3, inOffset3, pIn
+{}	nop							{o6 1}	lqx	vert7, inOffset7, pIn
+
+;; Determine the relative offset within each vertex to write the current set of quads.  Since we have
+;; the stagged pointers pOut1-pOut8 which are initialized to point to eight successive verts, a single
+;; output offset is sufficient.  The important question is whether it should be incremented by 16
+;; or 7*vertSize + 16 (the latter being enough to advance to the beginning of the 8th vertex after
+;; this one).
+;; Further complicating matters, we're not writing useful information until the 2nd iteration through
+;; the loop, and we don't want to write outside the buffer bounds.  So, all the logic that decides
+;; how much to increment the output offset by needs to be performed two iterations in advance and buffered
+;; in selMask0; the decision will then be passed through selMask1 into selMask2 to actually take effect
+;; two iterations later.
+;; Further further complicating matters, the FINAL output offset is stored in a separate register,
+;; for reasons that elude me at the moment.
+{e2 1}	ori	selMask2, selMask1, 0				{}	lnop
+{e2 1}	ori	selMask1, selMask0, 0				{}	lnop
+{e2 1}	ceqi	selMask0, vOffset, 0				{}	lnop
+{e2 1}	selb	dOutOffset, k16, k7S16, selMask2		{}	lnop
+{}	nop							{}	lnop
+{e2 1}	a	outOffset, outOffset, dOutOffset		{}	lnop
+{}	nop							{}	lnop
+{e2 1}	ori	outOffsetFinal, outOffset, 0			{}	lnop
+
+;; The same logic as above is used to decide how much to increment the reindex offset (0 if we're in the middle
+;; of a vertex, 16 if we've reached the end), only it's used immediately rather than two frames later.  	
+{e2 1}	selb	dRIO, kZero, k16, selMask0			{}	lnop
+{}	nop							{}	lnop
+{e2 1}	a	reindexOffset, reindexOffset, dRIO		{}	lnop
+		
+;; Store the eight quads to the appropriate points in the output vertex buffer
+{}	nop							{o6 2}	stqx	vert2, outOffsetFinal, pOut2
+{}	nop							{o6 2}	stqx	vert6, outOffsetFinal, pOut6
+{}	nop							{o6 2}	stqx	vert1, outOffsetFinal, pOut1
+{}	nop							{o6 2}	stqx	vert5, outOffsetFinal, pOut5
+{}	nop							{o6 2}	stqx	vert4, outOffsetFinal, pOut4
+{}	nop							{o6 2}	stqx	vert8, outOffsetFinal, pOut8
+{}	nop							{o6 2}	stqx	vert3, outOffsetFinal, pOut3
+{}	nop							{o6 2}	stqx	vert7, outOffsetFinal, pOut7
+
+;; Decrement the loop count and branch
+{e2 1}	ai	loopCount, loopCount, -1			{}	lnop
+{}	nop							{}	lnop
+{}	nop								brnz	loopCount, SV16N_LOOP
+
+.endif ; unrolled loop
+	
+.if TEST
+
+.data
+.align 12
+
+.align 4
+m_in16:	.df	0.1,	0.2,	0.3,	0.4
+	.df	1.1,	1.2,	1.3,	1.4
+	.df	2.1,	2.2,	2.3,	2.4
+	.df	3.1,	3.2,	3.3,	3.4
+	.df	4.1,	4.2,	4.3,	4.4
+	.df	5.1,	5.2,	5.3,	5.4
+	.df	6.1,	6.2,	6.3,	6.4
+	.df	7.1,	7.2,	7.3,	7.4
+
+.align 4
+m_in32:	.df	0.1,	0.2,	0.3,	0.4
+	.df	0.5,	0.6,	0.7,	0.8
+	.df	1.1,	1.2,	1.3,	1.4
+	.df	1.5,	1.6,	1.7,	1.8
+	.df	2.1,	2.2,	2.3,	2.4
+	.df	2.5,	2.6,	2.7,	2.8
+	.df	3.1,	3.2,	3.3,	3.4
+	.df	3.5,	3.6,	3.7,	3.8
+	.df	4.1,	4.2,	4.3,	4.4
+	.df	4.5,	4.6,	4.7,	4.8
+	.df	5.1,	5.2,	5.3,	5.4
+	.df	5.5,	5.6,	5.7,	5.8
+	.df	6.1,	6.2,	6.3,	6.4
+	.df	6.5,	6.6,	6.7,	6.8
+	.df	7.1,	7.2,	7.3,	7.4
+	.df	7.5,	7.6,	7.7,	7.8
+
+.align 4
+m_in48:	.df	0.1,	0.2,	0.3,	0.4
+	.df	0.5,	0.6,	0.7,	0.8
+	.df	0.9,	0.10,	0.11,	0.12
+	.df	1.1,	1.2,	1.3,	1.4
+	.df	1.5,	1.6,	1.7,	1.8
+	.df	1.9,	1.10,	1.11,	1.12
+	.df	2.1,	2.2,	2.3,	2.4
+	.df	2.5,	2.6,	2.7,	2.8
+	.df	2.9,	2.10,	2.11,	2.12
+	.df	3.1,	3.2,	3.3,	3.4
+	.df	3.5,	3.6,	3.7,	3.8
+	.df	3.9,	3.10,	3.11,	3.12
+	.df	4.1,	4.2,	4.3,	4.4
+	.df	4.5,	4.6,	4.7,	4.8
+	.df	4.9,	4.10,	4.11,	4.12
+	.df	5.1,	5.2,	5.3,	5.4
+	.df	5.5,	5.6,	5.7,	5.8
+	.df	5.9,	5.10,	5.11,	5.12
+	.df	6.1,	6.2,	6.3,	6.4
+	.df	6.5,	6.6,	6.7,	6.8
+	.df	6.9,	6.10,	6.11,	6.12
+	.df	7.1,	7.2,	7.3,	7.4
+	.df	7.5,	7.6,	7.7,	7.8
+	.df	7.9,	7.10,	7.11,	7.12
+
+.align 4
+m_out:	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+	.dw	0xdeaddead, 0xdeaddead, 0xdeaddead, 0xdeaddead
+
+.align 4
+m_reindex:
+	.dh	0x10,	0x30,	0x50,	0x70,	0x00,	0x20,	0x40,	0x60
+	.dh	0x70,	0x60,	0x50,	0x40,	0x30,	0x20,	0x10,	0x00
+	.dh	0x60,	0x70,	0x40,	0x50,	0x20,	0x30,	0x00,	0x10
+
+.text
+.align 7	
+
+.reg	pwMask
+	
+.global _start
+_start:
+	.cuse pIn, pOut
+	il	reindexCount, 16				hbrr CALL_SelectVerts16N, SelectVerts16N
+	il	vertSize, 48					fsmbi	pwMask, 0xF000
+	ila	pIn, m_in48					{lnop}
+	ila	pOut, m_out					{lnop}
+	ila	pReindex, m_reindex				{lnop}
+	selb	reindexCount, reindexCount, reindexCount, pwMask{lnop}
+	selb	vertSize, vertSize, vertSize, pwMask		{lnop}
+	{nop}				CALL_SelectVerts16N:	brsl	$lr, SelectVerts16N
+
+.endif ; TEST	
+	
+.end

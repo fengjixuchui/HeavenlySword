@@ -1,0 +1,96 @@
+
+	sharedbuffersample.txt
+	(tabs set to 8 spaces)
+		
+
+This sample is meant to show the following:
+	How to use read only persistent buffers for caching code.
+	How to use read/write persistent buffers for passing data between jobs.
+	How to pass parameters to the job.
+	
+In this sample, there are 4 types of jobs:
+	job1: This initializes a data buffer with 10.0, and passes it onto job2
+		as a read/write persistent buffer in LS memory.
+	job2: This uses the data buffer from job1 or job2, modifies it by adding 1.0, and
+		passes it on to job2 or job3.  Note there will 3 instances of job2.
+	job3: This uses the data buffer from job2, and stores it to memory.
+	jobx: This simulates a job which is not meant to be part of the job1-2-3 sequence.
+		2 instances of this job are done to interfere with the 3 instances of job2
+		so that the job2 persistent data buffer will be forced to be saved to memory and reloaded
+		to verify that this works.
+		
+The sequence of the jobs is:
+	job1, job2, job2, jobx, jobx, job2, job3
+	
+Job audits are used to output key information.  Each job outputs data for parameters,
+the code buffer, and the data buffer.
+
+In this example, all jobs (including jobx) use the same code bufferSet setup.
+It is bufferSet 0, with 2 buffers which are each big enough
+to hold the largest code among the jobs.  Since job2 and jobx will be executed
+more than once, we make those code buffers read only persistent so they won't be reloaded.
+If those code buffers must be overwritten, they do not have to be written to main memory.
+Since a loading job can prefetch its code and data while the current job is
+running, having 2 buffers can speed up this process.
+The buffers used for the code are shown below:
+	event		code buffer 0			code buffer 1
+	----------------------------------------------------------------------
+	load job1	LOAD job1			---
+	run  job1	job1				---
+	load 1st job2	job1				LOAD job2(read persistent)
+	run  1st job2	---				job2(read persistent)
+	load 2nd job2	---				reuse job2(read persistent)
+	run  2nd job2	---				job2(read persistent)
+	load 1st jobx	LOAD jobx(read persistent)	job2(read persistent)
+	run  1st jobx   jobx(read persistent)        	job2(read persistent)
+	load 2nd jobx	reuse jobx(read persistent)	job2(read persistent)
+	run  2nd jobx   jobx(read persistent)        	job2(read persistent)    	
+	load job2	jobx(read persistent)		reuse job2(read persistent)
+	run  job2	jobx(read persistent)		job2(read persistent)
+	load job3	LOAD job3			job2(read persistent)
+	run  job3	job3				job2(read persistent)
+	end jobManager	---				---
+
+In this example, all jobs (including jobx) use the same data bufferSet setup.
+It is bufferSet 1, with 2 buffers (of equal size).  Job1:3 want to load the data buffer
+from a single main memory buffer.  Jobx only uses the data buffer for scratch purposes (set to 99.0), so
+it has nothing to do with main memory.  job1 will initialize the buffer to 10.0 (so it is not
+read from memory) and share it with later jobs as a read/write buffer.  Each Job2 will
+modify this read/write buffer by adding 1.0 to it, and job3 will store the buffer to main memory.
+Jobx exists solely to force the job1:3 buffer to main memory to show that this works.
+The buffers used for the data are shown below:
+	event		data buffer 0				data buffer 1
+	---------------------------------------------------------------------------------
+	load job1	job1(uninit'd, read/write persistent)	---
+	run  job1	job1(10.0, read/write persistent)	---
+	load 1st job2	reuse job1(10.0, read/write persistent)	---
+	run  1st job2	job2(11.0, read/write persistent)	---
+	load 2nd job2	reuse job2(11.0, read/write persistent)	---
+	run  2nd job2	job2(12.0, read/write persistent)	---
+	load 1st jobx	job2(12.0, read/write persistent)	1st jobx(uninit'd)
+	run  1st jobx   job2(12.0, read/write persistent)	1st jobx(99.0)
+	load 2nd jobx	SAVE job2, 2nd jobx(uninit'd)           1st jobx(99.0)
+	run  2nd jobx   2nd jobx(99.0)				---
+	load job2	2nd jobx(99.0)				LOAD job2(12.0, read/write persistent)
+	run  job2	---					job2(13.0, read/write persistent)
+	load job3	---					reuse job2(13.0, read/write persistent)
+	run  job3	---					SAVE(by job) job3(13.0)
+	end jobManager	---					---
+
+The parameters are stored at the end of the load commands, after the command
+that says the job can be run.  They are qword aligned, and can take as much
+memory as you want (although the entire load commands and parameters must fit
+in the buffer size allocated).  There are 3 ways to get the parameters into the job.
+The first way is for the job to have a list of argumantes in JobMain(...), as shown
+by job1.  The second way is for the job to execute the WwsJob_JobApiCopyParams function
+to copy the parameters to memory provided by the job, as shown by job2.
+The third way is for the job to execute the WwsJob_JobApiGetUnsafePointerToParams function
+and then access or copy the parameters itself, as shown by job3.
+
+All 3 ways of getting parameters are allowed.  But the job *cannot* access any of the parameters
+at the *original* address after it has allowed the next job to start executing.  This is because
+the next job load process will use the same buffer to load the load commands and parameters
+and thus will overwrite the parameters.
+
+
+

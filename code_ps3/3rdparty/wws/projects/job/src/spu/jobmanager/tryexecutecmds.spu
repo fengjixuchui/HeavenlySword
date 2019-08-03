@@ -1,0 +1,757 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+.start
+.include "conventions.inl"
+
+.data
+.align 4
+.if	ASSERTS_ENABLED
+.extern Tec_AssertInvalidCommand
+TecJumpTable: .dw TecNop   , TecReserveBufferSet, TecUseBuffer, TecUnreserveBufferSets
+	      .dw TecRequestDependencyDecrement, TecRunJob, TecEndCommand, Tec_AssertInvalidCommand
+.else
+TecJumpTable: .dw TecNop   , TecReserveBufferSet, TecUseBuffer, TecUnreserveBufferSets
+	      .dw TecRequestDependencyDecrement, TecRunJob, TecEndCommand, TecEndCommand
+.endif
+
+.text
+// static bool WwsJob_TryExecuteCmds( I32 prevJobNum, I32 jobNum, WwsJob_Command *pCommands )
+.reg allCommandsDone, commandsStartedShareableDiscards, jobIsLoadJob, loadJobNum
+.reg command, pCommands, pCommands_, pBufferSet, bufferSet, mask_endCommand
+.reg numPagesPerBuffer, numBuffers, pBuffers, bufferNum, pBuffer, buffer
+.reg bufferPageNum, pLogicalToBufferNums
+.reg command_shift, jumpTo, configuration, bufferset_qw, s_insert
+.reg mask, mask2, mask3, mask_reserved, logicalBufferSetNum
+.reg tmp, tmpBufferSet, bufferArray, numFreeBuffers, numBuffersNeg, nopedCommand
+.reg mmDependencyAddress, numDependencies, depOffset
+.reg jobData, inc, deps, rotMe, commandsStartedShareableDiscards, shuf
+.reg rpm1, rpm2, resvd1, resvd2, reserved, rcond1
+.reg enableBreakpoint, prevJobNum, jobNum, firstBufferNum, bufferOffset
+// 13 GetLogicalBuffer outputs /
+.reg Gbt_pBufferSet           20
+.reg Gbt_bufferSet            21
+.reg Gbt_bufferSetNr          22
+.reg Gbt_firstPageNum         23
+.reg Gbt_numPagesPerBuffer    24
+.reg Gbt_numBuffers           25
+.reg Gbt_pBuffers             26
+.reg Gbt_bufferNum            27
+.reg Gbt_pBuffer              28
+.reg Gbt_buffer               29
+.reg Gbt_bufferNr             30
+.reg Gbt_bufferPageNum        31
+.reg Gbt_pLogicalToBufferNums 32
+////////////////////////////////
+.extern g_WwsJob_loadJobNum
+.extern g_WwsJob_reservedPageMask
+.extern g_WwsJob_numFreeBuffers
+.extern g_WwsJob_firstBufferNum
+.extern g_WwsJob_bufferArray
+.extern g_WwsJob_usedPageMask
+.extern g_WwsJob_shareablePageMask
+.extern g_WwsJob_timeStamp
+.extern g_WwsJob_jobDataArray
+.extern g_WwsJob_bufferSetArray
+.extern g_WwsJob_bBreakpointRequested
+.extern g_WwsJob_pJobCodeBuffer
+.extern g_WwsJob_lsaJobCodeBuffer
+.extern GetLogicalBuffer
+.extern GetPageMasks
+.extern TryDumpShareBuf
+.extern SetDwordMem
+.extern IsDmaTagMaskDone
+.extern StoreAuditDataInitialNoDataU64
+.extern StoreAuditDataInitialU64
+.extern StoreAuditDataParameterU64
+.extern StartTagSpecificBarrieredNullListWithInterrupt
+.if	ASSERTS_ENABLED
+.extern	Tec_AssertCommandsAligned
+.extern	TecRbs_AssertNoBufferSet
+.extern	TecRbs_AssertLoadNextJobNotCalled
+.extern	TecRbs_AssertNumBuffers
+.extern	TecRbs_AssertFreeBuffers
+.extern	TecUseBuffer_AssertLogicalBufferNum
+.extern	TecUseBuffer_AssertReserved
+.extern	TecUseBuffer_AssertLogicalBufferNotUsed
+.extern	TecUseBuffer_AssertNotGatherToWriteCached
+.extern	TecUseBuffer_AssertGatherDmaListInBuffer
+.extern	TecUseBuffer_AssertGatherDmaListSize
+.extern	TecUseBuffer_AssertDmaSize
+.extern	TecUseBuffer_AssertShareableIfWriteCached
+.extern	TecUseBuffer_AssertLogicalBufferNotUsed2
+.extern	TecUnreserveBufferSets_AssertBufferSetMask
+.extern	TecUnreserveBufferSets_AssertReserved
+.extern	TecRdd_AssertNumDeps
+.extern	TecRunJob_AssertIsLoadJob
+.extern	TecRunJob_AssertBufferSet
+.extern	TecRunJob_AssertLogicalBufferNumOk
+.endif
+.if	VERBOSE_ASSERTS_ENABLED
+.extern	Tec_AssertValidCommand
+.extern	TecUseBuffer_AssertPrevBufferNum
+.extern	TecUnreserveBufferSets_AssertReservedMaskOk
+.extern	TecEndCommand_AssertIsNotLoadJob
+.endif
+
+.global WwsJob_TryExecuteCmds
+WwsJob_TryExecuteCmds: // 24 instructions, 96 bytes
+		ila shuf, 0x10203							lqa loadJobNum, g_WwsJob_loadJobNum
+.if ASSERTS_ENABLED
+.reg	mask_commandsUnaligned
+		andi mask_commandsUnaligned, $5, 0xF					brnz mask_commandsUnaligned, Tec_AssertCommandsAligned
+.endif
+		ila commandsStartedShareableDiscards, 0					rotqbyi pCommands, $5, 0
+		ila allCommandsDone, 1							rotqbyi prevJobNum, $3, 0
+		{nop}									rotqmbyi jobNum, $4, 0
+		{nop}									shufb pCommands, pCommands, pCommands, shuf
+		ceq jobIsLoadJob, loadJobNum, $4					{lnop}
+TecLoop:	{nop}									lqd command, 0(pCommands)
+		ai pCommands_, pCommands, 0						rotqby command, command, pCommands
+		ai pCommands, pCommands, 8						hbra TecBranch1, GetLogicalBuffer
+		rotmi $4, command, -5							brz command, TecLoop
+		rotmi command_shift, command, -7					rotqmbyi $3, jobNum, 0
+.if	CODE_FITS_IN_8K
+		andi command_shift, command_shift, 0x1C                                 lqd $6, TecJumpTable(command_shift)
+.else
+.reg	TecJumpTable_
+		ila	TecJumpTable_, TecJumpTable					lnop
+		andi command_shift, command_shift, 0x1C                                 lqx $6, TecJumpTable_, command_shift
+.endif
+.if	VERBOSE_ASSERTS_ENABLED
+.reg	mask_invalidCommand, mask_endCommandInLoadJob
+		ceqi mask_endCommandInLoadJob, command_shift, 0x18			{lnop}
+		clgti mask_invalidCommand, command_shift, 0x18				{lnop}
+		and mask_endCommandInLoadJob, mask_endCommandInLoadJob, jobIsLoadJob	brnz	mask_invalidCommand, Tec_AssertValidCommand
+		nop									brnz	mask_endCommandInLoadJob, TecEndCommand_AssertIsNotLoadJob
+.endif
+		ceqi mask_endCommand, command_shift, 0x1C				{lnop}
+		andi $5, command, 0x1F							{lnop}
+		andi $4, $4, 0xF							brnz	mask_endCommand, TecEndCommand	; save 31 cycles on EndCommand by skipping GetLogical Buffer
+		{nop}									rotqby $6, $6, command_shift
+		{nop}							TecBranch1:	br GetLogicalBuffer [#GetLogicalBufferCC TecNop TecReserveBufferSet TecUseBuffer TecUnreserveBufferSets TecRequestDependencyDecrement TecRunJob TecEndCommand]
+
+TecReserveBufferSet:           ; 1     54 instructions, 216 bytes, ~33 cycles + called functions
+.if ASSERTS_ENABLED
+.reg	runJobState, mask_jobStateBad
+		{nop}									lqa	runJobState, g_WwsJob_runJobState
+		{nop}									brnz	Gbt_bufferSet, TecRbs_AssertNoBufferSet
+.endif
+		{nop}									hbrr   TecRbsCallGpm, GetPageMasks
+		{nop}									rotqbyi $5, command, 3
+		{nop}									rotqbyi $4, command, 2
+		{nop}									rotqbyi $3, command, 1
+.if ASSERTS_ENABLED
+		ceqi	mask_jobStateBad, runJobState, WwsJob_RunJobState_kLoadAllowed	lnop
+		andc	mask_jobStateBad, mask_jobStateBad, jobIsLoadJob		brnz	mask_jobStateBad, TecRbs_AssertLoadNextJobNotCalled
+.endif
+		{nop}									lqa firstBufferNum, g_WwsJob_firstBufferNum
+		{nop}									rotqbyi configuration, command, 4
+		andi $5, $5, 0xFF							fsmbi mask, 0x1000
+		andi $4, $4, 0xFF							shlqbyi nopedCommand, command, 8  ;clears current command to 0, but also rotates 8
+		ila mask_reserved, 0x8000 {buffer set reserved bit}			fsmbi mask2, 0x0FFF
+		mpy $4, $4, $5								lqa rpm1, g_WwsJob_reservedPageMask
+		selb configuration, configuration, firstBufferNum, mask			lqa rpm2, g_WwsJob_reservedPageMask+16
+		andi $3, $3, 0xFF							{lnop}
+		or configuration, configuration, mask_reserved				{lnop}
+		selb configuration, configuration, Gbt_bufferSet, mask2	TecRbsCallGpm:	brsl $5, GetPageMasks [#GetPageMasksCC]	; hint stall for ~1 cycles
+		and resvd1, rpm1, $3							hbra TecRbsBreak, SetDwordMem
+		and resvd2, rpm2, $4							lqd bufferset_qw, 0(Gbt_pBufferSet)
+		or rpm1, rpm1, $3							cwd s_insert, 0(Gbt_pBufferSet)
+		or reserved, resvd1, resvd2						lqa numFreeBuffers, g_WwsJob_numFreeBuffers
+		or rpm2, rpm2, $4							rotqmbyi $5, command,-4
+		roti $3, firstBufferNum, 3						orx rcond1, reserved
+		ilhu mask_reserved, 0x8000 {buffer reserved bit}			rotqbyi numBuffers, configuration, -1
+		ila bufferArray, g_WwsJob_bufferArray					rotqby nopedCommand, nopedCommand, pCommands{next} ;same as rotate by pCommands_, and back by 8
+		andi $5, $5, 0x1E0							shufb bufferset_qw, configuration, bufferset_qw, s_insert		
+		a $3, $3, bufferArray							brnz rcond1, TecCantExecuteCommand
+		andi numBuffers, numBuffers, 0x7F					stqa rpm1, g_WwsJob_reservedPageMask
+		rotmi $5, $5, -5							stqa rpm2, g_WwsJob_reservedPageMask+16
+.if ASSERTS_ENABLED
+.reg	mask_numBuffersBad
+		cgt	mask_numBuffersBad, numBuffers, numFreeBuffers			brz	numBuffers, TecRbs_AssertNumBuffers
+		nop									brnz	mask_numBuffersBad, TecRbs_AssertFreeBuffers
+.endif
+.if	ENABLE_IMPORTANT_AUDITS
+		rotmi	$75, command, -5						{lnop}
+		il	$74, kWwsJob_TryExecuteCmds_reserveBufSet			{lnop}
+		ila	$76, 1								lnop
+		andi	$75, $75, 0xF							brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		{nop}									rotqmbyi $74, configuration,-4
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		a firstBufferNum, firstBufferNum, numBuffers				stqd bufferset_qw, 0(Gbt_pBufferSet)
+		sf numFreeBuffers, numBuffers, numFreeBuffers				stqd nopedCommand, 0(pCommands_)
+		shli $4, numBuffers, 3 {size:8} 					stqa firstBufferNum, g_WwsJob_firstBufferNum
+		selb $5, mask_reserved, $5, mask2					stqa numFreeBuffers, g_WwsJob_numFreeBuffers
+		ila $6, TecLoop						TecRbsBreak:	br SetDwordMem [#SetMemCC TecLoop]
+
+TecUseBuffer:                  // 2 - ~331 instructions, 1324 bytes
+.reg	mask_hword, mask_contAfterDiscardWr, logicalBufferSetOffset, bufferSet, mask_reservedOk
+.reg	bestTakePreference, prevJobBufferSetOffset, logicalBufferNum, mask_logicalBufferNumOk
+.reg	prevJobBufferSet, bufferSetPages, commandMmAddress, firstBufferNum, prevBufferSetPages, mask_inputRead
+.reg	prevJobBufferOffset, prevJobBufferOffset_, prevJobBufferOffset__, pBuffer, prevJobConfigCompatible
+.reg	prevJobBuffer, mask_reserved, mask_loop
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	mask_hword, 0xFFFF						fsmbi	$76, 0
+		il	$74, kWwsJob_TryExecuteCmds_useBuffer				lnop
+		and	$75, command, mask_hword					brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+.endif
+		ila	mask_contAfterDiscardWr, 0x10000				{lnop}
+		rotmi	logicalBufferSetOffset, command,-3 {shift:-5 * size:4}		{lnop}
+		and	mask_contAfterDiscardWr, command, mask_contAfterDiscardWr	{lnop}
+		ila	bestTakePreference, 0						{lnop}
+		andi	logicalBufferSetOffset, logicalBufferSetOffset, 0x3C		brnz	mask_contAfterDiscardWr, TecUseBuffer_ContinueAfterDiscardWrite
+		shli	prevJobBufferSetOffset, prevJobNum, 6 {size:4 * num:16}		brz	Gbt_bufferSet, TecCantExecuteCommand
+.if	ASSERTS_ENABLED
+		andi	logicalBufferNum, command, 0x1F					{lnop}
+		ila	mask_reserved,	0x8000						{lnop}
+		cgt	mask_logicalBufferNumOk, Gbt_numBuffers, logicalBufferNum	brz	mask_logicalBufferNumOk, TecUseBuffer_AssertLogicalBufferNum
+		and	mask_reservedOk, Gbt_bufferSet, mask_reserved			brz	mask_reservedOk, TecUseBuffer_AssertReserved	
+.endif
+.if	CODE_FITS_IN_8K
+		a prevJobBufferSetOffset,prevJobBufferSetOffset,logicalBufferSetOffset	lqd	prevJobBufferSet, g_WwsJob_bufferSetArray(prevJobBufferSetOffset)
+		nop									{lnop}
+.else
+.reg	g_WwsJob_bufferSetArray_
+		ila	g_WwsJob_bufferSetArray_, g_WwsJob_bufferSetArray		{lnop}
+		a prevJobBufferSetOffset,prevJobBufferSetOffset,logicalBufferSetOffset	lqx	prevJobBufferSet, g_WwsJob_bufferSetArray_, prevJobBufferSetOffset
+.endif
+		{nop}									rotqby	prevJobBufferSet, prevJobBufferSet, prevJobBufferSetOffset
+		rotmi	bufferSetPages, Gbt_bufferSet, -16				rotqbyi	commandMmAddress, command, 4
+		andi	firstBufferNum, prevJobBufferSet, 0xFF				rotqmbyi prevBufferSetPages, prevJobBufferSet,-2
+		ila	mask_inputRead, 0x8000						{lnop}
+		shli	prevJobBufferOffset, firstBufferNum, 3 {size:8}			{lnop}
+		and	mask_inputRead, command, mask_inputRead				{lnop}
+		ceq	prevJobConfigCompatible, bufferSetPages, prevBufferSetPages	{lnop}
+		ai	prevJobBufferOffset_, prevJobBufferOffset, 0			fsmbi	Gbt_bufferNum, 0x0000
+		and	mask_inputRead, mask_inputRead, prevJobConfigCompatible		{lnop}
+		cgti	mask_loop, Gbt_numBuffers, 0					{lnop}
+		ai	Gbt_pBuffer, Gbt_pBuffers, 0					brz	mask_inputRead, TecUseBuffer_InputRead_End
+											
+TecUseBuffer_InputRead_Loop:
+.reg	mask_used, mask_clear
+.reg	mask_reserved, mask_prevShareable, mask_earlyOut, prevMmAddress, mask_sharedToLaterJob
+.reg	mask_mmAddressNeq, sel_aBCD, prevJobBuffer_, bufferNum_
+		{nop}									brz	mask_loop, TecUseBuffer_InputRead_End
+		{nop}									lqd	Gbt_buffer, 0x00(Gbt_pBuffer)
+		ai	prevJobBufferOffset__, prevJobBufferOffset_, 0			hbrr	TecUseBuffer_InputRead_EarlyOut, TecUseBuffer_InputRead_Loop
+.if	CODE_FITS_IN_8K
+		ilhu	mask_used, 0x0800						lqd	prevJobBuffer, g_WwsJob_bufferArray(prevJobBufferOffset_)
+.else
+.reg	g_WwsJob_bufferArray_
+		ila	g_WwsJob_bufferArray_, g_WwsJob_bufferArray			lnop
+		ilhu	mask_used, 0x0800						lqx	prevJobBuffer, g_WwsJob_bufferArray_, prevJobBufferOffset_
+.endif
+		ilhu	mask_clear, 0x6FC0 {shareable|shareableWrIfDisc|used|dmaTagId}	{lnop}
+		ai	Gbt_bufferNum, Gbt_bufferNum, 1					{lnop}
+		ilhu	mask_prevShareable, 0x4000					{lnop}
+		cgt	mask_loop, Gbt_numBuffers, Gbt_bufferNum			{lnop}
+		ilhu	mask_reserved, 0x8000 						rotqby	Gbt_buffer, Gbt_buffer, Gbt_pBuffer
+		ai	Gbt_pBuffer, Gbt_pBuffer, 8 					rotqby	prevJobBuffer, prevJobBuffer, prevJobBufferOffset_
+		ai	prevJobBufferOffset_, prevJobBufferOffset_, 8			{lnop}
+		and	mask_reserved, Gbt_buffer, mask_reserved			{lnop}
+		and	mask_prevShareable, prevJobBuffer, mask_prevShareable		rotqbyi	prevMmAddress, prevJobBuffer, 4
+		clgti	mask_reserved, mask_reserved, 0					{lnop}
+		ceqi	mask_earlyOut, mask_prevShareable, 0				{lnop}
+		ilhu	mask_sharedToLaterJob, 0x1000					shlqbyi	mask_clear, mask_clear, 12 {clear lower 3 words}
+		xor	mask_mmAddressNeq, prevMmAddress, commandMmAddress		shlqbyi	mask_used, mask_used, 12 {clear lower 3 words}
+		orc	mask_earlyOut, mask_earlyOut, mask_reserved			shlqbyi	mask_sharedToLaterJob, mask_sharedToLaterJob, 12 {clear lower 3 words}
+		clgti	mask_mmAddressNeq, mask_mmAddressNeq, 0xF			{lnop}
+		andc	prevJobBuffer_, prevJobBuffer, mask_clear			{lnop}
+		or	mask_earlyOut, mask_earlyOut, mask_mmAddressNeq			{lnop}
+		{nop}				TecUseBuffer_InputRead_EarlyOut:	brnz	mask_earlyOut, TecUseBuffer_InputRead_Loop
+		; goto TecUseBuffer_CheckWriteBits must undo our loop increments:
+		or	Gbt_buffer, prevJobBuffer, mask_used				hbrr	TecUseBuffer_InputRead_FoundMatch, TecUseBuffer_CheckWriteBits
+		ai	Gbt_bufferNum, Gbt_bufferNum, -1				{lnop}
+		or	prevJobBuffer, prevJobBuffer_, mask_sharedToLaterJob		{lnop}
+.if	ENABLE_IMPORTANT_AUDITS
+		il	$74, kWwsJob_TryExecuteCmds_foundMatch				rotqbyi	$75, Gbt_bufferNum, 0
+		ila	$76, 2								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		ai	$74, prevJobBuffer, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		ai	$75, Gbt_buffer, 0						brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif		
+		mpya	Gbt_bufferPageNum,Gbt_numPagesPerBuffer,Gbt_bufferNum,Gbt_firstPageNum	rotqby	prevJobBuffer, prevJobBuffer, prevJobBufferOffset__ {rotate back to store; other U64 hasn't been modified}  
+		ai	Gbt_pBuffer, Gbt_pBuffer, -8 {goto bypasses for loop increment}	{lnop}
+.if	CODE_FITS_IN_8K
+		{nop}									stqd	prevJobBuffer, g_WwsJob_bufferArray(prevJobBufferOffset__)
+.else
+		{nop}									stqx	prevJobBuffer, g_WwsJob_bufferArray_, prevJobBufferOffset__
+.endif
+		{nop}				TecUseBuffer_InputRead_FoundMatch:	br	TecUseBuffer_CheckWriteBits							
+
+TecUseBuffer_InputRead_End:
+.reg	bestBufferNum, prevJobNumBuffers
+		cgti	mask_loop, Gbt_numBuffers, 0					{lnop}
+		rotmi	prevJobNumBuffers, prevJobBufferSet, -8				rotqbyi Gbt_pBuffer, Gbt_pBuffers, 0
+		ai	prevJobBufferOffset_, prevJobBufferOffset, 0			fsmbi	Gbt_bufferNum, 0x0000
+		andi	prevJobNumBuffers, prevJobNumBuffers, 0x7F			fsmbi	bestBufferNum, 0x0000
+
+TecUseBuffer_TakeBuf_Loop:
+.reg	bufferNum_, usedPageMask0, usedPageMask1, shareablePageMask0, shareablePageMask1
+.reg	usedPages0, usedPages1, usedPages, sharedPages0, sharedPages1, sharedPages
+.reg	timeStamp, NO_SHARED_PAGES, BASE, age, takePreference, mask_allocated, mask_no_shared_pages
+.reg	mask_sharedAfterDiscardWrite, mask_best, mask_reserved, mask_shareable, mask_earlyOut
+		{nop}									brz	mask_loop, TecUseBuffer_TakeBuf_End
+		{nop}									lqd	Gbt_buffer, 0x00(Gbt_pBuffer)
+		ai	bufferNum_, Gbt_bufferNum, 0					hbrr	TecUseBuffer_TakeBuf_CallGpm, GetPageMasks
+.if	CODE_FITS_IN_8K
+		ai	$4, Gbt_numPagesPerBuffer, 0					lqd	prevJobBuffer, g_WwsJob_bufferArray(prevJobBufferOffset_)
+.else
+.reg	g_WwsJob_bufferArray_
+		ila	g_WwsJob_bufferArray_, g_WwsJob_bufferArray			lnop
+		ai	$4, Gbt_numPagesPerBuffer, 0					lqx	prevJobBuffer, g_WwsJob_bufferArray_, prevJobBufferOffset_
+.endif
+		ai	Gbt_bufferNum, Gbt_bufferNum, 1					rotqby	Gbt_buffer, Gbt_buffer, Gbt_pBuffer
+		mpya	$3{bufferPageNum}, $4, bufferNum_, Gbt_firstPageNum		rotqby	prevJobBuffer, prevJobBuffer, prevJobBufferOffset_
+		ilhu	mask_reserved, 0x8000						lqa	usedPageMask0, g_WwsJob_usedPageMask
+		cgt	mask_loop, Gbt_numBuffers, Gbt_bufferNum			lqa	usedPageMask1, g_WwsJob_usedPageMask+16
+		ai	Gbt_pBuffer, Gbt_pBuffer, 8					lqa	shareablePageMask0, g_WwsJob_shareablePageMask
+		and	mask_reserved, Gbt_buffer, mask_reserved			lqa	shareablePageMask1, g_WwsJob_shareablePageMask+16
+		ai	prevJobBufferOffset_, prevJobBufferOffset_, 8			brz	mask_reserved, TecUseBuffer_TakeBuf_Loop
+		{nop}									rotqmbyi Gbt_bufferPageNum, $3, 0					
+		{nop}					TecUseBuffer_TakeBuf_CallGpm:	brsl	$5, GetPageMasks [#GetPageMasksCC]
+		and	usedPages0, $3{pageMask0}, usedPageMask0			hbrr	TecUseBuffer_TakeBuf_Branch, TecUseBuffer_TakeBuf_Loop
+		and	usedPages1, $4{pageMask1}, usedPageMask1			{lnop}
+		and	sharedPages0, $3{pageMask0}, shareablePageMask0			{lnop}
+		and	sharedPages1, $4{pageMask1}, shareablePageMask1			lqa	timeStamp, g_WwsJob_timeStamp
+		or	usedPages, usedPages0, usedPages1				{lnop}
+		ilhu	NO_SHARED_PAGES, 0x2000						{lnop}
+		ilhu	mask_shareable, 0x4000						orx	usedPages, usedPages
+		cgt	mask_allocated, prevJobNumBuffers, bufferNum_			{lnop}
+		and	mask_shareable, prevJobBuffer, mask_shareable			{lnop}
+		or	sharedPages, sharedPages0, sharedPages1				{lnop}
+		sf	age, Gbt_buffer, timeStamp					{lnop}
+		and	mask_shareable, prevJobConfigCompatible, mask_shareable		orx	sharedPages, sharedPages
+		orc	age, age, mask_allocated					{lnop}
+		ilhu	BASE, 0x1000							{lnop}
+		andi	age, age, 0xFF							{lnop}
+		clgti	sharedPages, sharedPages, 0					{lnop}
+		or	takePreference, age, BASE					{lnop}
+		andc	mask_no_shared_pages, NO_SHARED_PAGES, sharedPages		{lnop}
+		clgti	mask_earlyOut, usedPages, 0					{lnop}
+		xor	takePreference, takePreference, mask_shareable			{lnop}
+		and mask_sharedAfterDiscardWrite, commandsStartedShareableDiscards, sharedPages {lnop}
+		or	takePreference, takePreference, mask_no_shared_pages		{lnop}
+		clgti	mask_sharedAfterDiscardWrite, mask_sharedAfterDiscardWrite, 0	{lnop}
+		cgt	mask_best, takePreference, bestTakePreference			{lnop}
+		or	mask_earlyOut, mask_earlyOut, mask_sharedAfterDiscardWrite	{lnop}
+		andc	mask_best, mask_best, mask_earlyOut				{lnop}
+		selb bestTakePreference, bestTakePreference, takePreference, mask_best	{lnop}
+		selb	bestBufferNum, bestBufferNum, bufferNum_, mask_best		{lnop}
+		{nop}					TecUseBuffer_TakeBuf_Branch:	brnz	mask_loop, TecUseBuffer_TakeBuf_Loop
+TecUseBuffer_TakeBuf_End:
+		{nop}									brz	bestTakePreference, TecCantExecuteCommand
+		shli	bufferOffset, bestBufferNum, 3 {size:8}				rotqmbyi Gbt_bufferNum, bestBufferNum, 0
+		mpya Gbt_bufferPageNum,Gbt_numPagesPerBuffer,bestBufferNum,Gbt_firstPageNum {lnop}
+		a	Gbt_pBuffer, Gbt_pBuffers, bufferOffset				{lnop}
+.if	ENABLE_IMPORTANT_AUDITS
+.reg	pBuffer_, bufferPageNum_
+		nop									rotqmbyi pBuffer_, Gbt_pBuffer,-4
+		il	$74, kWwsJob_TryExecuteCmds_takeBuf				rotqbyi	$75, bestBufferNum, 0
+		ila	$76, 1								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		shli	bufferPageNum_, Gbt_bufferPageNum, 16				{lnop}
+		or	$74, Gbt_numPagesPerBuffer, pBuffer_				{lnop}	
+		or	$74, $74, bufferPageNum_					brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+
+TecUseBuffer_ContinueAfterDiscardWrite:
+.reg	prevJobDataOffset, prevJobData, prevJobHasShareableBufs, prevJobBufferSetArrayOffset, bufferPageNumEnd, prevJobNumBuffers, mask_bufferNumOk
+.reg	prevJobBufferIndex, prevJobBufferIndex_, prevJobBufferPageNum, prevJobBufferPageEnd, prevJobFirstFreeBuffer, prevJobNumPages, prevJobFirstPage, prevJobBufferNum
+.reg	mask_overlap, mask_overlap2, commandStartedShareableDiscards, mask_reserved, mask_shareable, sel_aBCD, firstBuffer
+.reg	prevMmAddress, mask_mmAddrNeq, mask_prev_used, mask_usedAndSameMmAddr
+		shli	prevJobDataOffset, prevJobNum, 5 {size:32 * num:1}		fsmbi	sel_aBCD, 0xF000
+.if	CODE_FITS_IN_8K
+		ilhu	mask_used, 0x0800						lqd	prevJobData, g_WwsJob_jobDataArray(prevJobDataOffset)
+.else
+.reg	g_WwsJob_jobDataArray_
+		ila	g_WwsJob_jobDataArray_, g_WwsJob_jobDataArray			lnop
+		ilhu	mask_used, 0x0800						lqx	prevJobData, g_WwsJob_jobDataArray_, prevJobDataOffset
+.endif
+		selb	Gbt_buffer, Gbt_buffer, mask_used, sel_aBCD			{lnop}
+		a	bufferPageNumEnd, Gbt_bufferPageNum, Gbt_numPagesPerBuffer	{lnop}
+		shli	prevJobBufferOffset, prevJobNum, 8 {size:8 * num:32}		rotqbyi	prevJobBufferIndex, prevJobDataOffset, 0 {==prevJobNum<<5}
+		{nop}									rotqbyi	prevJobHasShareableBufs, prevJobData, 4
+		{nop}									rotqbyi	commandMmAddress, command, 4
+		rotmi	prevJobFirstFreeBuffer, prevJobHasShareableBufs,-16		brhz	prevJobHasShareableBufs, TecUseBuffer_NoBuffersDiscarded
+		ila	commandStartedShareableDiscards, 0				{lnop}
+		shli	prevJobBufferSetArrayOffset, prevJobNum, 6 {size:4 * num:16}   	{lnop} 
+		cgt	mask_loop, prevJobFirstFreeBuffer, prevJobBufferIndex		{lnop}
+
+TecUseBuffer_PrevJobBuf_Loop:
+		{nop}									brz	mask_loop, TecUseBuffer_PrevJobBuf_End
+		ilhu	mask_shareable, 0x4000						hbrr	TecUseBuffer_PrevJobBuf_NotShared, TecUseBuffer_PrevJobBuf_Loop
+.if	CODE_FITS_IN_8K
+		{nop}									lqd	$5{prevJobBuffer}, g_WwsJob_bufferArray(prevJobBufferOffset)
+.else
+.reg	g_WwsJob_bufferArray_
+		ila	g_WwsJob_bufferArray_, g_WwsJob_bufferArray			{lnop}
+		nop									lqx	$5{prevJobBuffer}, g_WwsJob_bufferArray_, prevJobBufferOffset
+.endif
+		ai	prevJobBufferIndex, prevJobBufferIndex, 1			{lnop}
+		cgt	mask_loop, prevJobFirstFreeBuffer, prevJobBufferIndex		rotqby	$5{prevJobBuffer}, $5{prevJobBuffer}, prevJobBufferOffset
+		ai	prevJobBufferOffset, prevJobBufferOffset, 8			rotqbyi	prevJobBufferSetOffset, $5{prevJobBuffer}, 4
+		and	mask_shareable, $5{prevJobBuffer}, mask_shareable		rotqbyi	prevMmAddress, $5{prevJobBuffer}, 4
+		and	mask_prev_used, $5{prevJobBuffer}, mask_used			
+						TecUseBuffer_PrevJobBuf_NotShared:	brz	mask_shareable, TecUseBuffer_PrevJobBuf_Loop
+		andi	prevJobBufferSetOffset, prevJobBufferSetOffset, 0xF		{lnop}
+		shli	prevJobBufferSetOffset, prevJobBufferSetOffset, 2 {size:4}	{lnop}
+		xor	mask_mmAddrNeq, prevMmAddress, commandMmAddress			{lnop}
+		clgti	mask_mmAddrNeq, mask_mmAddrNeq, 0xF				{lnop}
+		a	prevJobBufferSetOffset, prevJobBufferSetOffset, prevJobBufferSetArrayOffset	{lnop}
+		andc	mask_usedAndSameMmAddr, mask_prev_used, mask_mmAddrNeq		{lnop}
+.if	CODE_FITS_IN_8K
+		ai	prevJobBufferIndex_, prevJobBufferIndex,-1			lqd	$3{prevJobBufferSet}, g_WwsJob_bufferSetArray(prevJobBufferSetOffset)
+.else
+.reg	g_WwsJob_bufferSetArray_
+		ila	g_WwsJob_bufferSetArray_, g_WwsJob_bufferSetArray		lnop
+		ai	prevJobBufferIndex_, prevJobBufferIndex,-1			lqx	$3{prevJobBufferSet}, g_WwsJob_bufferSetArray_, prevJobBufferSetOffset
+.endif
+		ai	prevJobBufferOffset_, prevJobBufferOffset,-8			rotqby	$3{prevJobBufferSet}, $3{prevJobBufferSet}, prevJobBufferSetOffset
+		andi	firstBuffer, $3{prevJobBufferSet}, 0xFF				rotqmbyi prevJobNumPages, $3{prevJobBufferSet}, -2
+.if	VERBOSE_ASSERTS_ENABLED
+		rotmi	prevJobNumBuffers, $3{prevJobBufferSet}, -8			{lnop}
+.endif
+		{nop}									rotqmbyi prevJobFirstPage, $3{prevJobBufferSet}, -3
+		sf	prevJobBufferNum, firstBuffer, prevJobBufferIndex_		{lnop}
+		andi	prevJobNumPages, prevJobNumPages, 0xFF				hbrr	TecUseBuffer_PrevJobBuf_NoOverlap, TecUseBuffer_PrevJobBuf_Loop
+.if	VERBOSE_ASSERTS_ENABLED
+		andi	prevJobNumBuffers, prevJobNumBuffers, 0x7F			{lnop}
+		cgt	mask_bufferNumOk, prevJobNumBuffers, prevJobBufferNum		{lnop}
+		{nop}									brz	mask_bufferNumOk, TecUseBuffer_AssertPrevBufferNum
+.endif
+		mpya	$6, prevJobNumPages, prevJobBufferNum, prevJobFirstPage		brnz	mask_usedAndSameMmAddr, TecCantExecuteCommand
+		a	prevJobBufferPageEnd, $6{prevJobBufferPageNum}, prevJobNumPages	{lnop}
+		cgt	mask_overlap, bufferPageNumEnd, $6{prevJobBufferPageNum}	{lnop}
+		cgt	mask_overlap2, prevJobBufferPageEnd, Gbt_bufferPageNum		{lnop}
+		and	mask_overlap, mask_overlap, mask_overlap2			{lnop}			
+		orc	mask_overlap, mask_overlap, mask_mmAddrNeq			{lnop}
+		{nop}				TecUseBuffer_PrevJobBuf_NoOverlap:	brz	mask_overlap, TecUseBuffer_PrevJobBuf_Loop
+.if	ENABLE_IMPORTANT_AUDITS
+		shli	$75, prevJobBufferSetOffset, 6 {==bufferSetNum<<8}		fsmbi	$76, 0
+		il	$74, kWwsJob_TryExecuteCmds_prevJobBufShareCollide		lnop
+		or	$75, $75, prevJobBufferNum					brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+.endif
+		ila	$4{pPrevJobBuffer}, g_WwsJob_bufferArray			{lnop}
+		ai	$7, jobIsLoadJob, DmaTagId_kStoreJob_writeShareableBuffers	{lnop}
+		a	$4{pPrevJobBuffer}, $4{pPrevJobBuffer}, prevJobBufferOffset_	brsl	$8, TryDumpShareBuf [#TryDumpShareBufCC]
+.reg	mask_startedShareableDiscards
+		ceqi	mask_startedShareableDiscards, $3, 0				{lnop}
+		or	commandStartedShareableDiscards, commandStartedShareableDiscards, mask_startedShareableDiscards		{lnop}
+		or	commandsStartedShareableDiscards, commandStartedShareableDiscards, mask_startedShareableDiscards	{lnop}
+		{nop}					TecUseBuffer_PrevJobBuf_Branch:	brnz	mask_loop, TecUseBuffer_PrevJobBuf_Loop
+TecUseBuffer_PrevJobBuf_End:
+		{nop}									brnz	commandStartedShareableDiscards, TecUseBuffer_DiscardShareableBuffers
+
+TecUseBuffer_NoBuffersDiscarded:
+.reg	mmLengthInQwords, sel_mmAddress, sel_mmLength, sel_AbCD, sel_aBCD, lsAddress, mmLength, lsListElements
+.reg	numPad, mask_inputGather, mask_shareableWrIfDiscard, max_length, mask_lte_max, mask_inputRead
+.reg	mask_lsListElementsBad, mask_mmLengthBad, pCode_SkipElse, bufferSize, dmaSize, dmaTagId
+.reg	mmAddress, pCode_Next, kDmaGet, kDmaGetlb
+		{nop}									hbrr	TecUseBuffer_NoInputRead_Branch, TecUseBuffer_CheckWriteBits
+		rotmi	mmLengthInQwords, command, -10					fsmbi	sel_AbCD, 0x0F00
+		ilhu	sel_mmLength, 0x003F						fsmbi	sel_aBCD, 0xF000
+		il	sel_mmAddress, -16						{lnop}
+		iohl	sel_mmLength, 0xFF00						{lnop}
+		and	sel_mmAddress, sel_mmAddress, sel_AbCD				{lnop}
+		and	sel_mmLength, sel_mmLength, sel_aBCD				{lnop}
+		ila	mask_inputRead, 0x8000						{lnop}
+		selb	Gbt_buffer, Gbt_buffer, command, sel_mmAddress			{lnop}
+		and	mask_inputRead, command, mask_inputRead				{lnop}
+		selb	Gbt_buffer, Gbt_buffer, mmLengthInQwords, sel_mmLength		{lnop}
+		a	bufferPageNumEnd, Gbt_bufferPageNum, Gbt_numPagesPerBuffer      
+						TecUseBuffer_NoInputRead_Branch:	brz	mask_inputRead, TecUseBuffer_CheckWriteBits
+		ila	$3, DmaTagMask_kStoreJob_writeAllShareableBuffers		brsl	$4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		ai	dmaTagId, jobIsLoadJob, DmaTagId_kRunJob_readBuffers		brz	$3, TecCantExecuteCommand
+		and	mmLength, Gbt_buffer, sel_mmLength				rotqbyi	mmAddress, Gbt_buffer, 4	
+		ila	mask_inputGather, 0x4000					rotqbyi	numPad, command, 4
+		shli	lsAddress, Gbt_bufferPageNum, 10 {1024 bytes per page}		{lnop}
+		and	mask_inputGather, command, mask_inputGather			{lnop}
+		rotmi	mmLength, mmLength, -4						{lnop}
+		andi	mmAddress, mmAddress, -16					{lnop}
+		andi	numPad, numPad, 0x7						brz	mask_inputGather, TecUseBuffer_DmaGetNonGather
+		shli	lsListElements, bufferPageNumEnd, 10 {1024 bytes per page}	hbrr	TecUseBuffer_Gather_Else, TecUseBuffer_CheckWriteBits
+		shli	numPad, numPad, 4 {16 bytes per qword pad}			lnop
+		sf	lsListElements, mmLength, lsListElements			{lnop}
+		sf	lsListElements, numPad, lsListElements				{lnop}
+.if	ASSERTS_ENABLED
+		ila	mask_shareableWrIfDiscard, 0x1000				{lnop}
+		and	mask_shareableWrIfDiscard, command, mask_shareableWrIfDiscard	{lnop}
+		ila	max_length, 0x4000						brnz	mask_shareableWrIfDiscard, TecUseBuffer_AssertNotGatherToWriteCached
+		clgt	mask_lsListElementsBad, lsAddress, lsListElements		{lnop}
+		clgt	mask_mmLengthBad, mmLength, max_length				{lnop}
+		{nop}									brnz	mask_lsListElementsBad, TecUseBuffer_AssertGatherDmaListInBuffer
+		{nop}									brnz	mask_mmLengthBad, TecUseBuffer_AssertGatherDmaListSize
+.endif
+.if	ENABLE_IMPORTANT_AUDITS
+.reg	audit_U64_0, audit_U64_1
+		{nop}									rotqmbyi audit_U64_0, mmAddress,-4
+		{nop}									rotqmbyi audit_U64_1, dmaTagId,-4
+		il	$74, kWwsJob_TryExecuteCmds_gatherRead				lnop
+		ila	$76, 2								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		selb	$74, audit_U64_0, lsListElements, sel_aBCD			brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		selb	$74, audit_U64_1, mmLength, sel_aBCD				brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		{nop}									wrch	$ch16{MFC_LSA}, lsListElements				
+		{nop}									wrch	$ch18{MFC_EAL}, mmAddress
+		ila	kDmaGet, 0x40							wrch	$ch19{MFC_Size}, mmLength
+		{nop}									wrch	$ch20{MFC_TagID}, dmaTagId
+		{nop}									wrch	$ch21{MFC_CMD}, kDmaGet
+		ila	kDmaGetlb, 0x45							wrch	$ch16{MFC_LSA}, lsAddress
+		{nop}				   					wrch	$ch18{MFC_EAL}, lsListElements
+		{nop}									wrch	$ch21{MFC_CMD}, kDmaGetlb		
+		{nop}					TecUseBuffer_Gather_Else:	br	TecUseBuffer_CheckWriteBits
+
+TecUseBuffer_DmaGetNonGather:
+		{nop}									hbrr	TecUb_DmaGetNonGather_Branch, TecUseBuffer_DmaGetNonGather_Loop
+.if	ASSERTS_ENABLED
+		shli	bufferSize, Gbt_numPagesPerBuffer, 10 {1024 bytes per page}	{lnop}
+		clgt	mask_mmLengthBad, mmLength, bufferSize				{lnop}
+		nop									brnz	mask_mmLengthBad, TecUseBuffer_AssertDmaSize
+.endif
+.if	ENABLE_IMPORTANT_AUDITS
+		{nop}									rotqmbyi audit_U64_0, mmAddress,-4
+		{nop}									rotqmbyi audit_U64_1, dmaTagId,-4
+		il	$74, kWwsJob_TryExecuteCmds_read				lnop
+		ila	$76, 2								brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		selb	$74, audit_U64_0, lsAddress, sel_aBCD				brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		selb	$74, audit_U64_1, mmLength, sel_aBCD				brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		il	max_length, 0x4000						lnop
+TecUseBuffer_DmaGetNonGather_Loop:
+		cgt	mask_lte_max, max_length, mmLength				wrch	$ch16{MFC_LSA}, lsAddress
+		selb	dmaSize, max_length, mmLength, mask_lte_max			wrch	$ch18{MFC_EAL}, mmAddress
+		ila	kDmaGet, 0x40							wrch	$ch20{MFC_TagID}, dmaTagId
+		sf 	mmLength, max_length, mmLength					wrch	$ch19{MFC_Size}, dmaSize
+		a	lsAddress, lsAddress, dmaSize					wrch	$ch21{MFC_CMD}, kDmaGet
+		a	mmAddress, mmAddress, dmaSize	TecUb_DmaGetNonGather_Branch:	brz	mask_lte_max, TecUseBuffer_DmaGetNonGather_Loop
+
+TecUseBuffer_CheckWriteBits:
+.reg	command_qw, buffer_qw, s_insert, s_insert2, logicalBufferNum, bufferNum_qw, bufferNum_, pLogicalBufferNum, mask_logicalBufferNumOk
+.reg	mask_shareableBits, mask_shareableBitsBad, shareableBits, mask_timeStamp, s_AAAA, pBufferNum, mask_logicalBufferNumOk, mask_reserved, mask_shareable, sel_aBCD
+.reg	jobHasShareableBufs, jobData, jobDataOffset, mask_jobHasShareableBufs
+		shli	jobDataOffset, jobNum, 5 {size:32 * num:1}			hbrr	TecUseBuffer_CallGpm, GetPageMasks
+		ila	mask_shareableBits, 0x3000					lqa	timeStamp, g_WwsJob_timeStamp
+		ila	mask_shareableWrIfDiscard, 0x1000				fsmbi	sel_aBCD, 0xF000
+		and	shareableBits, command, mask_shareableBits			{lnop}
+		{nop}									lqd	jobData, g_WwsJob_jobDataArray(jobDataOffset)
+		clgti	jobHasShareableBufs, shareableBits, 0				fsmbi	mask_jobHasShareableBufs, 0x0300
+.if	ASSERTS_ENABLED
+		ceq	mask_shareableBitsBad, shareableBits, mask_shareableWrIfDiscard	brnz	mask_shareableBitsBad, TecUseBuffer_AssertShareableIfWriteCached
+.endif
+		ilhu	mask_shareableBits, 0x6000					rotqmbyi $3, Gbt_bufferPageNum, 0
+		shli	shareableBits, shareableBits, 17		 		rotqmbyi $4, Gbt_numPagesPerBuffer, 0
+		and	mask_shareableBits, mask_shareableBits, sel_aBCD		fsm	jobHasShareableBufs, jobHasShareableBufs ; broadcast 0 or -1 to all words
+		ila	s_AAAA, 0x10203							fsmbi	mask_timeStamp, 0x1000
+		andi	logicalBufferNum, command, 0x1F					lqa	usedPageMask0, g_WwsJob_usedPageMask
+		selb	Gbt_buffer, Gbt_buffer, shareableBits, mask_shareableBits	lqa	usedPageMask1, g_WwsJob_usedPageMask+16
+		and jobHasShareableBufs, jobHasShareableBufs, mask_jobHasShareableBufs	lqd	buffer_qw, 0(Gbt_pBuffer)
+		andc	mask_shareable, shareableBits, mask_shareableWrIfDiscard	cdd	s_insert, 0(Gbt_pBuffer)
+		or	jobData, jobData, jobHasShareableBufs				lqa	shareablePageMask0, g_WwsJob_shareablePageMask
+		selb	Gbt_buffer, Gbt_buffer, timeStamp, mask_timeStamp		lqa	shareablePageMask1, g_WwsJob_shareablePageMask+16
+		clgti	mask_shareable, mask_shareable, 0				stqd	jobData, g_WwsJob_jobDataArray(jobDataOffset)
+		{nop}						TecUseBuffer_CallGpm:	brsl	$5, GetPageMasks [#GetPageMasksCC]
+		{nop}									hbrr	TecUseBuffer_Continue, TecLoop
+		{nop}									lqx	bufferNum_qw, Gbt_pLogicalToBufferNums, logicalBufferNum
+		or	usedPageMask0, usedPageMask0, $3{pageMask0}			{lnop}
+		or	usedPageMask1, usedPageMask1, $4{pageMask1}			shufb	mask_shareable, mask_shareable, mask_shareable, s_AAAA
+		{nop}									cbx	s_insert2, Gbt_pLogicalToBufferNums, logicalBufferNum
+		{nop}									shufb	buffer_qw, Gbt_buffer, buffer_qw, s_insert
+		{nop}									shlqbyi	command_qw, command, 8 {clear 2 upper words, but also rotate by 8 bytes}
+		selb shareablePageMask0,shareablePageMask0,mask_shareable,$3{pageMask0}	{lnop}
+.if	ASSERTS_ENABLED
+		a	pBufferNum, Gbt_pLogicalToBufferNums, logicalBufferNum		rotqby	bufferNum, bufferNum_qw, pBufferNum
+		ila	mask_contAfterDiscardWr, 0x10000				{lnop}
+		rotmi	bufferNum, bufferNum, -24					{lnop}
+		and	mask_contAfterDiscardWr, command, mask_contAfterDiscardWr	{lnop}
+		ceqi 	mask_logicalBufferNumOk, bufferNum, 0xFF			{lnop}
+		or mask_logicalBufferNumOk,mask_logicalBufferNumOk,mask_contAfterDiscardWr	brz	mask_logicalBufferNumOk, TecUseBuffer_AssertLogicalBufferNotUsed2
+.endif
+		selb shareablePageMask1,shareablePageMask1,mask_shareable,$4{pageMask1}	shufb	bufferNum_qw, Gbt_bufferNum, bufferNum_qw, s_insert2
+		{nop}									stqd	buffer_qw, 0(Gbt_pBuffer)
+		{nop}									rotqby	command_qw, command_qw, pCommands{next} ; rotate by next pCommands is same as rotate back by 8 bytes & rotate by pCommands_
+		{nop}									stqx	bufferNum_qw, Gbt_pLogicalToBufferNums, logicalBufferNum
+		{nop}									stqd	command_qw, 0(pCommands_)
+		{nop}									stqa	usedPageMask0, g_WwsJob_usedPageMask
+		{nop}									stqa	usedPageMask1, g_WwsJob_usedPageMask+16
+		{nop}									stqa	shareablePageMask0, g_WwsJob_shareablePageMask
+		{nop}									stqa	shareablePageMask1, g_WwsJob_shareablePageMask+16
+		{nop}						TecUseBuffer_Continue:	br 	TecLoop
+
+TecUseBuffer_DiscardShareableBuffers:
+		{nop}									hbrr	TecUseBuffer_Goto_CantExecuteCommand, TecCantExecuteCommand
+		ila	mask_contAfterDiscardWr, 0x10000				lqd	buffer_qw, 0(Gbt_pBuffer)
+		andi	logicalBufferNum, command, 0x1F					{lnop}
+		{nop}									shlqbyi	mask_contAfterDiscardWr,mask_contAfterDiscardWr,12
+		a	pLogicalBufferNum, Gbt_pLogicalToBufferNums, logicalBufferNum	{lnop}
+		or	command, command, mask_contAfterDiscardWr			{lnop}
+		{nop}									lqd	bufferNum_qw, 0(pLogicalBufferNum)
+		{nop}									cdd	s_insert, 0(Gbt_pBuffer)
+		{nop}									cbd	s_insert2, 0(pLogicalBufferNum)
+		{nop}									rotqby	command_qw, command, pCommands_
+.if	ASSERTS_ENABLED				
+		{nop}									rotqby	bufferNum_, bufferNum_qw, pLogicalBufferNum
+.endif
+		{nop}									shufb	buffer_qw, Gbt_buffer, buffer_qw, s_insert											
+		{nop}									shufb	bufferNum_qw, Gbt_bufferNum, bufferNum_qw, s_insert2
+.if	ASSERTS_ENABLED				
+		rotmi	bufferNum_, bufferNum_, -24					{lnop}
+		ceqi	mask_logicalBufferNumOk, bufferNum_, 0xFF			{lnop}
+		{nop}									brz	mask_logicalBufferNumOk, TecUseBuffer_AssertLogicalBufferNotUsed
+.endif
+		{nop}									stqd	command_qw, 0(pCommands_)
+		{nop}									stqd	buffer_qw, 0(Gbt_pBuffer)
+		{nop}									stqd	bufferNum_qw, 0(pLogicalBufferNum)
+		{nop}				TecUseBuffer_Goto_CantExecuteCommand:	br	TecCantExecuteCommand
+
+TecUnreserveBufferSets:	// 3     39 instructions, 156 bytes
+.reg	bufferSetArray, bufferSetOffset, bufferSetMask, _1, mask_reserved
+		nop									brz	allCommandsDone, TecCantExecuteCommand
+		shli	bufferSetOffset, jobNum, 6 {size:4 * num:16}			shlqbyi	command_qw, command, 8 ;zero our current command, but also rotates by 8
+		ila	mask_reserved, 0x8000						rotqbyi	bufferSetMask, command, 4
+		ila	bufferSetArray, g_WwsJob_bufferSetArray				{lnop}
+		il	_1, 1								{lnop}
+		a	bufferSetArray, bufferSetArray, bufferSetOffset			shlqbyi	mask_reserved, mask_reserved, 12 {clear lower 3 words}
+		{nop}									rotqby	command_qw, command_qw, pCommands{next} ; equivalent to rotate back by 8 and by pCommands_
+		{nop}									stqd	command_qw, 0(pCommands_)
+.if	ASSERTS_ENABLED
+.reg	mask_bufferSetMaskOk, mask_gt0
+		ila	mask_bufferSetMaskOk, 0xFFFF {low 16 bits>0 && hi 16 bits==0}	{lnop}
+		clgthi	mask_gt0, bufferSetMask, 0					{lnop}
+		ceq	mask_bufferSetMaskOk, mask_gt0, mask_bufferSetMaskOk		brz	mask_bufferSetMaskOk, TecUnreserveBufferSets_AssertBufferSetMask
+.endif
+TecUnreserveBufferSets_Loop:
+.reg	bufferSetClz, bufferSetNum, bufferSetBit, bufferSet_qw, bufferSet, numPages, numBuffers, reservedPageMask0, reservedPageMask1
+		clz	bufferSetClz, bufferSetMask					hbrr	TecUnreserveBufferSets_CallGpm, GetPageMasks
+		sfi	bufferSetNum, bufferSetClz, 31					{lnop}
+		shli	bufferSetOffset, bufferSetNum, 2 {size:4}      			{lnop}
+		shl	bufferSetBit, _1, bufferSetNum					lqx	bufferSet_qw, bufferSetArray, bufferSetOffset
+		andc	bufferSetMask, bufferSetMask, bufferSetBit			rotqby	bufferSet, bufferSet_qw, bufferSetOffset
+.if	ASSERTS_ENABLED
+.reg	mask_reservedOk
+		and	mask_reservedOk, bufferSet, mask_reserved			brz	mask_reservedOk, TecUnreserveBufferSets_AssertReserved
+.endif
+		rotmi	numPages, bufferSet,-16						rotqmbyi numBuffers, bufferSet,-1
+		andc	bufferSet, bufferSet, mask_reserved				rotqmbyi $3{firstPageNum}, bufferSet,-3
+.if	ENABLE_IMPORTANT_AUDITS
+		il	$74, kWwsJob_TryExecuteCmds_unreserveBufSet			rotqbyi	$75, bufferSetNum, 0
+		il	$76, 1                                                          brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		{nop}									rotqmbyi $74, bufferSet,-4
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		andi	numPages, numPages, 0xFF					lqa	reservedPageMask0, g_WwsJob_reservedPageMask
+		andi	numBuffers, numBuffers, 0x7F					lqa	reservedPageMask1, g_WwsJob_reservedPageMask+16
+		mpy	$4{numPages}, numPages, numBuffers				cwd	s_insert, 0(bufferSetOffset)
+		{nop}					TecUnreserveBufferSets_CallGpm:	brsl	$5, GetPageMasks [#GetPageMasksCC]
+		{nop}									hbrr	TecUbsBreak, TecLoop
+		{nop}									shufb	bufferSet_qw, bufferSet, bufferSet_qw, s_insert
+		{nop}									stqx	bufferSet_qw, bufferSetArray, bufferSetOffset
+.if	VERBOSE_ASSERTS_ENABLED
+.reg	mask_reservedMaskOk0, mask_reservedMaskOk1
+		and	mask_reservedMaskOk0, reservedPageMask0, $3{pageMask0}		{lnop}
+		and	mask_reservedMaskOk1, reservedPageMask1, $4{pageMask1}		{lnop}
+		ceq	mask_reservedMaskOk0, mask_reservedMaskOk0, $3{pageMask0}	{lnop}
+		ceq	mask_reservedMaskOk1, mask_reservedMaskOk1, $4{pageMask1}	{lnop}
+		and mask_reservedMaskOk0, mask_reservedMaskOk0, mask_reservedMaskOk1	gb	mask_reservedMaskOk0, mask_reservedMaskOk0
+		ceqi	mask_reservedMaskOk0, mask_reservedMaskOk0, 0xF			brz	mask_reservedMaskOk0, TecUnreserveBufferSets_AssertReservedMaskOk
+.endif
+		andc	reservedPageMask0, reservedPageMask0, $3{pageMask0}		{lnop}
+		andc	reservedPageMask1, reservedPageMask1, $4{pageMask1}		{lnop}
+		{nop}									stqa	reservedPageMask0, g_WwsJob_reservedPageMask
+		{nop}									stqa	reservedPageMask1, g_WwsJob_reservedPageMask+16
+		{nop}							TecUbsBranch:	brnz	bufferSetMask, TecUnreserveBufferSets_Loop	
+		{nop}							TecUbsBreak:	br TecLoop
+
+TecRequestDependencyDecrement: // 4     19 instructions
+.reg	jobNumOffsetQw0
+		shli	jobNumOffsetQw0, jobNum, 5 {size:32}				hbra	TecRddBreak, TecLoop
+.if	CODE_FITS_IN_8K
+		nop									lqd	jobData, g_WwsJob_jobDataArray(jobNumOffsetQw0)
+.else
+.reg	g_WwsJob_jobDataArray_
+		ila	g_WwsJob_jobDataArray_, g_WwsJob_jobDataArray			lqx	jobData, g_WwsJob_jobDataArray_, jobNumOffsetQw0
+.endif
+		{nop}									rotqbyi	numDependencies, jobData, 12
+		shli depOffset, numDependencies, 2 {size:4}				{lnop}
+.if	ASSERTS_ENABLED
+.reg mask_numDepsBad
+		cgti	mask_numDepsBad, numDependencies, 3				brnz	mask_numDepsBad, TecRdd_AssertNumDeps
+.endif
+.if	CODE_FITS_IN_8K
+		{nop}									shlqbyi	nopedCommand, command, 8 {clear command but also rotate by 8}
+		{nop}									lqd	deps, g_WwsJob_jobDataArray+16(jobNumOffsetQw0)
+.else
+.reg	jobNumOffsetQw1
+		ai	jobNumOffsetQw1, jobNumOffsetQw0, 16				shlqbyi	nopedCommand, command, 8 {clear command but also rotate by 8}
+		nop									lqx	deps, g_WwsJob_jobDataArray_, jobNumOffsetQw1
+.endif
+		ila inc, 1								rotqbyi	mmDependencyAddress, command, 4
+		{nop}									cwd	s_insert, 0(depOffset)
+		{nop}									rotqmbyi inc, inc,-12 {clear all but word 3}
+		{nop}									rotqby	nopedCommand, nopedCommand, pCommands{next} {==rotate by pCommands_, and by 8}
+		{nop}									shufb	deps, mmDependencyAddress, deps, s_insert
+		a jobData, jobData, inc							stqd	nopedCommand, 0(pCommands_)
+.if	CODE_FITS_IN_8K
+		{nop}									stqd	jobData, g_WwsJob_jobDataArray(jobNumOffsetQw0)
+		{nop}									stqd	deps, g_WwsJob_jobDataArray+16(jobNumOffsetQw0)
+.else
+		{nop}									stqx	jobData, g_WwsJob_jobDataArray_, jobNumOffsetQw0
+		{nop}									stqx	deps, g_WwsJob_jobDataArray_, jobNumOffsetQw1
+.endif
+		{nop}							TecRddBreak:	br	TecLoop
+
+
+TecRunJob:                     // 5       15 instructions
+.reg	jobHeader
+.if	ASSERTS_ENABLED
+		nop									brz jobIsLoadJob, TecRunJob_AssertIsLoadJob
+.endif
+		{nop}									brz commandsStartedShareableDiscards, TecRj_SkipSbnlwi
+		il	$3, kRunJob_writeShareableBuffers				brsl $4, StartTagSpecificBarrieredNullListWithInterrupt [#StartBarrieredNullListWithInterruptCC]
+TecRj_SkipSbnlwi:
+		roti bufferPageNum, Gbt_bufferPageNum, 10				brz allCommandsDone, TecEndCommand
+.if	ASSERTS_ENABLED
+.reg	logicalBufferNum, mask_logicalBufferNumOk
+		andi	logicalBufferNum, command, 0x1F					brz Gbt_bufferSet, TecRunJob_AssertBufferSet
+		cgt	mask_logicalBufferNumOk, Gbt_numBuffers, logicalBufferNum	brz mask_logicalBufferNumOk, TecRunJob_AssertBufferSet
+.endif
+		andi inc, pCommands, 8							lqa jobHeader, g_WwsJob_jobHeader
+		{nop}									stqa Gbt_pBufferSet, g_WwsJob_pJobCodeBufferSet
+		{nop}									stqa Gbt_pBuffer, g_WwsJob_pJobCodeBuffer
+		a pCommands, pCommands, inc						stqa bufferPageNum, g_WwsJob_lsaJobCodeBuffer
+                rotmi enableBreakpoint, jobHeader, -28					stqa pCommands, g_WwsJob_dataForJob+32
+.if	ASSERTS_ENABLED
+.reg	invalidCommand
+		ila	invalidCommand, 0x0E00						stqa enableBreakpoint, g_WwsJob_bBreakpointRequested
+ ; note all other commands have been zeroed and our params must be aligned, so we can safely write an entire quadword with invalid commands here:
+ 		or	invalidCommand, invalidCommand, loadJobNum			stqd invalidCommand, 0(pCommands_)
+.else
+ 		nop									stqa enableBreakpoint, g_WwsJob_bBreakpointRequested
+.endif
+
+.if	ENABLE_IMPORTANT_AUDITS
+.reg	sel_aBCD
+		il	$74, kWwsJob_TryExecuteCmds_readyToRunJob			rotqbyi	$75, bufferPageNum, 0
+		il	$76, 2                                                          brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		{nop}									fsmbi	sel_aBCD, 0xF000
+		{nop}									rotqmbyi $74, pCommands,-4
+		selb	$74, $74, Gbt_pBuffer, sel_aBCD					brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+		{nop}									lqd	$74, 0x00(pCommands)
+		{nop}									brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.endif
+		// intentional fallthrough to TecEndCommand!! //
+
+TecNop:                        // 0 (This is handled at the beginning of the TecLoop)
+TecEndCommand:                 // 5        8 instructions
+		ai $3, allCommandsDone, 0				TecBranchExit:	bi $lr
+
+TecCantExecuteCommand:
+.if	ENABLE_IMPORTANT_AUDITS
+		ila	$74, kWwsJob_TryExecuteCmds_cmdCantExecute			brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		ila allCommandsDone, 0	        					br TecLoop
+
+.end

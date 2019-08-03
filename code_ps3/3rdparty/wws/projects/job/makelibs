@@ -1,0 +1,97 @@
+################################################################################################
+##
+##	Copyright (c) 2003-2006 Sony Computer Entertainment.
+##	Use and distribution without consent strictly prohibited.
+##
+################################################################################################
+
+
+################################################################################################
+##
+##	This file contains rules so that a makefile can be dependent on a library and
+##	these rules will automatically cause the chaining off to the appropriate folder
+##	in order to actually build the relevant library
+##
+##	Note that these rules should not actually be included in the makefile for making the lib
+##	otherwise it will be confused about which rule to use.
+##
+##	The way these rules work is that they are dependent on a phony target to re-make the
+##	sub folder.  The phony target is always considered to be out of date so always calls
+##	the make command in the sub-folder.  This means that in the sub-folder, the dependencies
+##	are then checked correctly for re-building that file.  Then, back in the parent makefile,
+##	it is only actually the relevant library that the target is dependent on, and since that
+##	library has only been re-made if necessary, the parent target is then only re-made if
+##	necessary.
+##
+################################################################################################
+
+
+################################################################################################
+##
+##	PPU library sub-folder make rules
+##
+################################################################################################
+
+
+################################################################################################
+##	libjobmanager.a
+################################################################################################
+
+.PHONY : MakeJobManagerLib
+MakeJobApiLib :
+	$(MAKE) -C $(CODE_DIR)/job/src/ppu/jobapi
+
+#:NOTE: This is an empty rule - Without a command here, this would just be a dependency line
+#so this has to have a command here
+$(PPU_LIB_DIR)/libjobapi.a : MakeJobApiLib
+	true
+
+
+
+################################################################################################
+##
+##	SPU library sub-folder make rules
+##
+################################################################################################
+
+
+################################################################################################
+##	libjobapi.spu.a
+################################################################################################
+
+.PHONY : MakeSpuJobApiLib
+MakeSpuJobApiLib :
+	$(MAKE) -C $(CODE_DIR)/job/src/spu/jobapi
+
+#:NOTE: This is an empty rule - Without a command here, this would just be a dependency line
+#so this has to have a command here
+$(SPU_LIB_DIR)/libjobapi.spu.a : MakeSpuJobApiLib 
+	true
+
+
+################################################################################################
+##	jobcrt0.spu.o
+################################################################################################
+
+#.PHONY : MakeJobCrt0o
+MakeJobCrt0o :
+	$(MAKE) -C $(CODE_DIR)/job/src/spu/jobapi -f jobcrt0.makefile
+
+#:NOTE: This is an empty rule - Without a command here, this would just be a dependency line
+#so this has to have a command here
+$(SPU_LIB_DIR)/jobcrt0.spu.o : MakeJobCrt0o
+	true
+
+
+################################################################################################
+##	plugincrt0.spu.o
+################################################################################################
+
+#.PHONY : MakePluginCrt0o
+MakePluginCrt0o :
+	$(MAKE) -C $(CODE_DIR)/job/src/spu/jobapi -f plugincrt0.makefile
+
+#:NOTE: This is an empty rule - Without a command here, this would just be a dependency line
+#so this has to have a command here
+$(SPU_LIB_DIR)/plugincrt0.spu.o : MakePluginCrt0o
+	true

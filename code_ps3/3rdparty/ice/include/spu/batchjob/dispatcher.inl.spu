@@ -1,0 +1,1059 @@
+; Copyright (c) 2003-2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+;dispatcher.inl.spu
+; Implements _start() dispatcher task code
+;	from ice/batchjob/icebatchjobdispatcher.cpp
+;
+
+;;this file expects to link with the following externs in addition to those in files in this directory:
+;.define kMaxCommand		...	;=BATCHJOB_NAMESPACE::kNumCommands - 1
+;.define kDmaOutputListMaxSize	...	;0x80
+;.define kDmaOutputMaxSize	...	;=BATCHJOB_NAMESPACE::kOutputBufferSize - kDmaOutputListMaxSize
+;.define kDmaOutputListLast	...	;=kDmaOutputListMaxSize - 8 (one entry)
+;.define kAuditSystem  		...	;=BATCHJOB_NAMESPACE::kAuditSystem
+;
+;.define BATCHJOB_DISPATCHER_DPRINTS	...
+;.define BATCHJOB_DISPATCHER_ASSERTS	...
+;.define BATCHJOB_DISPATCHER_AUDITS	...
+;
+;.start
+;;functions
+;.if BATCHJOB_DISPATCHER_DPRINTS
+; debug functions
+;.global	DISPATCHER_DPRINT_Command		;(void)(U16 const *command, VU32 memoryMap)
+;.global	DISPATCHER_DPRINT_CommandInputData	;(void)(U16 const *command, VU32 memoryMap)
+;.global	DISPATCHER_DPRINT_CommandOutputData	;(void)(U16 const *command, VU32 memoryMap)
+;.endif
+;.if BATCHJOB_DISPATCHER_AUDITS
+;.global	DISPATCHER_AUDIT_GetNumItems		;U32 (U16 const *command)
+;.endif
+;
+;;data
+;.data
+;.align 4
+; m_buffersets:			; VU32 (workBufferSet, outputBufferSet, 0, 0) in Ice::Job::BufferSetHeader format
+;.if BATCHJOB_DISPATCHER_DPRINTS
+; m_bufferSizes:			; VU32 (sizeofInputBuffer, sizeofWorkBuffer, sizeofOutputBuffer, 0x40000)
+;.endif
+;.align 4
+;m_commandFunctions:
+;		.dw	 EndCommands				;kCmdEnd,
+;		.dw	 Loop_Swap				;kCmdSwap
+;		.dw	 ReserveOutputBuffer			;kCmdReserveOutputBuffer,
+;		.dw	ExecutePlugIn				;kCmdExecutePlugIn
+;		.dw	CopyQuadwords				;kCmdCopyQuadwords,
+;		...						; all other built-in commands
+;
+;.align 4
+;m_commandNumParams:
+;		.db	0			;kCmdEnd = 0
+;		.db	0			;kCmdSwap
+;		.db	3			;kCmdReserveOutputBuffer
+;		.db	3			;kCmdExecutePlugIn
+;		.db	3			;kCmdCopyQuadwords
+;		...						; all other built-in commands
+;.end
+
+.include "dispatcher.h.spu"
+ 
+.define kDmaMaxSize		0x4000
+.define	kDmaPutl		0x24
+.define	kDmaGetl		0x44
+
+.start
+;-------------------------------------------------------------------------------------------------
+.global	JobMain			;(void)(void)
+;-------------------------------------------------------------------------------------------------
+; extern debug functions from iceanimdebug.h
+.if BATCHJOB_DISPATCHER_DPRINTS
+.extern DEBUG_SetPtrToLocFn
+.extern DEBUG_PtrToLoc_SPU
+.endif
+; local extern helper functions
+.extern ReserveOutputBuffer
+.extern EndCommmands
+.extern InvalidCommand
+
+; extern command functions	;(void)(VU16 param_qw0, VU32 g_memoryMap)
+	; general utility commands
+.extern ExecutePlugIn				;kCmdExecutePlugIn,
+.extern CopyQuadwords				;kCmdCopyQuadwords,
+.if BATCHJOB_DISPATCHER_DPRINTS
+; extern debug functions
+.extern	DISPATCHER_DPRINT_Command		;(void)(U16 const *command, VU32 memoryMap)
+.extern	DISPATCHER_DPRINT_CommandInputData	;(void)(U16 const *command, VU32 memoryMap)
+.extern	DISPATCHER_DPRINT_CommandOutputData	;(void)(U16 const *command, VU32 memoryMap)
+.endif
+.if BATCHJOB_DISPATCHER_AUDITS
+.extern DISPATCHER_AUDIT_GetNumItems		;U32 (U16 const *command)
+.endif
+;-------------------------------------------------------------------------------------------------
+
+.data
+.align 4
+.global	m_audit_data_qw
+m_audit_data_qw:			;NOTE: we can overlap two qwords of audit temp data with m_cmds_CmdList4
+m_cmds_CmdList6:
+	.dw	0x00000000, 0x00000000	;AddNopCommand();
+	.dw	0x00000000, 0x00000000	;AddNopCommand();
+	.dw	0x00000000, 0x00000000	;AddNopCommand();
+	.dw	0x00000000, 0x00000000	;AddNopCommand();
+m_cmds_CmdList2:
+	.dw	0x00000000, 0x00000000	;AddNopCommand();
+	.dw	0x00000000, 0x00000000	;AddNopCommand();
+	.dw	0x00000c00, 0x00000000	;AddEndCommand();
+	.dw	0x00000000, 0x00000000	;0
+m_cmds_Startup:				;Note: must be stored to m_cmds_CmdList6, since all but termination will be cleared by ExecuteCommands
+	.dw	0x00000220, 0x98300100	;ReserveBufferSet( Ice::BatchJob::kWorkBufferSet, 1, (kAnimBufferLSA + Ice::Anim::kWorkBufOffset)>>10, Ice::Anim::kWorkBufSize>>10 );
+	.dw	0x00000240, 0xc8180200	;ReserveBufferSet( Ice::BatchJob::kOutputBufferSet, 2, (kAnimBufferLSA + Ice::Anim::kOutputBufOffset0)>>10, Ice::Anim::kOutputBufSize>>10 );
+	.dw	0x00000420, 0x00000000	;UseUninitializedBuffer( Ice::BatchJob::kWorkBufferSet, kLogicalBuffer0, 0, 0, WwsJob_Command::kNonCached )
+	.dw	0x00000401, 0x00000000	;UseUninitializedBuffer( Ice::BatchJob::kInputBufferSet, kLogicalBuffer1, 0, 0, WwsJob_Command::kNonCached )
+m_cmds_UseBuffer_Output:	;+16 = m_cmds_UseBuffer_Output0, +32 = m_cmds_UseBuffer_Output1
+	.dw	0x00000600, 0x00000003	;UnreserveBufferSets( (1<<Ice::BatchJob::kWorkBufferSet)|(1<<Ice::BatchJob::kInputBufferSet) )
+	.dw	0x00000c00, 0x00000000	;AddEndCommand();
+m_cmds_UseBuffer_Output0:	;Note: must be stored to m_cmds_CmdList2, since all but termination will be cleared by ExecuteCommands
+	.dw	0x00000440, 0x00000000	;UseUninitializedBuffer( Ice::BatchJob::kOutputBufferSet, kLogicalBuffer0, 0, 0, WwsJob_Command::kNonCached )
+	.dw	0x00000c00, 0x00000000	;AddEndCommand();
+m_cmds_UseBuffer_Output1:	;Note: must be stored to m_cmds_CmdList2, since all but termination will be cleared by ExecuteCommands
+	.dw	0x00000441, 0x00000000	;UseUninitializedBuffer( Ice::BatchJob::kOutputBufferSet, kLogicalBuffer1, 0, 0, WwsJob_Command::kNonCached )
+	.dw	0x00000600, 0x00000004	;UnreserveBufferSets( 1<<Ice::BatchJob::kOutputBufferSet )
+.extern g_jobContext	; address of our WwsJob_JobContext
+.reg g_pWwsJob_JobApi	; pointer to our WwsJob_JobApi function table
+.if BATCHJOB_DISPATCHER_AUDITS
+.reg g_pStoreAudit	; pointer to our WwsJob_JobApiStoreAudit function
+.endif
+.if BATCHJOB_DISPATCHER_DPRINTS
+.extern m_bufferSizes			; VU32 (sizeofInputBuffer, sizeofWorkBuffer, sizeofOutputBuffer, 0)
+.endif
+.extern m_commandFunctions
+;.align 4
+;		.dw	 EndCommands				;kCmdEnd,
+;		.dw	 Loop_Swap				;kCmdSwap
+;		.dw	 ReserveOutputBuffer			;kCmdReserveOutputBuffer,
+;		.dw	PluginLoad				;kCmdPluginLoad
+;		.dw	PluginExecute				;kCmdPluginExecute
+;		.dw	PluginUnload				;kCmdPluginUnload
+;		.dw	CopyQuadwords				;kCmdCopyQuadwords,
+;		...						; all other built-in commands
+
+.extern m_commandNumParams
+;.align 4
+;		.db	0			;kCmdEnd = 0
+;		.db	0			;kCmdSwap
+;		.db	3			;kCmdReserveOutputBuffer
+;		.db	1			;kCmdPluginLoad
+;		.db	2			;kCmdPluginExecute
+;		.db	1			;kCmdPluginUnload
+;		.db	3			;kCmdCopyQuadwords
+;		...						; all other built-in commands
+
+.align 4
+; globals
+m_memoryMap:	.dw	0, 0, 0, 0	; tags to start of buffers (tagCurInputBuf, tagWorkBuf, pCurOutputPos, pLocalMemory)
+m_preBuffer:	.dw	0, 0, 0, 0	; pre-buffer data (curInputIndex*4+4, tagPreBuffer0, tagPreBuffer1, ...)
+m_postBuffer:	.dw	0, 0, 0, 0	; post-buffer data (curOutputIndex*4+4, tagPostBuffer0, tagPostBuffer1, ...)
+m_outputDmaList:.dw	0, 0, 0, 0	; (output dma size, output dma list size, ...)
+
+.if BATCHJOB_DISPATCHER_ASSERTS
+		.dw 	0, 0		; copy of output Dma list first element for output buffer 0
+m_outputDmaListCopy:		;NOTE: label placed so that (m_outputDmaListCopy+g_postBuffer) maps to first qword for g_postBuffer[0] == 4, second qword for g_postBuffer[0] == 8
+		.dw	      0, 0	
+		.dw 	0, 0, 0, 0	; copy of output Dma list first element for output buffer 1
+.endif
+
+.if BATCHJOB_DISPATCHER_DPRINTS
+m_reverseMemoryMap:	.dw	0, 0, 0, 0
+.endif
+
+;-------------------------------------------------------------------------------------------------
+
+; globals - loaded and stored to m_ locations with matching names
+.reg	g_memoryMap		; tags to start of buffers (tagCurInputBuf, tagWorkBuf, pCurOutputPos, pVolatilePos)
+.reg	g_preBuffer		; pre-buffer data (curInputIndex*4+4, tagPreBuffer0, tagPreBuffer1, ...)
+.reg	g_postBuffer		; post-buffer data (curOutputIndex*4+4, tagPostBuffer0, tagPostBuffer1, ...)
+.reg	g_outputDmaList		; (output dma size, output dma list size, ...)
+.if BATCHJOB_DISPATCHER_DPRINTS
+.reg	g_reverseMemoryMap	; addr of buffers (pInputBuffer, pWorkBuffer, pOutputBuffer, pLocalMemory)
+.reg	g_bufferSizes		; size of buffers (input_buffer, work_buffer, output_buffer, local_memory)
+.endif
+
+;-------------------------------------------------------------------------------------------------
+
+.text
+.align 3
+
+;-------------------------------------------------------------------------------------------------
+JobMain:
+; set up a stack with 6? non-volatiles for local use
+.reg	_0, s_Abcd, s_aAcd, s_abAd, s_abcA, sel_aBCD, sel_AbCD
+								stqd	$sp, -176($sp)
+	ai	$sp, $sp, -176					
+.reg	pJobContext
+	nop							lqa	pJobContext, g_jobContext
+								stqd	$lr, 0xC0{caller+0x10}($sp)
+								stqd	$80, 0x20($sp)
+								stqd	$81, 0x30($sp)
+								stqd	$82, 0x40($sp)
+.reg	pCode_Bie
+								stqd	$87, 0x90($sp)
+	ai	g_pWwsJob_JobApi, pJobContext, 0x30
+								stqd	$83, 0x50($sp)
+								stqd	$84, 0x60($sp)
+.if BATCHJOB_DISPATCHER_AUDITS
+								stqd	$88, 0xa0($sp)
+								lqd	g_pStoreAudit, WwsJob_ApiCommand_kStoreAudit(g_pWwsJob_JobApi)
+.endif
+								stqd	$85, 0x70($sp)
+								stqd	$86, 0x80($sp)
+.if BATCHJOB_DISPATCHER_DPRINTS
+	ila	$3, DEBUG_PtrToLoc_SPU
+.cuse	$3
+								brsl	$lr, DEBUG_SetPtrToLocFn [#func]
+.endif
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditNull					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie00			bie	pCode_Bie [StoreAudit_Bie00] StoreAudit_Bie00:
+	ilhu	$3, kAuditNull					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie01			bie	pCode_Bie [StoreAudit_Bie01] StoreAudit_Bie01:
+	ilhu	$3, kAuditNull					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie02			bie	pCode_Bie [StoreAudit_Bie02] StoreAudit_Bie02:
+	ilhu	$3, kAuditNull					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie03			bie	pCode_Bie [StoreAudit_Bie03] StoreAudit_Bie03:
+	ilhu	$3, kAuditNull					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie04			bie	pCode_Bie [StoreAudit_Bie04] StoreAudit_Bie04:
+	ilhu	$3, kAuditNull					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie05			bie	pCode_Bie [StoreAudit_Bie05] StoreAudit_Bie05:
+	ilhu	$3, kAuditNull					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie06			bie	pCode_Bie [StoreAudit_Bie06] StoreAudit_Bie06:
+	ilhu	$3, kAuditNull					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie07			bie	pCode_Bie [StoreAudit_Bie07] StoreAudit_Bie07:
+	ilhu	$3, kAuditStart					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie08			bie	pCode_Bie [StoreAudit_Bie08] StoreAudit_Bie08:
+.endif
+
+.reg	cmdList, cmdList2, cmdList3, pExecuteCmds
+	{nop}							lqa	cmdList, m_cmds_Startup
+	{nop}							lqa	cmdList2, m_cmds_Startup+0x10
+	{nop}							lqa	cmdList3, m_cmds_Startup+0x20
+	{nop}							lqd	pExecuteCmds, WwsJob_ApiCommand_kExecuteCommands(g_pWwsJob_JobApi)
+	ila	$3, m_cmds_CmdList6				stqa	cmdList, m_cmds_CmdList6
+	{nop}							stqa	cmdList2, m_cmds_CmdList6+0x10
+	{nop}							stqa	cmdList3, m_cmds_CmdList6+0x20
+.cuse	$3
+	nop							bisld	$lr, pExecuteCmds [#func]
+	ila	pCode_Bie, JobApi_Bie00				bie	pCode_Bie [JobApi_Bie00] JobApi_Bie00:
+
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInitStart				fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie09			bie	pCode_Bie [StoreAudit_Bie09] StoreAudit_Bie09:
+	ilhu	$3, kAuditInputUseBufferStart			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie10			bie	pCode_Bie [StoreAudit_Bie10] StoreAudit_Bie10:
+.endif
+
+.reg	dmaTagId, lsAddress, tagPreBuffer, nextIndex
+.reg	pGetBufferTag
+	ila	$4, kInputBufferSet				lqd	pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag(g_pWwsJob_JobApi)
+	ila	$5, kLogicalBuffer0				rotqbyi	pGetBufferTag, pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag
+	ila	$6, WwsJob_kAllocDmaTag
+.cuse	$4,$5,$6
+								bisld	$lr, pGetBufferTag [#func]
+.cset $3
+	ila	pCode_Bie, JobApi_Bie01				bie	pCode_Bie [JobApi_Bie01] JobApi_Bie01:
+	il	_0, 0						rotqbyi	lsAddress, $3, 4
+	shli	dmaTagId, $3, 24				fsmbi	sel_aBCD, 0xF000
+								cwd	s_aAcd,	0x4(_0)
+
+	rotmi	lsAddress, lsAddress, -14			
+	andi	g_preBuffer, sel_aBCD, 4 {nextIndex}
+
+
+	andi	lsAddress, lsAddress, -4
+
+	or	tagPreBuffer, lsAddress, dmaTagId					
+	and	g_memoryMap, sel_aBCD, lsAddress
+								shufb	g_preBuffer, tagPreBuffer, g_preBuffer, s_aAcd
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInputUseBufferEnd			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie11			bie	pCode_Bie [StoreAudit_Bie11] StoreAudit_Bie11:
+.endif
+
+.reg	dmaHeaderLoc, temp, lsAddress
+	ila	$4, kWorkBufferSet				lqd	pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag(g_pWwsJob_JobApi)
+	ila	$5, kLogicalBuffer0				rotqbyi	pGetBufferTag, pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag
+	ila	$6, WwsJob_kDontAllocDmaTag
+.cuse	$4,$5,$6
+								bisld	$lr, pGetBufferTag [#func]
+.cset $3
+	ila	pCode_Bie, JobApi_Bie02				bie	pCode_Bie [JobApi_Bie02] JobApi_Bie02:
+	rotmi	lsAddress{wd1}, $3, -14				fsmbi	sel_AbCD, 0x0F00
+	il	g_outputDmaList, 0				fsmbi	sel_aBCD, 0xF000
+	il	dmaHeaderLoc, 0
+								stqa	g_outputDmaList, m_outputDmaList
+	andi	lsAddress{wd1}, lsAddress{wd1}, -4
+	andi	g_postBuffer, sel_aBCD, 4 {nextIndex}
+	selb g_memoryMap, g_memoryMap, lsAddress{wd1}, sel_AbCD	stqa	g_preBuffer, m_preBuffer
+								stqa	g_postBuffer, m_postBuffer
+								stqa	g_memoryMap, m_memoryMap
+.if BATCHJOB_DISPATCHER_DPRINTS
+.reg	mask_addr
+	ila	mask_addr, 0x3FFF0				
+	and	g_reverseMemoryMap, g_memoryMap, mask_addr
+	nop							stqa	g_reverseMemoryMap, m_reverseMemoryMap
+.endif
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInitEnd				fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie12			bie	pCode_Bie [StoreAudit_Bie12] StoreAudit_Bie12:
+.endif
+
+
+.reg	tagPreBuffer, dmaHeader
+								rotqby	tagPreBuffer, g_preBuffer, g_preBuffer
+								lqx	dmaHeader, tagPreBuffer, dmaHeaderLoc{aligned}
+
+Loop_Swap:
+								lqa	g_memoryMap, m_memoryMap
+								lqa	g_preBuffer, m_preBuffer
+.if !DOUBLE_BUFFERED
+								hbrr	Branch_Skip_UseBuffer_Input1, Skip_UseBuffer_Input1
+								brz	dmaHeaderLoc, Skip_DmaGet
+								rotqby	tagPreBuffer, g_preBuffer, g_preBuffer
+				Branch_Skip_UseBuffer_Input1:	brz	tagPreBuffer, Skip_UseBuffer_Input1
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInputUseBufferStart			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie13			bie	pCode_Bie [StoreAudit_Bie13] StoreAudit_Bie13:
+.endif
+.reg	lsAddress
+	ila	$4, kInputBufferSet				lqd	pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag(g_pWwsJob_JobApi)
+	ila	$5, kLogicalBuffer1				rotqbyi	pGetBufferTag, pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag
+	ila	$6, WwsJob_kAllocDmaTag
+.cuse	$4,$5,$6
+								bisld	$lr, pGetBufferTag [#func]
+.cset $3
+	ila	pCode_Bie, JobApi_Bie03				rotqbyi	lsAddress, $3, 4
+	shli	dmaTagId, $3, 24				bie	pCode_Bie [JobApi_Bie03] JobApi_Bie03:
+								cwd	s_abAd, 0x0(g_preBuffer)
+	rotmi	lsAddress, lsAddress, -14
+	andi	lsAddress, lsAddress, -4
+	or	tagPreBuffer, dmaTagId, lsAddress
+								shufb	g_preBuffer, tagPreBuffer, g_preBuffer, s_abAd
+								stqa	g_preBuffer, m_preBuffer
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInputUseBufferEnd			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie14			bie	pCode_Bie [StoreAudit_Bie14] StoreAudit_Bie14:
+.endif
+Skip_UseBuffer_Input1:
+.reg	dmaListEaHi, dmaListSize, dmaListPtr, _1, dmaTagId, dmaTagGroup, dmaCmd
+.reg	pCode_Bid, pCode_Bie
+	ila	pCode_Bid, Dispatcher_Bid			rotqbyi	dmaListSize, dmaHeader,12
+	a	dmaListPtr, tagPreBuffer, dmaHeaderLoc		rotqmbyi dmaTagId, tagPreBuffer, -3
+	il	_0, 0						bid	pCode_Bid [Dispatcher_Bid] Dispatcher_Bid:
+	il	_1, 1						wrch	$ch16{MFC_LSA}, tagPreBuffer
+	ai	dmaListPtr, dmaListPtr, 0x10			wrch	$ch17{MFC_EAH}, _0
+	shl	dmaTagGroup, _1, dmaTagId			wrch	$ch19{MFC_Size}, dmaListSize
+	il	dmaCmd,	kDmaGetl				wrch	$ch18{MFC_EAL}, dmaListPtr
+	ila	pCode_Bie, Dispatcher_Bie			wrch	$ch20{MFC_TagID}, dmaTagId
+								wrch	$ch21{MFC_CMD}, dmaCmd
+								bie	pCode_Bie [Dispatcher_Bie] Dispatcher_Bie:
+;		}
+Skip_DmaGet:
+.endif	;if !DOUBLE_BUFFERED
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInputDmaStart				fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie15			bie	pCode_Bie [StoreAudit_Bie15] StoreAudit_Bie15:
+.endif
+.reg	dmaTagId, _1, dmaTagGroup
+	il	_0, 0						rotqby	tagPreBuffer, g_preBuffer, g_preBuffer
+	il	_1, 1						rotqmbyi dmaTagId, tagPreBuffer,-3
+.reg	pCode_Bid, pCode_Bie
+	ila	pCode_Bid, Dispatcher_Wait_Bid
+	ila	pCode_Bie, Dispatcher_Wait_Bie
+	shl	dmaTagGroup, _1, dmaTagId			fsmbi	sel_aBCD, 0xF000
+Loop_WaitForInputDma:
+.reg 	status
+	nop
+								bid	pCode_Bid [Dispatcher_Wait_Bid] Dispatcher_Wait_Bid:
+								wrch	$ch22{MFC_WrTagMask}, dmaTagGroup		
+								wrch	$ch23{MFC_WrTagUpdate}, _0
+								rdch	status, $ch24{MFC_RdTagStat}
+								bie	pCode_Bie [Dispatcher_Wait_Bie] Dispatcher_Wait_Bie:
+	ceq	status, status, dmaTagGroup
+								; branch stall for 18 cycles before retry, no stall on exit
+					Branch_WaitForInputDma:	brz	status, Loop_WaitForInputDma
+	selb	g_memoryMap, g_memoryMap, tagPreBuffer, sel_aBCD
+.if BATCHJOB_DISPATCHER_DPRINTS
+.reg	preBufferPtr, mask_addr
+								lqa	g_reverseMemoryMap, m_reverseMemoryMap
+	ila	mask_addr, 0x3FFF0				lnop
+	and	preBufferPtr, tagPreBuffer, mask_addr
+	selb	g_reverseMemoryMap, g_reverseMemoryMap, preBufferPtr, sel_aBCD 
+								stqa	g_reverseMemoryMap, m_reverseMemoryMap
+.endif
+								stqa	g_memoryMap, m_memoryMap
+.if BATCHJOB_DISPATCHER_AUDITS
+.reg	dmaHeaderOffset, dmaSize, dmaListSize
+								rotqbyi	dmaHeaderOffset, dmaHeader, 4
+								rotqbyi	dmaListSize, dmaHeader, 12
+	andi	dmaHeaderOffset, dmaHeaderOffset, -16		fsmbi	$4, 0
+	ilhu	$3, kAuditInputDmaEnd				fsmbi	$5, 0
+	ai	dmaSize, dmaListSize, 0x10			{lnop}
+	a	$3, $3, dmaHeaderOffset				{lnop}
+	a	$3, $3, dmaSize
+.cuse	$3, $4, $5
+								bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie16			bie	pCode_Bie [StoreAudit_Bie16] StoreAudit_Bie16:
+.endif
+
+.reg	volatileLoc, commandLoc, pVolatile, pCommand, mask_lo16, nextIndex
+	il	_0, 0						hbrr	Branch_Skip_FreeBuffer_Input0, Skip_FreeBuffer_Input0
+	ila	mask_lo16, 0xFFFF				rotqbyi	dmaHeaderLoc, dmaHeader, 4
+	rotmi	volatileLoc, dmaHeader,-16			cwd	s_abcA, 0xC(_0)
+	and	commandLoc, dmaHeader, mask_lo16		fsmbi	sel_aBCD, 0xF000
+	sfi	nextIndex, g_preBuffer, 0xC			
+	and	dmaHeaderLoc, dmaHeaderLoc, mask_lo16	  
+	a	pVolatile, tagPreBuffer, volatileLoc      
+	a	pCommand, tagPreBuffer, commandLoc		
+	selb	g_preBuffer, g_preBuffer, nextIndex, sel_aBCD	shufb	g_memoryMap, pVolatile, g_memoryMap, s_abcA
+								stqa	g_preBuffer, m_preBuffer
+								stqa	g_memoryMap, m_memoryMap
+
+.if DOUBLE_BUFFERED
+	nop							brz	dmaHeaderLoc, Skip_DmaGet
+.reg	tagPreBufferNext, dmaListPtr
+	a	dmaListPtr, tagPreBuffer, dmaHeaderLoc		lqx	dmaHeader{next}, tagPreBuffer, dmaHeaderLoc
+								rotqby	tagPreBufferNext, g_preBuffer, g_preBuffer
+	ai	dmaListPtr, dmaListPtr, 0x10
+				Branch_Skip_UseBuffer_Input1:	brnz	tagPreBufferNext, Skip_UseBuffer_Input1
+								lnop {hbr Call_UseBuffer_Input1, g_pWwsJob_JobApi}
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInputUseBufferStart			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie13			bie	pCode_Bie [StoreAudit_Bie13] StoreAudit_Bie13:
+.endif
+.reg 	lsAddress
+	ila	$4, kInputBufferSet				lqd	pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag(g_pWwsJob_JobApi)
+	ila	$5, kLogicalBuffer1				rotqbyi	pGetBufferTag, pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag
+	ila	$6, WwsJob_kAllocDmaTag
+.cuse	$4,$5,$6
+					Call_UseBuffer_Input1:	bisld	$lr, pGetBufferTag [#func]
+.cset $3
+	ila	pCode_Bie, JobApi_Bie03				rotqbyi	lsAddress, $3, 4
+	shli	dmaTagId, $3, 24				bie	pCode_Bie [JobApi_Bie03] JobApi_Bie03:
+								cwd	s_abAd, 0x0(g_preBuffer)
+	rotmi	lsAddress, lsAddress, -14
+	andi	lsAddress, lsAddress, -4
+	or	tagPreBufferNext, dmaTagId, lsAddress
+								shufb	g_preBuffer, tagPreBufferNext, g_preBuffer, s_abAd
+								stqa	g_preBuffer, m_preBuffer
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInputUseBufferEnd			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie14			bie	pCode_Bie [StoreAudit_Bie14] StoreAudit_Bie14:
+.endif
+Skip_UseBuffer_Input1:
+.reg	dmaListSize, _1, dmaTagId, dmaTagGroup, dmaCmd
+.reg	pCode_Bid, pCode_Bie
+	ila	pCode_Bid, Dispatcher_Bid			hbrr	Branch_Skip_FreeBuffer_Input0, Skip_FreeBuffer_Input0
+	il	dmaCmd,	kDmaGetl				rotqbyi	dmaListSize, dmaHeader,12
+	il	_0, 0						bid	pCode_Bid [Dispatcher_Bid] Dispatcher_Bid:
+	rotmi	dmaTagId, tagPreBufferNext, -24			wrch	$ch16{MFC_LSA}, tagPreBufferNext		
+								wrch	$ch17{MFC_EAH}, _0
+								wrch	$ch18{MFC_EAL}, dmaListPtr
+	ila	pCode_Bie, Dispatcher_Bie			wrch	$ch19{MFC_Size}, dmaListSize
+								wrch	$ch20{MFC_TagID}, dmaTagId
+								wrch	$ch21{MFC_CMD}, dmaCmd	{spu_mfcdma}		
+								bie	pCode_Bie [Dispatcher_Bie] Dispatcher_Bie:
+				Branch_Skip_FreeBuffer_Input0:	br	Skip_FreeBuffer_Input0
+Skip_DmaGet:
+.else	; if DOUBLE_BUFFERED ...
+.reg	tagPreBufferNext
+								lqx	dmaHeader{next}, tagPreBuffer, dmaHeaderLoc
+				Branch_Skip_FreeBuffer_Input0:	brnz	dmaHeaderLoc, Skip_FreeBuffer_Input0
+.endif	; if DOUBLE_BUFFERED ... else
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInputFreeBufferStart			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie17			bie	pCode_Bie [StoreAudit_Bie17] StoreAudit_Bie17:
+.endif
+.reg	pFreeLogicalBuffer
+	ai	$5, g_preBuffer,-4				lqd	pFreeLogicalBuffer, WwsJob_ApiCommand_kFreeLogicalBuffer(g_pWwsJob_JobApi)
+	rotmi	$5, $5,-2 					rotqbyi	pFreeLogicalBuffer, pFreeLogicalBuffer, WwsJob_ApiCommand_kFreeLogicalBuffer
+	ila	$4, kInputBufferSet				
+.cuse	$4,$5
+				{Call_FreeBuffer_Input0:}	bisld	$lr, pFreeLogicalBuffer [#func]
+.cset $3
+	ila	pCode_Bie, JobApi_Bie04				bie	pCode_Bie [JobApi_Bie04] JobApi_Bie04:
+.reg	s_preBuffer
+.reg	pLoadNextJob
+	nop							lqd	pLoadNextJob, WwsJob_ApiCommand_kLoadNextJob(g_pWwsJob_JobApi)
+	il	_0, 0						cwd	s_preBuffer, 0x0(g_preBuffer)
+	{nop}							shufb	g_preBuffer, _0, g_preBuffer, s_preBuffer
+	{nop}							rotqbyi	pLoadNextJob, pLoadNextJob, WwsJob_ApiCommand_kLoadNextJob
+	{nop}							stqa	g_preBuffer, m_preBuffer
+	{nop}							bisld	$lr, pLoadNextJob [#func]
+	ila	pCode_Bie, JobApi_Bie05				bie	pCode_Bie [JobApi_Bie05] JobApi_Bie05:
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditInputFreeBufferEnd			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie18			bie	pCode_Bie [StoreAudit_Bie18] StoreAudit_Bie18:
+.endif
+
+Skip_FreeBuffer_Input0:
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditCmdStart				fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie19			bie	pCode_Bie [StoreAudit_Bie19] StoreAudit_Bie19:
+.endif
+Loop_CommandList:
+.reg	cmd, cmd_qw, pParams, params_qw0, params_qw1, shift_params, mask_params_qw1, params, offsCmd, num_params, size_params
+.reg	commandFunctionTable, commandNumParamsTable
+.reg 	pCode_Command, pCode_Invalid, mask_invalid
+.reg	DEBUG_pCommand
+.if BATCHJOB_DISPATCHER_DPRINTS
+	ila	$5, m_commandFunctions				lqa	$4, m_memoryMap	
+	ila	$6, m_commandNumParams				rotqbyi	$3, pCommand, 0
+.cuse	$3, $4, $5, $6
+								brsl	$lr, DISPATCHER_DPRINT_Command [#func]
+								lqa	$4, m_memoryMap
+	ai	$3, pCommand, 0
+.cuse	$3, $4
+								brsl	$lr, DISPATCHER_DPRINT_CommandInputData [#func]
+.endif
+	ai	pParams, pCommand, 0x2				lqd	cmd_qw, 0x00(pCommand)
+
+	andi	shift_params, pParams, 0xF			rotqby	cmd_qw, cmd_qw, pCommand
+	il	mask_params_qw1, -1				lqd	params_qw0, 0x00(pParams)
+	sfi	shift_params, shift_params, 0x10		lqd	params_qw1, 0x10(pParams)
+	
+	rotmi	cmd, cmd_qw, -16				shlqby	mask_params_qw1, mask_params_qw1, shift_params
+	rotmi	offsCmd, cmd_qw, -14				
+	ila	commandNumParamsTable, m_commandNumParams
+	ila	commandFunctionTable, m_commandFunctions
+								lqx	num_params, commandNumParamsTable, cmd
+	selb	params, params_qw0, params_qw1, mask_params_qw1	lqx	pCode_Command, commandFunctionTable, offsCmd
+       
+	
+	andi	offsCmd, offsCmd,-4				rotqby	params, params, pParams
+	
+	ila	pCode_Invalid, InvalidCommand			rotqby	num_params{byte0}, num_params, cmd
+	clgti	mask_invalid, cmd, kMaxCommand			rotqby	pCode_Command, pCode_Command, offsCmd
+	ai	$3, params, 0					lqa	$4, m_memoryMap
+
+	rotmi	size_params, num_params{byte0}, -23
+	selb	pCode_Command,pCode_Command,pCode_Invalid,mask_invalid
+.if BATCHJOB_DISPATCHER_AUDITS || BATCHJOB_DISPATCHER_DPRINTS
+	ai	DEBUG_pCommand, pCommand, 0			lnop
+.endif
+	a	pCommand, pParams, size_params
+.if BATCHJOB_DISPATCHER_AUDITS || BATCHJOB_DISPATCHER_DPRINTS
+.cuse	$3, $4							; branch stall for ~18 cycles
+						Call_Command:	bisl	$lr, pCode_Command [#func Loop_Swap]
+.else
+								lnop
+	ila	$lr, Loop_CommandList		
+.cuse	$lr, $3, $4						; branch stall for ~18 cycles
+						Call_Command:	bi	pCode_Command [#func Loop_Swap]
+.endif
+
+.if BATCHJOB_DISPATCHER_AUDITS
+.reg	numItems
+	ai	$3, DEBUG_pCommand, 0				brsl	$lr, DISPATCHER_AUDIT_GetNumItems [#func]
+	ilhu	$4, 0x8000					rotqmbyi numItems, $3,-4
+	ilhu	$3, kAuditCmd					{lnop}
+	iohl	$4, 0x0001					{lnop}
+	a	$3, $3, cmd					{lnop}
+	{nop}							stqa	numItems, m_audit_data_qw
+	ila	$5, m_audit_data_qw							
+.cuse	$3, $4, $5
+								bisld	$lr, g_pStoreAudit [#func]
+.if BATCHJOB_DISPATCHER_DPRINTS
+	ila	pCode_Bie, StoreAudit_Bie20			bie	pCode_Bie [StoreAudit_Bie20] StoreAudit_Bie20:
+.else
+	ila	pCode_Bie, Loop_CommandList			binze	cmd, pCode_Bie [Loop_CommandList]
+.endif
+.endif
+.if BATCHJOB_DISPATCHER_DPRINTS
+	ai	$3, DEBUG_pCommand, 0				lqa	$4, m_memoryMap
+	ila	$lr, Loop_CommandList				
+.cuse	$lr, $3, $4
+								br	DISPATCHER_DPRINT_CommandOutputData [#func]
+.endif
+; code to fake out frontend into realizing this is a loop and a return:
+								brnz	cmd, Loop_CommandList
+.cset	$lr
+.cset 	$80, $81, $82, $83, $84, $85, $86, $87
+.if BATCHJOB_DISPATCHER_AUDITS
+.cset 	$88
+.endif
+	ai	$sp{2prev}, $sp{prev}, 176
+						Return_Main:	bi	$lr
+.end
+;=================================================================================================
+
+.if BATCHJOB_DISPATCHER_ASSERTS
+.start
+.global	Assert_OutputDmaListOverwritten
+Assert_OutputDmaListOverwritten:
+	nop							stopd	$0, $0, $0
+.end
+.endif
+
+;=================================================================================================
+.start
+.global ReserveOutputBuffer
+
+.extern g_jobContext
+
+.reg g_pWwsJob_JobApi
+
+; globals - loaded and stored to m_ locations with matching names
+.extern	m_memoryMap
+.extern	m_postBuffer
+.extern	m_outputDmaList
+.reg	g_memoryMap		; tags to start of buffers (tagCurInputBuf, tagWorkBuf, pCurOutputPos, pVolatilePos)
+.reg	g_postBuffer		; post-buffer data (curOutputIndex*4+4, tagPostBuffer0, tagPostBuffer1, ...)
+.reg	g_outputDmaList		; (output dma size, output dma list size, ...)
+.if BATCHJOB_DISPATCHER_ASSERTS
+.extern m_outputDmaListCopy
+.extern	Assert_OutputDmaListOverwritten
+.endif
+.if	BATCHJOB_DISPATCHER_DPRINTS
+.extern	m_reverseMemoryMap
+.reg	g_reverseMemoryMap
+.endif
+
+;-------------------------------------------------------------------------------------------------
+
+.text
+.align 3
+
+;-------------------------------------------------------------------------------------------------
+;	void ReserveOutputBuffer DISPATCHER_FN((U16 size, U32 destHi, U32 destLo))
+ReserveOutputBuffer:
+; variables which persist across function calls:
+.reg	s_aAcd, s_abAd, sel_aBCD, _0, _1
+.reg	size, destLo, currentDmaListSize, tagPostBuffer
+; variables local to initial setup code:
+.reg	mask_noBuffer, max_size, mask_size, mask_listPos, mask_dmaPut
+.reg	pCode_UseBuffer, pCode_DmaPut, pCode_DmaPutEnd
+	ila	pCode_UseBuffer, Goto_UseBuffer_Output		stqd	$sp, -160($sp)
+	ai	$sp, $sp,-160					
+.reg	pJobContext
+								lqa	pJobContext, g_jobContext
+								fsmbi	sel_aBCD, 0xF000
+								stqd	$80, 0x20($sp)
+								lqa	g_outputDmaList, m_outputDmaList
+								stqd	$81, 0x30($sp)
+	rotmi	size, $3, -16					stqd	$82, 0x40($sp)
+	il	max_size, kDmaOutputMaxSize			lqa	g_postBuffer, m_postBuffer
+								stqd	$83, 0x50($sp)
+								stqd	$87, 0x90($sp)
+	ai	g_pWwsJob_JobApi, pJobContext, 0x30
+								stqd	$84, 0x60($sp)
+	sf	max_size, size, max_size			rotqbyi	currentDmaListSize, g_outputDmaList, 4
+	and	size, size, sel_aBCD				stqd	$85, 0x70($sp)
+	ila	pCode_DmaPut, Goto_DmaPut			stqd	$86, 0x80($sp)
+	cgt	mask_size, g_outputDmaList{[0]}, max_size	rotqby	tagPostBuffer, g_postBuffer, g_postBuffer
+	cgti mask_listPos,currentDmaListSize,kDmaOutputListLast	stqd	$lr, 0xB0{caller+0x10}($sp)
+	ila	pCode_DmaPutEnd, Goto_DmaPutEnd			rotqbyi	destLo, $3, 2
+	or	mask_dmaPut, mask_size, mask_listPos		lqa	g_memoryMap, m_memoryMap
+	ceqi	mask_noBuffer, tagPostBuffer, 0							
+	selb	pCode_DmaPut, pCode_DmaPutEnd, pCode_DmaPut, mask_dmaPut
+
+	selb	pCode_DmaPut, pCode_DmaPut, pCode_UseBuffer, mask_noBuffer
+						Branch_DmaPut:	bi	pCode_DmaPut [Goto_UseBuffer_Output Goto_DmaPut Goto_DmaPutEnd]
+Goto_DmaPut:
+.if BATCHJOB_DISPATCHER_AUDITS
+.reg	pCode_Bie
+.reg pStoreAudit
+	nop							lqd	pStoreAudit, WwsJob_ApiCommand_kStoreAudit(g_pWwsJob_JobApi)
+	ilhu	$3, kAuditOutputDmaStart			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie21			bie	pCode_Bie [StoreAudit_Bie21] StoreAudit_Bie21:
+.endif
+.reg	tagPostBuffer, dmaLsa, dmaCmd, dmaTagId, dmaTagGroup, nextIndex, status
+.reg	pCode_Bid, pCode_Bie
+	ila	pCode_Bid, ReserveOutputBuffer_Bid		rotqby	tagPostBuffer, g_postBuffer, g_postBuffer
+.if BATCHJOB_DISPATCHER_ASSERTS
+.reg	dmalist_qw, dmalist_qw_copy, dmalist_neq, pOutputDmaListCopy
+;nop stopd $0, $0, $0	
+	ila	pOutputDmaListCopy, m_outputDmaListCopy		lqd	dmalist_qw, 0x00(tagPostBuffer)
+								lqx	dmalist_qw_copy, pOutputDmaListCopy, g_postBuffer
+	xor	dmalist_neq, dmalist_qw, dmalist_qw_copy	orx	dmalist_neq, dmalist_neq
+	{Assert DMA list not overwritten}			brnz	dmalist_neq, Assert_OutputDmaListOverwritten [#nojump]
+.endif
+	il	_0, 0						bid	pCode_Bid [ReserveOutputBuffer_Bid] ReserveOutputBuffer_Bid:
+	rotmi	dmaTagId, tagPostBuffer, -24			wrch	$ch18{MFC_EAL}, tagPostBuffer
+	ai	dmaLsa, tagPostBuffer, kDmaOutputListMaxSize	wrch	$ch17{MFC_EAH}, _0
+	il	_1, 1						wrch	$ch19{MFC_Size}, currentDmaListSize
+	il	dmaCmd, kDmaPutl				wrch	$ch16{MFC_LSA}, dmaLsa
+	shl	dmaTagGroup, _1, dmaTagId			wrch	$ch20{MFC_TagID}, dmaTagId
+	sfi	nextIndex, g_postBuffer, 0xC			wrch	$ch21{MFC_CMD}, dmaCmd
+	ila	pCode_Bie, ReserveOutputBuffer_Bie		bie	pCode_Bie [ReserveOutputBuffer_Bie] ReserveOutputBuffer_Bie:
+	ila	pCode_Bid, ReserveOutputBuffer_Wait_Bid		fsmbi	sel_aBCD, 0xF000
+	ila	pCode_Bie, ReserveOutputBuffer_Wait_Bie		rotqby	tagPostBuffer, g_postBuffer, nextIndex
+Loop_WaitForOutputDma:
+								bid	pCode_Bid [ReserveOutputBuffer_Wait_Bid] ReserveOutputBuffer_Wait_Bid:
+								wrch	$ch22{MFC_WrTagMask}, dmaTagGroup
+								wrch	$ch23{MFC_WrTagUpdate}, _0
+								rdch	status, $ch24{MFC_RdTagStat}
+								bie	pCode_Bie [ReserveOutputBuffer_Wait_Bie] ReserveOutputBuffer_Wait_Bie:
+	ceq	status, status, dmaTagGroup
+								; branch stall for 18 cycles before retry, no stall on exit
+				Branch_WaitForDma_Output:	brz	status, Loop_WaitForOutputDma
+	selb	g_postBuffer, g_postBuffer, nextIndex, sel_aBCD
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditOutputDmaEnd				lqd	pStoreAudit, WwsJob_ApiCommand_kStoreAudit(g_pWwsJob_JobApi)
+	a	$3, $3, g_outputDmaList				fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie22			bie	pCode_Bie [StoreAudit_Bie22] StoreAudit_Bie22:
+.endif
+	ceqi	mask_noBuffer, tagPostBuffer, 0	
+								brz	mask_noBuffer, Goto_ChangedBuffer
+Goto_UseBuffer_Output:
+.if BATCHJOB_DISPATCHER_AUDITS
+	nop							lqd	pStoreAudit, WwsJob_ApiCommand_kStoreAudit(g_pWwsJob_JobApi)
+	ilhu	$3, kAuditOutputUseBufferStart			fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie23			bie	pCode_Bie [StoreAudit_Bie23] StoreAudit_Bie23:
+.endif
+.reg	offs_cmd, pCmds_UseBuffer_Output, s_postBuffer, cmdList, lsAddress, pExecuteCmds, pGetBufferTag
+	shli	offs_cmd{16 or 32}, g_postBuffer{4 or 8}, 2	{lnop}
+	ila	pCmds_UseBuffer_Output, m_cmds_UseBuffer_Output	{lnop}
+	{nop}							lqx	cmdList, pCmds_UseBuffer_Output, offs_cmd
+	{nop}							lqd	pExecuteCmds, WwsJob_ApiCommand_kExecuteCommands(g_pWwsJob_JobApi)
+	ila	$3, m_cmds_CmdList2				stqa	cmdList, m_cmds_CmdList2
+.cuse	$3
+	{nop}				Call_UseBuffer_Output:	bisld	$lr, pExecuteCmds [#func]
+	{nop}							lqd	pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag(g_pWwsJob_JobApi)
+	ila	pCode_Bie, JobApi_Bie06				{lnop}
+	ai	$5, g_postBuffer, -4				{lnop}
+	ila	$4, kOutputBufferSet				bie	pCode_Bie [JobApi_Bie06] JobApi_Bie06:
+	rotmi	$5, $5, -2					rotqbyi	pGetBufferTag, pGetBufferTag, WwsJob_ApiCommand_kGetBufferTag
+	ila	$6, WwsJob_kAllocDmaTag				
+.cuse	$4,$5,$6
+								bisld	$lr, pGetBufferTag [#func]
+.cset $3
+	ila	pCode_Bie, JobApi_Bie07				rotqbyi	lsAddress, $3, 4
+	shli	dmaTagId, $3, 24				bie	pCode_Bie [JobApi_Bie07] JobApi_Bie07:
+								cwd	s_postBuffer, 0x0(g_postBuffer)
+	rotmi	lsAddress, lsAddress, -14
+	andi	lsAddress, lsAddress, -4
+	or	tagPostBuffer, dmaTagId, lsAddress
+	nop							shufb	g_postBuffer, tagPostBuffer, g_postBuffer, s_postBuffer
+.if BATCHJOB_DISPATCHER_AUDITS
+.reg	outputIndex
+	ai	outputIndex, g_postBuffer,-4			lqd	pStoreAudit, WwsJob_ApiCommand_kStoreAudit(g_pWwsJob_JobApi)
+	ilhu	$3, kAuditOutputUseBufferEnd			fsmbi	$4, 0
+	rotmi	outputIndex, outputIndex, -2			fsmbi	$5, 0
+	a	$3, $3, outputIndex 
+.cuse	$3, $4, $5
+								bisld	$lr, pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie24			bie	pCode_Bie [StoreAudit_Bie24] StoreAudit_Bie24:
+.endif
+	; fall through to Goto_ChangedBuffer
+Goto_ChangedBuffer:
+	il	_0, 0						rotqby	tagPostBuffer, g_postBuffer, g_postBuffer
+	il	g_outputDmaList, 0				stqa	g_postBuffer, m_postBuffer
+								cwd	s_abAd, 0x8(_0)
+								shufb	g_memoryMap, tagPostBuffer, g_memoryMap, s_abAd
+.if BATCHJOB_DISPATCHER_DPRINTS
+.reg	mask_addr, postBufferPtr
+	ila	mask_addr, 0x3FFF0				lqa	g_reverseMemoryMap, m_reverseMemoryMap
+	and	postBufferPtr, tagPostBuffer, mask_addr		lnop
+								shufb	g_reverseMemoryMap, postBufferPtr, g_reverseMemoryMap, s_abAd
+								stqa	g_reverseMemoryMap, m_reverseMemoryMap
+.endif
+Goto_DmaPutEnd:
+.reg	outputPos, outputSize, outputDmaListSize, dmaMaxSize
+.reg	mask_last_entry, entry, destLo_wd1, s_insert, dmalist_qw, size_wd1, s_aA
+	il	_0, 0						rotqbyi	outputDmaListSize, g_outputDmaList, 4
+	ai	outputPos, tagPostBuffer, kDmaOutputListMaxSize	fsmbi	sel_aBCD, 0xF000
+	il	dmaMaxSize, kDmaMaxSize				cwd	s_abAd, 0x8(_0)
+	a	outputPos, outputPos, g_outputDmaList{[0]}	cwd	s_aAcd, 0x4(_0)
+	a	g_outputDmaList, g_outputDmaList{[0]}, size	rotqmbyi destLo_wd1, destLo,-4
+Loop_AddDmaListEntry:
+	clgt	mask_last_entry, dmaMaxSize, size		lqx	dmalist_qw, tagPostBuffer, outputDmaListSize
+								
+	selb	entry, dmaMaxSize, size, mask_last_entry	cdx	s_insert, tagPostBuffer, outputDmaListSize
+								rotqmbyi size_wd1, size, -4
+	selb	entry, destLo_wd1, entry, sel_aBCD
+
+	sf	size, entry, size				shufb	dmalist_qw, entry, dmalist_qw, s_insert
+		
+	a	destLo_wd1, destLo_wd1, size_wd1
+
+								stqx	dmalist_qw, tagPostBuffer, outputDmaListSize
+	ai	outputDmaListSize, outputDmaListSize, 0x8	; branch stall for 18 cycles if size > kDmaMaxSize
+				Branch_Loop_AddDmaListEntry:	brz	mask_last_entry, Loop_AddDmaListEntry
+; restore stack
+								lqd	$lr, 0xB0{caller+0x10}($sp)
+.if BATCHJOB_DISPATCHER_ASSERTS
+	ila	pOutputDmaListCopy, m_outputDmaListCopy		lqd	dmalist_qw_copy, 0x00(tagPostBuffer)
+.endif
+								shufb	g_outputDmaList, outputDmaListSize, g_outputDmaList, s_aAcd
+								shufb	g_memoryMap, outputPos, g_memoryMap, s_abAd
+
+
+								hbr	Return_ReserveOutputBuffer, $lr
+.if BATCHJOB_DISPATCHER_ASSERTS
+	nop			{Check for DMA list overwrite}	stqx	dmalist_qw_copy, pOutputDmaListCopy, g_postBuffer
+.endif
+								stqa	g_outputDmaList, m_outputDmaList
+								stqa	g_memoryMap, m_memoryMap
+								lqd	$80, 0x20($sp)
+								lqd	$81, 0x30($sp)
+								lqd	$82, 0x40($sp)
+								lqd	$83, 0x50($sp)
+								lqd	$84, 0x60($sp)
+								lqd	$85, 0x70($sp)
+								lqd	$86, 0x80($sp)
+								lqd	$87, 0x90($sp)
+	ai	$sp, $sp, 160					; branch stall for ~1-2 cycles
+				Return_ReserveOutputBuffer:	bi	$lr
+.end
+;=================================================================================================
+
+;=================================================================================================
+.start
+.global EndCommands
+
+.extern g_jobContext
+.extern Assert_OutputDmaListOverwritten
+.reg g_pWwsJob_JobApi
+.if BATCHJOB_DISPATCHER_AUDITS
+.reg g_pStoreAudit
+.endif
+
+; globals - loaded and stored to m_ locations with matching names
+.extern	m_memoryMap
+.extern	m_postBuffer
+.extern	m_outputDmaList
+.reg	g_memoryMap		; tags to start of buffers (tagCurInputBuf, tagWorkBuf, pCurOutputPos, pVolatilePos)
+.reg	g_preBuffer		; pre-buffer data (curInputIndex*4+4, tagPreBuffer0, tagPreBuffer1, ...)
+.reg	g_postBuffer		; post-buffer data (curOutputIndex*4+4, tagPostBuffer0, tagPostBuffer1, ...)
+.reg	g_outputDmaList		; (output dma size, output dma list size, ...)
+.if BATCHJOB_DISPATCHER_ASSERTS
+.extern m_outputDmaListCopy
+.extern	Assert_OutputDmaListOverwritten
+.endif
+
+;-------------------------------------------------------------------------------------------------
+
+.text
+.align 3
+
+;-------------------------------------------------------------------------------------------------
+;	void EndCommands()
+EndCommands:
+.reg	_0
+;setup stack frame with $sp, $lr, and 3 non-volatiles
+								stqd	$sp, -112($sp)
+								stqd	$lr, 0x10($sp{caller})
+	ai	$sp, $sp,-112
+.if BATCHJOB_DISPATCHER_AUDITS
+.reg	pJobContext
+								lqa	pJobContext, g_jobContext
+.else
+								lnop
+.endif
+								stqd	$80, 0x20($sp)
+								stqd	$81, 0x30($sp)
+								stqd	$82, 0x40($sp)
+								stqd	$83, 0x50($sp)
+.if BATCHJOB_DISPATCHER_AUDITS
+	ai	g_pWwsJob_JobApi, pJobContext, 0x30		stqd	$84, 0x60($sp)
+	nop							lqd	g_pStoreAudit, WwsJob_ApiCommand_kStoreAudit(g_pWwsJob_JobApi)
+.endif
+								lqa	g_outputDmaList, m_outputDmaList
+								lqa	g_postBuffer, m_postBuffer
+								brz	g_outputDmaList, Skip_DmaPut
+.if BATCHJOB_DISPATCHER_AUDITS
+.reg	pCode_Bie
+.reg outputDmaSize
+	ilhu	$3, kAuditOutputDmaStart			rotqbyi	outputDmaSize, g_outputDmaList, 4
+	{nop}							fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+	a	$3, $3, outputDmaSize
+.cuse	$3, $4, $5
+								bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie25			bie	pCode_Bie [StoreAudit_Bie25] StoreAudit_Bie25:
+.endif
+.reg	tagPostBuffer, dmaCmd, dmaTagId, dmaLsa, currentDmaListSize
+.reg pCode_Bid, pCode_Bie
+	ila	pCode_Bid, EndCommands_Bid			rotqby	tagPostBuffer, g_postBuffer, g_postBuffer
+	il	dmaCmd, kDmaPutl				bid	pCode_Bid [EndCommands_Bid] EndCommands_Bid:
+	il	_0, 0						rotqbyi	currentDmaListSize, g_outputDmaList, 4
+.if BATCHJOB_DISPATCHER_ASSERTS
+.reg	dmalist_qw, dmalist_qw_copy, dmalist_neq, pOutputDmaListCopy
+;nop stopd $0, $0, $0	
+	ila	pOutputDmaListCopy, m_outputDmaListCopy		lqd	dmalist_qw, 0x00(tagPostBuffer)
+								lqx	dmalist_qw_copy, pOutputDmaListCopy, g_postBuffer
+	xor	dmalist_neq, dmalist_qw, dmalist_qw_copy	orx	dmalist_neq, dmalist_neq
+	{Assert DMA list not overwritten}			brnz	dmalist_neq, Assert_OutputDmaListOverwritten [#nojump]
+.endif
+	rotmi	dmaTagId, tagPostBuffer,-24			wrch	$ch18{MFC_EAL}, tagPostBuffer
+	ai	dmaLsa, tagPostBuffer, kDmaOutputListMaxSize	wrch	$ch17{MFC_EAH}, _0
+								wrch	$ch19{MFC_Size}, currentDmaListSize
+								wrch	$ch16{MFC_LSA}, dmaLsa				
+	ila	pCode_Bie, EndCommands_Bie			wrch	$ch20{MFC_TagID}, dmaTagId
+								wrch	$ch21{MFC_CMD}, dmaCmd
+								bie	pCode_Bie [EndCommands_Bie] EndCommands_Bie:
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditOutputDmaEnd				fsmbi	$4, 0
+	nop							fsmbi	$5, 0
+	a	$3, $3, g_outputDmaList
+.cuse	$3, $4, $5
+								bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie26			bie	pCode_Bie [StoreAudit_Bie26] StoreAudit_Bie26:
+.endif
+Skip_DmaPut:
+.if BATCHJOB_DISPATCHER_AUDITS
+	ilhu	$3, kAuditEnd					fsmbi	$4, 0
+	{nop}							fsmbi	$5, 0
+.cuse	$3, $4, $5
+	{nop}							bisld	$lr, g_pStoreAudit [#func]
+	ila	pCode_Bie, StoreAudit_Bie27			bie	pCode_Bie [StoreAudit_Bie27] StoreAudit_Bie27:
+.endif
+; restore stack two steps up, and return from _start:
+								lqd	$lr{2prev}, 0x130($sp)	;$sp + 0x70 + 0xB0 + 0x10 = stack[prev].lr
+	ai	$sp{prev}, $sp, 112				; stall for 5 cycles
+								hbr	Return_EndCommands, $lr{2prev}
+                                                                lqd	$80, 0x20($sp)
+								lqd	$81, 0x30($sp)
+                                                                lqd	$82, 0x40($sp)
+								lqd	$83, 0x50($sp)
+                                                                lqd	$84, 0x60($sp)
+								lqd	$85, 0x70($sp)
+								lqd	$86, 0x80($sp)
+								lqd	$87, 0x90($sp)
+.if BATCHJOB_DISPATCHER_AUDITS
+								lqd	$88, 0xa0($sp)
+.endif
+	ai	$sp{2prev}, $sp{prev}, 176			; branch stall for ~10 cycles
+					Return_EndCommands:	bi	$lr{2prev}
+.end
+;=================================================================================================
+
+.start
+.global InvalidCommand
+;	void InvalidCommand()
+InvalidCommand:
+	nop							stop	;end task
+.end
+;=================================================================================================
+
+;=================================================================================================
+.if BATCHJOB_DISPATCHER_DPRINTS
+.start
+.global DEBUG_PtrToLoc_SPU
+
+; globals - loaded and stored to m_ locations with matching names
+.extern	m_reverseMemoryMap
+.extern	m_bufferSizes
+.reg	g_reverseMemoryMap
+.reg	g_bufferSizes
+
+;-------------------------------------------------------------------------------------------------
+
+.text
+.align 3
+
+;-------------------------------------------------------------------------------------------------
+DEBUG_PtrToLoc_SPU:
+.reg 	mask_addr, mask_ltEnd, mask_ltStart, mask_inBuf, bitsX4_inBuf, indexX4_inBuf, buf_start, reverseMemoryMapEnd, s_AAAA
+	ila	mask_addr, 0x3FFF0				lqa	g_reverseMemoryMap, m_reverseMemoryMap
+	ila	s_AAAA, 0x010203				lqa	g_bufferSizes, m_bufferSizes
+	and	$3, $3, mask_addr				hbr	Return_PtrToLoc_SPU, $lr
+
+								shufb	$3, $3, $3, s_AAAA
+
+
+	a	reverseMemoryMapEnd, g_reverseMemoryMap, g_bufferSizes
+	cgt	mask_ltStart, g_reverseMemoryMap, $3
+	cgt	mask_ltEnd, reverseMemoryMapEnd, $3
+
+	andc	mask_inBuf, mask_ltEnd, mask_ltStart
+
+								gbb	bitsX4_inBuf, mask_inBuf
+
+
+
+	clz	indexX4_inBuf, bitsX4_inBuf
+
+	ai	indexX4_inBuf, indexX4_inBuf, -16
+
+								rotqby	buf_start, g_reverseMemoryMap, indexX4_inBuf
+
+	or	$3, $3, indexX4_inBuf
+	nop
+	sf	$3, buf_start, $3	Return_PtrToLoc_SPU:	bi	$lr
+.end
+.endif
+;=================================================================================================
+

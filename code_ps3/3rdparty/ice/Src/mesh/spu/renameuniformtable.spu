@@ -1,0 +1,191 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+;in
+; $3 ptr rename tbl
+; $4 number of renames
+; $5 ptr to uniform tbl
+; $6 ptr to current out data
+;
+;temp
+; $7 out ptr addition
+; $8 out ptr addition
+
+.data
+.align 4
+initialIdx:		.dh 0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70
+
+.text
+.align 7
+
+.reg pIn
+.reg pOut
+.reg pRename
+.reg count
+.reg branch, loop, utblLoop, test
+.reg idx
+.reg ind1
+.reg ind2
+.reg ind3
+.reg ind4
+.reg ind5
+.reg ind6
+.reg ind7
+.reg ind8
+.reg d1
+.reg d2
+.reg d3
+.reg d4
+.reg d5
+.reg d6
+.reg d7
+.reg d8
+
+
+.global RenameUniformTable
+RenameUniformTable:
+
+.cset $7, $8, $9
+
+	ila	loop, loop
+	ila utblLoop, utblLoop
+
+utblLoop:
+	ai	count, $4, 7+8						lqd	pIn, 0x00($5)
+	il	$8, 0x00							lqa	idx, initialIdx
+	il	$9, 0x80							hbrr	loopFrom, loop
+	nop										lnop
+	andi	count, count, -8				lnop
+	ai	$6, $6, -1							rotqby	pIn, pIn, $5
+	ori	pRename, $3, 0						lnop
+	ai	$5, $5, 0x04						{lnop}
+	ori	pOut, pIn, 0						{lnop}
+
+loop:										
+{2} rotmai	ind1, idx, -16					{2} shlqbyi	ind4, idx, 4
+{2} ai		ind2, idx, 0					{2} shlqbyi	ind6, idx, 8
+											{2} shlqbyi	ind8, idx, 12
+											{1} lqd		idx, 0x00(pRename)
+{2} rotmai	ind3, ind4, -16					{2} lqx		d1, pIn, ind1
+{2} rotmai	ind5, ind6, -16					{2} lqx		d2, pIn, ind2
+{2} rotmai	ind7, ind8, -16					{2} lqx		d4, pIn, ind4
+{1} ori		$7, $8, 0						{2} lqx		d6, pIn, ind6
+{1} ori		$8, $9, 0						{2} lqx		d3, pIn, ind3
+											{2} lqx		d8, pIn, ind8
+											{2} lqx		d5, pIn, ind5
+{2} ai		count, count, -8				{2} lqx		d7, pIn, ind7
+{1} shlhi	idx, idx, 4						{2} stqd	d1, 0x00(pOut)
+	cgti	test, count, 0					{2} stqd	d2, 0x10(pOut)
+	nop										{2} stqd	d4, 0x30(pOut)
+	selb	branch, utblLoop, loop, test	{2} stqd	d6, 0x50(pOut)
+	ceq		test, test, $6					{2} stqd	d3, 0x20(pOut)
+											{2} stqd	d8, 0x70(pOut)
+											{2} stqd	d5, 0x40(pOut)
+{1} ai		pRename, pRename, 0x10			{2} stqd	d7, 0x60(pOut)
+{2} a		pOut, pOut, $7		loopFrom:	{2} biz		test, branch [loop]
+
+											bi	$lr
+
+
+.if TEST
+
+.data
+
+.align 12
+m_uniformTbl1:		.df	1.0,	2.0,	3.0,	4.0
+					.df	5.0,	6.0,	7.0,	8.0
+					.df	9.0,	10.0,	11.0,	12.0
+					.df	13.0,	14.0,	15.0,	16.0
+					.df	17.0,	18.0,	19.0,	20.0
+					.df	21.0,	22.0,	23.0,	24.0
+					.df	25.0,	26.0,	27.0,	28.0
+					.df	29.0,	30.0,	31.0,	32.0
+					.df	33.0,	34.0,	35.0,	36.0
+					.df	37.0,	38.0,	39.0,	40.0
+					.df	41.0,	42.0,	43.0,	44.0
+					.df	45.0,	46.0,	47.0,	48.0
+					.df	49.0,	50.0,	51.0,	52.0
+					.df	53.0,	54.0,	55.0,	56.0
+					.df	57.0,	58.0,	59.0,	60.0
+					.df	61.0,	62.0,	63.0,	64.0
+					.df	1.0,	2.0,	3.0,	4.0
+					.df	5.0,	6.0,	7.0,	8.0
+					.df	9.0,	10.0,	11.0,	12.0
+					.df	13.0,	14.0,	15.0,	16.0
+					.df	17.0,	18.0,	19.0,	20.0
+					.df	21.0,	22.0,	23.0,	24.0
+					.df	25.0,	26.0,	27.0,	28.0
+					.df	29.0,	30.0,	31.0,	32.0
+					.df	33.0,	34.0,	35.0,	36.0
+					.df	37.0,	38.0,	39.0,	40.0
+					.df	41.0,	42.0,	43.0,	44.0
+					.df	45.0,	46.0,	47.0,	48.0
+					.df	49.0,	50.0,	51.0,	52.0
+					.df	53.0,	54.0,	55.0,	56.0
+					.df	57.0,	58.0,	59.0,	60.0
+					.df	61.0,	62.0,	63.0,	64.0
+
+m_uniformTbl2:		.df	1.0,	2.0,	3.0,	4.0	;0
+					.df	6.0,	6.0,	7.0,	8.0	;1
+					.df	9.0,	10.0,	11.0,	12.0	;2
+					.df	13.0,	14.0,	15.0,	16.0	;3
+					.df	5.0,	18.0,	19.0,	20.0	;4
+					.df	21.0,	22.0,	23.0,	24.0	;5
+					.df	25.0,	26.0,	27.0,	28.0	;6
+					.df	29.0,	30.0,	31.0,	32.0	;7
+					.df	4.0,	34.0,	35.0,	36.0	;8
+					.df	37.0,	38.0,	39.0,	40.0	;9
+					.df	41.0,	42.0,	43.0,	44.0	;a
+					.df	45.0,	46.0,	47.0,	48.0	;b
+					.df	49.0,	50.0,	51.0,	52.0	;c
+					.df	53.0,	54.0,	55.0,	56.0	;d
+					.df	57.0,	58.0,	59.0,	60.0	;e
+					.df	61.0,	62.0,	63.0,	64.0	;f
+					.df	3.0,	2.0,	3.0,	4.0	;10
+					.df	5.0,	6.0,	7.0,	8.0	;11
+					.df	9.0,	10.0,	11.0,	12.0	;12
+					.df	13.0,	14.0,	15.0,	16.0	;13
+					.df	17.0,	18.0,	19.0,	20.0	;14
+					.df	21.0,	22.0,	23.0,	24.0	;15
+					.df	25.0,	26.0,	27.0,	28.0	;16
+					.df	29.0,	30.0,	31.0,	32.0	;17
+					.df	2.0,	34.0,	35.0,	36.0	;18
+					.df	37.0,	38.0,	39.0,	40.0	;19
+					.df	41.0,	42.0,	43.0,	44.0	;1a
+					.df	45.0,	46.0,	47.0,	48.0	;1b
+					.df	49.0,	50.0,	51.0,	52.0	;1c
+					.df	53.0,	54.0,	55.0,	56.0	;1d
+					.df	57.0,	58.0,	59.0,	60.0	;1e
+					.df	1.0,	62.0,	63.0,	64.0	;1f
+
+m_renameTbl:		.dh	0x01, 0x01, 0x04, 0x04, 0x04, 0x08, 0x08, 0x08
+					.dh	0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10
+					.dh	0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+					.dh	0x1f, 0x1f
+
+.align 4
+m_uniformTbl:		.dw	m_uniformTbl1, m_uniformTbl2, 0, 0
+
+.text
+
+.global _start
+_start:
+	ila	$3, m_renameTbl						hbrr	f, RenameUniformTable
+	ila	$5, m_uniformTbl					lnop
+	il	$4, 26								lnop
+	il	$6, 2
+	nop										f:	brsl	$lr, RenameUniformTable [#func]
+	nop										stop
+
+.endif
+
+.end
+
+

@@ -1,0 +1,324 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.global GenerateTriangleFacingTable
+; Implements GenerateTriangleFacingTable() in ice/mesh/icemeshshadow.cpp
+; U32 GenerateTriangleFacingTable(U16* indexes, F32 *pos, U32 *facing, F32 lightPos[3], U32 isPointLight, U32 numTris);
+;
+; First calculates triangle normal and direction to light.  Uses this to determine whether or not each triangle is facing the
+; light.  Operates on four triangles at a time, and stores multiples of four results.  Output buffer must be padded out to a
+; multiple of 4 entries.
+
+.define TEST 0
+
+.data
+
+.extern m_AaAa 
+.extern m_AaBb 
+.extern m_cdAB 
+
+.text
+
+; input arguments
+.reg pIndexesIn		3	; Pointer to uniform index table (4 indexes per double word, fourth index is garbage), must be quadword aligned
+.reg pPos		4	; Pointer to position uniform table, must be quadword aligned
+.reg pFacing		5	; Out, facing information will be stored starting at this address, must be quadword aligned
+.reg lightPos		6	; Position of the light
+.reg isPointLight	7
+.reg numTris		8 
+
+; return values
+.reg bfCount		3	; Number of triangles facing the light
+
+.reg count			; Loop counter
+.reg crossFX			; Start of cross product of legs0 and legs1, x component
+.reg crossFY			; Start of cross product of legs0 and legs1, x component
+.reg crossFZ			; Start of cross product of legs0 and legs1, x component
+.reg crossRX			; Final cross product of legs0 and legs1, x component.  Normal of triangle.
+.reg crossRY			; Final cross product of legs0 and legs1, y component.  Normal of triangle.
+.reg crossRZ			; Final cross product of legs0 and legs1, z component.  Normal of triangle.
+.reg dotX			; Dot product of vector to light and triangle normal, first part
+.reg dotY			; Dot product of vector to light and triangle normal, secont part
+.reg dotZ			; Dot product of vector to light and triangle normal, result
+.reg facingF			; Whether or not triangle faces light
+.reg facingOff			; Destination address, delayed
+.reg facingOff_			; Destination address
+.reg indexA0			; Preferred word holds first index for triangle A
+.reg indexA2			; Preferred word holds second index for triangle A
+.reg indexB0			; Preferred word holds third index for triangle B
+.reg indexB1			; Preferred word holds first index for triangle B
+.reg indexB2			; Preferred word holds second index for triangle B
+.reg indexC0			; Preferred word holds first index for triangle C
+.reg indexC2			; Preferred word holds second index for triangle C
+.reg indexD0			; Preferred word holds third index for triangle D
+.reg indexD1			; Preferred word holds first index for triangle D
+.reg indexD2			; Preferred word holds second index for triangle D
+.reg legA0			; First leg (from vertex 1 to vertex 0) for triangle A
+.reg legA1			; Second leg (from vertex 2 to vertex 0) for triangle A
+.reg legB0			; First leg (from vertex 1 to vertex 0) for triangle B
+.reg legB1			; Second leg (from vertex 2 to vertex 0) for triangle B
+.reg legC0			; First leg (from vertex 1 to vertex 0) for triangle C
+.reg legC1			; Second leg (from vertex 2 to vertex 0) for triangle C
+.reg legD0			; First leg (from vertex 1 to vertex 0) for triangle D
+.reg legD1			; Second leg (from vertex 2 to vertex 0) for triangle D
+.reg legs0X			; X components of first leg for all triangles
+.reg legs0Y			; Y components of first leg for all triangles
+.reg legs0Z			; Z components of first leg for all triangles
+.reg legs1X			; X components of second leg for all triangles
+.reg legs1Y			; Y components of second leg for all triangles
+.reg legs1Z			; Z components of second leg for all triangles
+.reg lightX			; X components of to light vector for all triangles
+.reg lightY			; Y components of to light vector for all triangles
+.reg lightZ			; Z components of to light vector for all triangles
+.reg m_00FF			; Used to bring all of one type of component into a register
+.reg mask1			; Creates a mask based on whether light is a point light or not
+.reg onef			; Floating point 1.0
+.reg pIndexes			; Pointer to index data
+.reg s_AaAa			; Shuffles x component of vectors into one register
+.reg s_AaBb			; Mixes X and Y components from 2 registers
+.reg s_BbAa			; Mixes X and Y components from 2 registers
+.reg s_BbBb			; Shuffles y component of vectors into one register
+.reg s_CcCc			; Shuffles z component of vectors into one register
+.reg s_cdAB			; Used in conjuction with temp registers to fill registers with Y components
+.reg temp10			; Used to gather all of one component into legs0X
+.reg temp11			; Used to gather all of one component into legs1Y
+.reg temp13			; Used to gather all of one component into legs0Y
+.reg temp20			; Used to gather all of one component into legs0X
+.reg temp21			; Used to gather all of one component into legs1Y
+.reg temp23			; Used to gather all of one component into legs0Y
+.reg temp30			; Used to gather all of one component into legs0Z
+.reg temp31			; Used to gather all of one component into legs1Z
+.reg temp33			; Used to gather all of one component into legs0Z
+.reg temp40			; Used to gather all of one component into legs0Z
+.reg temp41			; Used to gather all of one component into legs1Z
+.reg temp43			; Used to gather all of one component into legs0Z
+.reg toAdd			; Number of added facing triangles in a particular loop iteration
+.reg toLightX			; X components of vectors from triangles to light
+.reg toLightY			; Y components of vectors from triangles to light
+.reg toLightZ			; Z components of vectors from triangles to light
+.reg triIndexesAB		; Loaded indexes for first two triangles, preferred word holds index A1
+.reg triIndexesCD		; Loaded indexes for second two triangles, preferred word holds index C1
+.reg vert0X			; X components of first vertex for all triangles, used to calculate toLight
+.reg vert0Y			; Y components of first vertex for all triangles, used to calculate toLight
+.reg vert0Z			; Z components of first vertex for all triangles, used to calculate toLight
+.reg vertA0			; Loaded, first vertex of triangle A
+.reg vertA1			; Loaded, second vertex of triangle A
+.reg vertA2			; Loaded, third vertex of triangle A
+.reg vertB0			; Loaded, first vertex of triangle B
+.reg vertB1			; Loaded, second vertex of triangle B
+.reg vertB2			; Loaded, third vertex of triangle B
+.reg vertC0			; Loaded, first vertex of triangle C
+.reg vertC1			; Loaded, second vertex of triangle C
+.reg vertC2			; Loaded, third vertex of triangle C
+.reg vertD0			; Loaded, first vertex of triangle D
+.reg vertD1			; Loaded, second vertex of triangle D
+.reg vertD2			; Loaded, third vertex of triangle D
+.reg vertScale			; Will be zero in the case of a pointlight, affects toLight vector
+
+.align 7
+GenerateTriangleFacingTable:
+; This load instruction is temporary until we pass the actual light psoition instead of a pointer to it.
+	nop								{o6}	lqd	lightPos, 0x00(lightPos)
+
+{e2}	ori	pIndexes, pIndexesIn, 0					{o6}	lqr	s_AaAa, m_AaAa
+{e2}	il	bfCount, 0						{o?}	biz	numTris, $lr
+{e2}	ai	count, numTris, 7					{o6}	lqr	s_AaBb, m_AaBb
+{e2}	il	facingOff, 0						{o6 0}	lqd	triIndexesAB, 0x00(pIndexes)
+{e4}	rotmi	count, count, -2					{o6 0}	lqd	triIndexesCD, 0x10(pIndexes)
+{e2}	il	facingOff_, 0						{o6}	lqr	s_cdAB, m_cdAB
+{e2}	ilhu	onef, 0x3F80 						{o4}	fsmbi	m_00FF, 0x00FF
+{e2}	orbi	s_BbBb, s_AaAa, 0x04					{o4}	shufb	isPointLight, isPointLight, isPointLight, s_AaAa
+{e2}	orbi	s_CcCc, s_AaAa, 0x08					{o4}	shufb	lightX, lightPos, lightPos, s_AaAa
+{e4 0}	shli	triIndexesAB, triIndexesAB, 4				{o4}	shufb	lightY, lightPos, lightPos, s_BbBb
+{e4 0}	shli	triIndexesCD, triIndexesCD, 4				{o4}	shufb	lightZ, lightPos, lightPos, s_CcCc
+{e2}	ceqi	mask1, isPointLight, 0					{o6}	rotqbyi	s_BbAa, s_AaBb, 8
+{e2}	il	toAdd, 0						{o}	hbrr	gft_branch, gft_loop
+{e2}	selb	vertScale, onef, facingOff, mask1			{o4}	fsmbi	toLightX, 0x0000
+{e2}	il	toLightY, 0						{o4}	fsmbi	toLightZ, 0x0000
+.cset temp11, temp21, temp31, temp41
+.cset legs1X, legs1Y, legs1Z, legs0X, legs0Y, legs0Z
+
+gft_loop:
+; This loop could be 1 cycle shorter by removing the 'rotqbyi facingOff...' on the odd side and by removing two
+; 'fs' instructions by shuffling the vertices first.
+{e4 1}	roti	indexA0, triIndexesAB, 16				{o4 1}	rotqbyi	indexA2, triIndexesAB, 2
+{e6 2}	fm	crossFX, legs0Y, legs1Z					{o4 1}	rotqbyi	indexB1, triIndexesAB, 8
+{e2 2}	selb	legs1X, temp11, temp21, m_00FF				{o4 1}	rotqbyi	indexB2, triIndexesAB, 10
+{e6 2}	fm	crossFZ, legs0X, legs1Y					{o4 1}	rotqbyi	indexC2, triIndexesCD, 2
+{e6 2}	fm	crossFY, legs0Z, legs1X					{o6 1}	lqx	vertA1, pPos, triIndexesAB
+{e4 1}	roti	indexB0, indexB1, 16					{o6 1}	lqx	vertA0, pPos, indexA0
+{e4 1}	roti	indexC0, triIndexesCD, 16				{o4 1}	rotqbyi	indexD1, triIndexesCD, 8
+{e6 2}	fnms	crossRX, legs0Z, legs1Y, crossFX			{o4 1}	rotqbyi	indexD2, triIndexesCD, 10
+{e2 1}	ai	pIndexes, pIndexes, 32					{o6 1}	lqx	vertA2, pPos, indexA2
+{e2 1}	ai	count, count, -1					{o6 1}	lqx	vertB0, pPos, indexB0
+{e4 1}	roti	indexD0, indexD1, 16					{o6 1}	lqx	vertB1, pPos, indexB1
+{e6 1}	fs	legA0, vertA1, vertA0					{o6 1}	lqx	vertB2, pPos, indexB2
+{e6 2}	fnms	crossRY, legs0X, legs1Z, crossFY			{o6 1}	lqx	vertC0, pPos, indexC0
+{e6 2}	fm	dotX, crossRX, toLightX					{o6 1}	lqx	vertC1, pPos, triIndexesCD
+{e6 1}	fs	legA1, vertA2, vertA0					{o6 1}	lqx	vertD0, pPos, indexD0
+	nop								{o6 1}	lqx	vertD1, pPos, indexD1
+{e6 1}	fs	legB0, vertB1, vertB0					{o6 1}	lqx	vertC2, pPos, indexC2
+{e6 1}	fs	legB1, vertB2, vertB0					{o6 1}	lqx	vertD2, pPos, indexD2
+{e6 2}	fnms	crossRZ, legs0Y, legs1X, crossFZ			{o4 1}	shufb	temp13, vertA0, vertB0, s_AaBb
+{e6 1}	fs	legC0, vertC1, vertC0					{o4 1}	shufb	temp33, vertA0, vertB0, s_CcCc
+{e6 2}	fma	dotY, crossRY, toLightY, dotX				{o4 1}	shufb	temp23, vertC0, vertD0, s_BbAa
+{e6 1}	fs	legD0, vertD1, vertD0					{o4 1}	shufb	temp43, vertC0, vertD0, s_CcCc
+{e6 1}	fs	legC1, vertC2, vertC0					{o6 0}	lqd	triIndexesAB, 0x00(pIndexes)
+{e6 1}	fs	legD1, vertD2, vertD0					{o6 0}	lqd	triIndexesCD, 0x10(pIndexes)
+{e2 1}	selb	vert0X, temp13, temp23, m_00FF				{o4 1}	shufb	vert0Y, temp23, temp13, s_cdAB
+{e2 1}	selb	vert0Z, temp33, temp43, m_00FF				{o4 1}	shufb	temp10, legA0, legB0, s_AaBb
+{e6 2}	fma	dotZ, crossRZ, toLightZ, dotY				{o4 1}	shufb	temp11, legA1, legB1, s_AaBb
+{e6 1}	fnms	toLightX, vert0X, vertScale, lightX			{o4 1}	shufb	temp20, legC0, legD0, s_BbAa
+{e6 1}	fnms	toLightY, vert0Y, vertScale, lightY			{o4 1}	shufb	temp31, legA1, legB1, s_CcCc
+{e6 1}	fnms	toLightZ, vert0Z, vertScale, lightZ			{o4 1}	shufb	temp30, legA0, legB0, s_CcCc
+{e2 3}	a	bfCount, bfCount, toAdd					{o4 1}	shufb	temp21, legC1, legD1, s_BbAa
+{e4 0}	shli	triIndexesAB, triIndexesAB, 4				{o4 1}	shufb	temp40, legC0, legD0, s_CcCc
+{e2 2}	cgti	facingF, dotZ, 0					{o4 1}	shufb	temp41, legC1, legD1, s_CcCc
+{e4 0}	shli	triIndexesCD, triIndexesCD, 4				{o4 1}	shufb	legs0Y, temp20, temp10, s_cdAB
+{e2 1}	selb	legs0X, temp10, temp20, m_00FF				{o4 2}	gb	toAdd, facingF
+{e2 1}	selb	legs0Z, temp30, temp40, m_00FF				{o6 2}	stqx	facingF, pFacing, facingOff
+{e2 1}	selb	legs1Z, temp31, temp41, m_00FF				{o4 1}	rotqbyi	facingOff, facingOff_, 0
+{e2 1}	ai	facingOff_, facingOff_, 16				{o4 1}	shufb	legs1Y, temp21, temp11, s_cdAB
+{e4 2}	cntb	toAdd, toAdd				gft_branch:	{o? 1}	brnz	count, gft_loop
+
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+{e2 3}	a	bfCount, bfCount, toAdd					{o?}	bi	$lr
+
+.if 0
+; Unrolled loop - untested, for documentation purposes only
+; Load triangle indexes
+									{o6 0}	lqd	triIndexesAB, 0x00(pIndexes)
+									{o6 0}	lqd	triIndexesCD, 0x10(pIndexes)
+{e4 0}	shli	triIndexesAB, triIndexesAB, 4
+{e4 0}	shli	triIndexesCD, triIndexesCD, 4
+
+; Turn indexes into pointer offsets to load vertexes
+{e4 1}	roti	indexA0, triIndexesAB, 16				{o4 1}	rotqbyi	indexA2, triIndexesAB, 2
+									{o4 1}	rotqbyi	indexB1, triIndexesAB, 8
+									{o4 1}	rotqbyi	indexB2, triIndexesAB, 10
+									{o4 1}	rotqbyi	indexC2, triIndexesCD, 2
+{e4 1}	roti	indexB0, indexB1, 16
+{e4 1}	roti	indexC0, triIndexesCD, 16									
+									{o4 1}	rotqbyi	indexD1, triIndexesCD, 8
+									{o4 1}	rotqbyi	indexD2, triIndexesCD, 10
+{e4 1}	roti	indexD0, indexD1, 16
+
+; Load Vertexes
+									{o6 1}	lqx	vertA1, pPos, triIndexesAB
+									{o6 1}	lqx	vertA0, pPos, indexA0
+									{o6 1}	lqx	vertA2, pPos, indexA2
+									{o6 1}	lqx	vertB0, pPos, indexB0
+									{o6 1}	lqx	vertB1, pPos, indexB1
+									{o6 1}	lqx	vertB2, pPos, indexB2
+									{o6 1}	lqx	vertC0, pPos, indexC0
+									{o6 1}	lqx	vertC1, pPos, triIndexesCD
+									{o6 1}	lqx	vertD0, pPos, indexD0
+									{o6 1}	lqx	vertD1, pPos, indexD1
+									{o6 1}	lqx	vertC2, pPos, indexC2
+									{o6 1}	lqx	vertD2, pPos, indexD2
+
+; Loop maintenance
+{e2 1}	ai	pIndexes, pIndexes, 32					
+{e2 1}	ai	count, count, -1					
+
+; Calculate legs
+{e6 1}	fs	legA0, vertA1, vertA0					
+{e6 1}	fs	legA1, vertA2, vertA0					
+{e6 1}	fs	legB0, vertB1, vertB0					
+{e6 1}	fs	legB1, vertB2, vertB0
+{e6 1}	fs	legC0, vertC1, vertC0
+{e6 1}	fs	legD0, vertD1, vertD0
+{e6 1}	fs	legC1, vertC2, vertC0					
+{e6 1}	fs	legD1, vertD2, vertD0					
+
+; Start component shuffling
+									{o4 1}	shufb	temp13, vertA0, vertB0, s_AaBb
+									{o4 1}	shufb	temp33, vertA0, vertB0, s_CcCc
+									{o4 1}	shufb	temp23, vertC0, vertD0, s_BbAa
+									{o4 1}	shufb	temp43, vertC0, vertD0, s_CcCc
+{e2 1}	selb	vert0X, temp13, temp23, m_00FF				{o4 1}	shufb	vert0Y, temp23, temp13, s_cdAB
+{e2 1}	selb	vert0Z, temp33, temp43, m_00FF				{o4 1}	shufb	temp10, legA0, legB0, s_AaBb
+									{o4 1}	shufb	temp11, legA1, legB1, s_AaBb
+									{o4 1}	shufb	temp20, legC0, legD0, s_BbAa
+									{o4 1}	shufb	temp31, legA1, legB1, s_CcCc
+									{o4 1}	shufb	temp30, legA0, legB0, s_CcCc
+									{o4 1}	shufb	temp21, legC1, legD1, s_BbAa
+									{o4 1}	shufb	temp40, legC0, legD0, s_CcCc
+									{o4 1}	shufb	temp41, legC1, legD1, s_CcCc
+									{o4 1}	shufb	legs0Y, temp20, temp10, s_cdAB
+
+; Calculate vector to light									
+{e6 1}	fnms	toLightX, vert0X, vertScale, lightX
+{e6 1}	fnms	toLightY, vert0Y, vertScale, lightY
+{e6 1}	fnms	toLightZ, vert0Z, vertScale, lightZ
+
+; Finish shuffling components, compute cross and dot product
+{e2 1}	selb	legs0X, temp10, temp20, m_00FF				
+{e2 1}	selb	legs0Z, temp30, temp40, m_00FF				
+{e2 1}	selb	legs1Z, temp31, temp41, m_00FF				{o4 1}	rotqbyi	facingOff, facingOff_, 0
+{e2 1}	ai	facingOff_, facingOff_, 16				{o4 1}	shufb	legs1Y, temp21, temp11, s_cdAB
+{e6 2}	fm	crossFX, legs0Y, legs1Z
+{e2 2}	selb	legs1X, temp11, temp21, m_00FF
+{e6 2}	fm	crossFZ, legs0X, legs1Y
+{e6 2}	fm	crossFY, legs0Z, legs1X
+{e6 2}	fnms	crossRX, legs0Z, legs1Y, crossFX
+{e6 2}	fnms	crossRY, legs0X, legs1Z, crossFY
+{e6 2}	fm	dotX, crossRX, toLightX
+{e6 2}	fnms	crossRZ, legs0Y, legs1X, crossFZ
+{e6 2}	fma	dotY, crossRY, toLightY, dotX
+{e6 2}	fma	dotZ, crossRZ, toLightZ, dotY
+
+; Determine if triangle faces light, store results, and add number of facing triangles to count
+{e2 2}	cgti	facingF, dotZ, 0
+									{o4 2}	gb	toAdd, facingF
+									{o6 2}	stqx	facingF, pFacing, facingOff
+{e4 2}	cntb	toAdd, toAdd
+{e2 3}	a	bfCount, bfCount, toAdd
+							gft_branch:	{o? 1}	brnz	count, gft_loop
+.endif ;0
+
+.if TEST
+
+.data
+
+m_numTris: .dw 12,0,0,0
+
+m_indexTable:	.dh 0,1,2,0,0,1,2,0
+		.dh 0,1,2,0,0,1,2,0
+		.dh 0,2,1,0,0,2,1,0
+		.dh 0,2,1,0,0,2,1,0
+		.dh 0,1,2,0,0,1,2,0
+		.dh 0,2,1,0,0,2,1,0
+				
+m_uniformPositions:	.df 0, 0, 0, 1
+			.df 1, 0, 0, 1
+			.df 0, 1, 0, 1
+			.df 1, 1, 0, 1
+					
+m_facingTable:	.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+		.dw 0xdeadcafe, 0xdeadcafe, 0xdeadcafe, 0xdeadcafe
+				
+m_lightData:	.df 0, 0, 1, 1
+
+.text
+
+.global _start
+_start:
+{e2}	ila	pIndexes, m_indexTable					{o6}	lqa	numTris, m_numTris
+{e2}	ila	facing, m_facingTable					{o6}	lqa	lightPos, m_lightData
+{e2}	ila	isPointLight, 1							lnop
+{e2}	ila	pos, m_uniformPositions					{o?}	brsl	$lr, GenerateTriangleFacingTable	[#func]
+	nop									stop
+.endif ;TEST
+
+.end
+

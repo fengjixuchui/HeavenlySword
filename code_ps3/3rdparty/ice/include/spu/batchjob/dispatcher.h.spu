@@ -1,0 +1,66 @@
+; Copyright (c) 2003-2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+;dispatcher.h.spu
+; Includes basic defines used by SPU dispatcher
+
+.if !BATCHJOB_DISPATCHER_SPU_H
+.define BATCHJOB_DISPATCHER_SPU_H 1
+
+.define	DOUBLE_BUFFERED			1
+
+; List of job manager buffer sets from icebatchjob.h:
+; enum {
+.define kInputBufferSet			 0
+.define kWorkBufferSet			 1
+.define kOutputBufferSet		 2
+.define kCodeBufferSet			 3
+; setMask = 1<<set; for WwsJobManager UnreserveBufferSets
+.define kInputBufferSetMask		 1
+.define kWorkBufferSetMask		 2
+.define kInputBufferSetMask		 4
+.define kCodeBufferSetMask		 8
+; };
+
+.define kLogicalBuffer0			 0
+.define kLogicalBuffer1			 1
+
+.define	WwsJob_kDontAllocDmaTag		 0
+.define	WwsJob_kAllocDmaTag		 1
+
+;namespace WwsJob_ApiCommand { enum { // shifted by 2 to be jump table offsets
+.define	WwsJob_ApiCommand_kExecuteCommands	0x00	;NOTE: no rotqby required
+.define	WwsJob_ApiCommand_kGetBufferTag		0x04
+.define	WwsJob_ApiCommand_kGetBufferTags	0x08
+.define	WwsJob_ApiCommand_kUseDmaTagId		0x0C
+.define	WwsJob_ApiCommand_kFreeDmaTagId		0x10	;NOTE: no rotqby required
+.define	WwsJob_ApiCommand_kLoadNextJob		0x14
+.define	WwsJob_ApiCommand_kFreeLogicalBuffer	0x18
+.define	WwsJob_ApiCommand_kFreeLogicalBuffers	0x1C
+.define	WwsJob_ApiCommand_kStoreAudit		0x20	;NOTE: no rotqby required
+;};}
+
+; List of possible job manager audit types from icebatchjob.h:
+; enum {
+.define kAuditStart			(kAuditSystem<<10)+0x00
+.define kAuditInitStart			(kAuditSystem<<10)+0x01
+.define kAuditInitEnd			(kAuditSystem<<10)+0x02
+.define kAuditCmdStart			(kAuditSystem<<10)+0x03
+.define kAuditCmd			(kAuditSystem<<10)+0x04
+.define kAuditInputUseBufferStart	(kAuditSystem<<10)+0x05
+.define kAuditInputUseBufferEnd		(kAuditSystem<<10)+0x06
+.define kAuditInputDmaStart		(kAuditSystem<<10)+0x07
+.define kAuditInputDmaEnd		(kAuditSystem<<10)+0x08
+.define kAuditInputFreeBufferStart	(kAuditSystem<<10)+0x09
+.define kAuditInputFreeBufferEnd	(kAuditSystem<<10)+0x0a
+.define kAuditOutputUseBufferStart	(kAuditSystem<<10)+0x0b
+.define kAuditOutputUseBufferEnd	(kAuditSystem<<10)+0x0c
+.define kAuditOutputDmaStart		(kAuditSystem<<10)+0x0d
+.define kAuditOutputDmaEnd		(kAuditSystem<<10)+0x0e
+.define kAuditEnd			((kAuditSystem<<10)+0x0f)
+.define kAuditNull			((kAuditSystem<<10)+0x10)
+; };
+
+.endif	// !BATCHJOB_DISPATCHER_SPU_H
+

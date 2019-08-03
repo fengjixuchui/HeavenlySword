@@ -1,0 +1,142 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+.start
+.data
+.align 4
+.global	m_000D000d00000000
+.global	m_00Aa00Ee00Ii00Mm
+.global	m_0A000B000C000D00
+.global	m_0E0F0G0H
+.global	m_A0B0C0D0
+.global	m_AAAA
+.global	m_AABC
+.global	m_ABCADEFD
+.global	m_ABCD
+.global	m_ABCDEFGH
+.global	m_ABCDEFGHIJKLMNOP
+.global	m_ABCDEFGb
+.global	m_ABCDEFb0
+.global	m_ABCDEb00
+.global	m_ABCDb000
+.global	m_ABCEFGab
+.global	m_ABCa
+.global	m_ABCb0000
+.global	m_ABCbEFGb
+.global	m_ABa0
+.global	m_ABa0EFe0IJi0MNm0
+.global	m_ABb00000
+.global	m_ABb0EFb0
+.global	m_ABcd
+.global	m_ACEGaceg
+.global	m_ACac
+.global	m_AEIM000000000000
+.global	m_Aa00
+.global	m_AaAa
+.global	m_AaBb
+.global	m_AbCdEfGh
+.global	m_AcBa
+.global	m_BAab
+.global	m_BBDDFFHH
+.global	m_BBDDFFHHJJLLNNPP
+.global	m_BCAD
+.global	m_BCCD
+.global	m_BCDD
+.global	m_BCDd
+.global	m_BCa0
+.global	m_BCbc
+.global	m_BCcb
+.global	m_Baaa
+.global	m_Bb000000
+.global	m_Bb00Bb00
+.global	m_BbB0bBb0
+.global	m_BbCc
+.global	m_BcD0
+.global	m_BcDa
+.global	m_CD00BC00AB000000
+.global	m_CDab
+.global	m_CDdc
+.global	m_CEFGabce
+.global	m_CcAa
+.global	m_CcCc
+.global	m_DAad
+.global	m_DCba
+.global	m_DDDDHHHHLLLLPPPP
+.global	m_FGabcefg
+.global	m_IJABijabIJABijab
+.global	m_aAaBaCaD
+.global	m_aEaFaGaH
+.global	m_abAB
+.global	m_caAB
+.global	m_cdAB
+.global	m_dAD0
+
+m_000D000d00000000:		.dshuf	"000D000d00000000"
+m_00Aa00Ee00Ii00Mm:		.dshuf	"00Aa00Ee00Ii00Mm"
+m_0A000B000C000D00:		.dshuf	"0A000B000C000D00"
+m_0E0F0G0H:		.dshuf	"0E0F0G0H"
+m_A0B0C0D0:		.dshuf	"A0B0C0D0"
+m_AAAA:		.dshuf	"AAAA"
+m_AABC:		.dshuf	"AABC"
+m_ABCADEFD:		.dshuf	"ABCADEFD"
+m_ABCDEFGHIJKLMNOP:
+m_ABCDEFGH:
+m_ABCD:		.dshuf	"ABCD"
+m_ABCDEFGb:		.dshuf	"ABCDEFGb"
+m_ABCDEFb0:		.dshuf	"ABCDEFb0"
+m_ABCDEb00:		.dshuf	"ABCDEb00"
+m_ABCDb000:		.dshuf	"ABCDb000"
+m_ABCEFGab:		.dshuf	"ABCEFGab"
+m_ABCa:		.dshuf	"ABCa"
+m_ABCb0000:		.dshuf	"ABCb0000"
+m_ABCbEFGb:		.dshuf	"ABCbEFGb"
+m_ABa0:		.dshuf	"ABa0"
+m_ABa0EFe0IJi0MNm0:		.dshuf	"ABa0EFe0IJi0MNm0"
+m_ABb00000:		.dshuf	"ABb00000"
+m_ABb0EFb0:		.dshuf	"ABb0EFb0"
+m_ABcd:		.dshuf	"ABcd"
+m_ACEGaceg:		.dshuf	"ACEGaceg"
+m_ACac:		.dshuf	"ACac"
+m_AEIM000000000000:		.dshuf	"AEIM000000000000"
+m_Aa00:		.dshuf	"Aa00"
+m_AaAa:		.dshuf	"AaAa"
+m_AaBb:		.dshuf	"AaBb"
+m_AbCdEfGh:		.dshuf	"AbCdEfGh"
+m_AcBa:		.dshuf	"AcBa"
+m_BAab:		.dshuf	"BAab"
+m_BBDDFFHH:		.dshuf	"BBDDFFHH"
+m_BBDDFFHHJJLLNNPP:		.dshuf	"BBDDFFHHJJLLNNPP"
+m_BCAD:		.dshuf	"BCAD"
+m_BCCD:		.dshuf	"BCCD"
+m_BCDD:		.dshuf	"BCDD"
+m_BCDd:		.dshuf	"BCDd"
+m_BCa0:		.dshuf	"BCa0"
+m_BCbc:		.dshuf	"BCbc"
+m_BCcb:		.dshuf	"BCcb"
+m_Baaa:		.dshuf	"Baaa"
+m_Bb000000:		.dshuf	"Bb000000"
+m_Bb00Bb00:		.dshuf	"Bb00Bb00"
+m_BbB0bBb0:		.dshuf	"BbB0bBb0"
+m_BbCc:		.dshuf	"BbCc"
+m_BcD0:		.dshuf	"BcD0"
+m_BcDa:		.dshuf	"BcDa"
+m_CD00BC00AB000000:		.dshuf	"CD00BC00AB000000"
+m_CDab:		.dshuf	"CDab"
+m_CDdc:		.dshuf	"CDdc"
+m_CEFGabce:		.dshuf	"CEFGabce"
+m_CcAa:		.dshuf	"CcAa"
+m_CcCc:		.dshuf	"CcCc"
+m_DAad:		.dshuf	"DAad"
+m_DCba:		.dshuf	"DCba"
+m_DDDDHHHHLLLLPPPP:		.dshuf	"DDDDHHHHLLLLPPPP"
+m_FGabcefg:		.dshuf	"FGabcefg"
+m_IJABijabIJABijab:		.dshuf	"IJABijabIJABijab"
+m_aAaBaCaD:		.dshuf	"aAaBaCaD"
+m_aEaFaGaH:		.dshuf	"aEaFaGaH"
+m_abAB:		.dshuf	"abAB"
+m_caAB:		.dshuf	"caAB"
+m_cdAB:		.dshuf	"cdAB"
+m_dAD0:		.dshuf	"dAD0"
+.end

@@ -1,0 +1,291 @@
+################################################################################################
+##
+##	Copyright (c) 2003-2006 Sony Computer Entertainment.
+##	Use and distribution without consent strictly prohibited.
+##
+################################################################################################
+ 
+################################################################################################
+##
+##	CODE_DIR should be set prior to including this file
+##
+##	This file defines macros needed by the build process
+##
+################################################################################################
+
+
+################################################################################################
+## If a version type hasn't been requested, default to debug
+################################################################################################
+
+ifndef VERSION
+	VERSION=debug
+endif
+
+
+
+################################################################################################
+##	Choose which OS we're running on
+################################################################################################
+
+ifeq ($(OS),CYGWIN) 
+HOST_DIR = host-win32
+else
+ifeq ($(OS),Windows_NT) 
+HOST_DIR = host-win32
+else
+HOST_DIR = host-linux
+endif
+endif
+
+
+
+################################################################################################
+##	Option to allow choosing between silent mode and echoing commands
+################################################################################################
+
+#COMMAND_PRINTING = TRUE
+
+ifndef COMMAND_PRINTING
+#If COMMAND_PRINTING hasn't been defined, then default to not printing
+COMMAND_PRINTING = FALSE
+endif
+
+ifneq (TRUE, $(COMMAND_PRINTING))
+.SILENT :
+endif
+
+
+################################################################################################
+##	This is the main target
+################################################################################################
+
+.PHONY : all
+all : alltargets
+ifeq (0,${MAKELEVEL})
+	@echo Build completed at:
+ifeq ($(filter %cmd.exe,$(SHELL)),$(SHELL))
+	@time /T
+else
+	@date
+endif
+endif
+
+#Could actually call recursively from "all" above as a means of setting CURR_DIR
+#@$(MAKE) alltargets CURR_DIR=`pwd`
+
+
+################################################################################################
+##	Default all of these to being empty - They can then be added to later
+################################################################################################
+
+TARGETS				= 
+SPU_SOURCES			=
+SPU_LIBS			=
+CLEAN_DIRS			=
+CLEAN_FILES			=
+CLEAN_MAKEFILES			=
+PPU_DEFINES			=
+SPU_DEFINES			=
+COMMON_DEFINES			=
+PPU_OPTIMISATION_OPTIONS	= 
+SPU_OPTIMISATION_OPTIONS	= 
+PPU_LINKER_OPTIONS		= 
+PPU_COMPILE_OPTIONS		=
+PPU_OBJCOPY_OPTIONS		=
+SPU_COMPILE_OPTIONS		=
+SPU_PM_LINK_OPTIONS		=
+SPU_JOB_LINK_OPTIONS	=
+
+
+
+################################################################################################
+##
+##	Include the file that defines the settings for this build
+##
+##	The file name we will be loading is lower case so if the user has chosen
+##	DEBUG or RELEASE, force it to lower case.  Really we should move over to
+##	encouraging lower case name usage, but I'll include this here temporarily
+##	for backwards compatibility.
+##
+################################################################################################
+
+ifeq ($(VERSION),DEBUG)
+	include $(CODE_DIR)/job/debug.bld
+else
+ifeq ($(VERSION),RELEASE)
+	include $(CODE_DIR)/job/release.bld
+else
+	include $(CODE_DIR)/job/$(VERSION).bld
+endif
+endif
+
+
+
+################################################################################################
+##	If these options haven't been set by the make command line or the version include
+##	file, then set some defaults
+################################################################################################
+
+ifndef MODE
+	MODE=ASM
+endif
+
+ifndef PIPELINE
+	PIPELINE=1
+endif
+
+ifndef WWSJOB_COMPILER
+	WWSJOB_COMPILER=kWWSJOB_GCC
+#	WWSJOB_COMPILER=kWWSJOB_SNC
+endif
+
+################################################################################################
+##	Now implement the relevant settings for these options
+################################################################################################
+
+ifeq ($(MODE), ASM)
+COMMON_DEFINES			+= -DWWS_JOB_USE_C_VERSION=0
+JOB_MEMORY_BASE_ADDR		= 0x4000
+else
+COMMON_DEFINES			+= -DWWS_JOB_USE_C_VERSION=1
+JOB_MEMORY_BASE_ADDR		= 0xC000
+endif
+
+ifeq ($(PIPELINE), 0)
+SPU_DEFINES			+= -DENABLE_JOB_PIPELINE=0
+else
+SPU_DEFINES			+= -DENABLE_JOB_PIPELINE=1
+endif
+
+
+################################################################################################
+##	The following options exist solely for debug purposes and should normally be disabled
+################################################################################################
+
+#This option turns on basic writing of some of timing audits to $ch69 as PA Bookmarks
+#SPU_DEFINES			+= -DENABLE_TIMING_PA_BOOKMARKS
+#FRONTEND_DEFINES		+= -D ENABLE_TIMING_PA_BOOKMARKS=1
+
+#This option turns on extremely basic audits for timing the starting and stopping of workloads
+#SPU_DEFINES			+= -DENABLE_WORKLOAD_AUDITS
+#FRONTEND_DEFINES		+= -D ENABLE_WORKLOAD_AUDITS=1
+
+#This option turns on basic timing audits
+#SPU_DEFINES			+= -DENABLE_TIMING_AUDITS
+#FRONTEND_DEFINES		+= -D ENABLE_TIMING_AUDITS=1
+
+#This option turns on important audits
+#SPU_DEFINES			+= -DENABLE_IMPORTANT_AUDITS
+#FRONTEND_DEFINES		+= -D ENABLE_IMPORTANT_AUDITS=1
+
+#This option turns on verbose audits
+#SPU_DEFINES			+= -DENABLE_VERBOSE_AUDITS
+
+#This option turns on immediate mode audit outputing
+#SPU_DEFINES			+= -DIMMEDIATE_AUDIT_OUTPUT
+#FRONTEND_DEFINES		+= -D IMMEDIATE_AUDIT_OUTPUT=1
+
+#If you want to preserve interrupt status, then enable this line
+#Note that this mode is *NOT* supported fully, and may never be.  The default is "not defined"
+#SPU_DEFINES			+= -DPRESERVE_INTERRUPT_STATUS=1
+
+
+################################################################################################
+##	This is the base address at which a job can be compiled.  If a job is set to be
+##	compiled to a fixed address, this is the lowest address it can be compiled to.
+################################################################################################
+
+PPU_DEFINES			+= -DJOB_MEMORY_BASE_ADDR=$(JOB_MEMORY_BASE_ADDR)
+
+
+################################################################################################
+##	Default the SPU_UPLOAD_ADDRESS to zero.  This indicates that the code is to be
+##	position independent.  If the job is to be uploaded to a fixed address, then the
+##	job must use this variable to specify the upload address that it will be uploading to.
+################################################################################################
+
+SPU_UPLOAD_ADDRESS		= 0
+
+
+################################################################################################
+##	Set up some more values based off of those already assigned
+################################################################################################
+
+WWS_DIR				= $(CODE_DIR)/..
+
+SAMPLES_DIR			= $(CODE_DIR)/job/samples
+
+IMAGES_DIR			= $(WWS_DIR)/images/job
+
+SPU_TEMP_DIR			= $(WWS_DIR)/build/$(HOST_DIR)/$(BUILD_FOLDER_NAME)/job/spu
+PPU_TEMP_DIR			= $(WWS_DIR)/build/$(HOST_DIR)/$(BUILD_FOLDER_NAME)/job/ppu
+DEBUG_INFO_DIR			= $(WWS_DIR)/debuginfo
+
+SPU_LIB_DIR			= $(WWS_DIR)/lib/$(BUILD_FOLDER_NAME)/spu
+PPU_LIB_DIR			= $(WWS_DIR)/lib/$(BUILD_FOLDER_NAME)/ppu
+
+BIN_DIR				= $(WWS_DIR)/bin/$(HOST_DIR)
+
+
+################################################################################################
+#	Clean out the default suffixes list since we won't be using any of them.
+################################################################################################
+
+.SUFFIXES :
+
+
+################################################################################################
+##	Set the defaults for what libraries a job or plugin links to
+################################################################################################
+
+SPU_JOB_SYS_LIBS		=
+SPU_JOB_SYS_LIBS		+= -lc
+
+SPU_DEFAULT_JOB_LIBS		=
+SPU_DEFAULT_JOB_LIBS		+= jobcrt0.spu.o
+SPU_DEFAULT_JOB_LIBS		+= libjobapi.spu.a
+
+SPU_PLUGIN_SYS_LIBS		=
+SPU_PLUGIN_SYS_LIBS		+= -lc
+
+SPU_DEFAULT_PLUGIN_LIBS		=
+SPU_DEFAULT_PLUGIN_LIBS		+= plugincrt0.spu.o
+SPU_DEFAULT_PLUGIN_LIBS		+= libjobapi.spu.a
+
+
+
+
+################################################################################################
+##	Please ignore the following.  It's a work in progress attempt to tidy up our pathing
+##	and reduce the issue a user might potentially have of going over MAX_PATH.
+##	The whole build process needs looking at and this may or may not get worked in then.
+################################################################################################
+#
+#
+###SPLIT the current directory string at the "wws" folder
+#SPLIT_CURDIR=$(subst /wws,/wws ,$(CURDIR))
+#
+###The last word gives us the folder(s) suffixed after the final "wws"
+#SUFFIX=$(word $(words $(SPLIT_CURDIR)),$(SPLIT_CURDIR))
+#
+###Delete the folder(s) suffix from the end of the current directory
+#PROJDIR=$(patsubst %$(SUFFIX),%,$(CURDIR))
+#
+#ifeq ($(HOST_DIR),host-win32)
+###And convert to a dos path for passing to gcc
+#DOS_DIR += $(subst /cygdrive/c,c:,$(filter /cygdrive/c/%, $(PROJDIR)))
+#DOS_DIR += $(subst /cygdrive/d,d:,$(filter /cygdrive/d/%, $(PROJDIR)))
+#DOS_DIR += $(subst /cygdrive/e,e:,$(filter /cygdrive/e/%, $(PROJDIR)))
+#WWS_DIR = $(strip $(DOS_DIR))
+#else
+#WWS_DIR = PROJ_DIR
+#endif
+#
+#	#echo CURDIR = $(CURDIR)
+#	#echo SPLIT_CURDIR = $(SPLIT_CURDIR)
+#	#echo SUFFIX = $(SUFFIX)
+#	#echo PROJDIR = $(PROJDIR)
+#	#echo WWS_DIR = $(WWS_DIR)
+#
+################################################################################################

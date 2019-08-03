@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+
+.start
+.include "conventions.inl"
+.text
+
+// void WwsJob_ReturnToSpursKernel( void )
+.reg marker, lsMarker, cond1
+.reg instr
+.reg ex
+.reg zero
+.extern g_WwsJob_dataForJob
+.extern g_WwsJob_spursContext
+.extern StoreAuditDataInitialNoDataU64
+.extern FinalizeAudits
+.extern ShutdownInterruptHandler
+.extern _cellSpursModuleExit
+.if ASSERTS_ENABLED
+.extern ReturnToSpursKernel_AssertBufferNotFreed
+.extern ReturnToSpursKernel_AssertStackMarker
+.endif
+
+.global WwsJob_ReturnToSpursKernel 
+WwsJob_ReturnToSpursKernel: // 10 instructions, 40 bytes
+.if ENABLE_TIMING_AUDITS || ENABLE_WORKLOAD_AUDITS
+		ila $74, kWwsJob_end							brsl $78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		{nop}									brsl $lr, FinalizeAudits [#func]
+		ila ex,	SihDi								{lnop}
+		ila zero, 0								bid ex [SihDi] SihDi:
+		{nop}									wrch $ch1, zero
+		{nop}									stqa zero, 0
+.if ASSERTS_ENABLED
+.reg	mask_usedDmaTagMaskOk
+		ilhu marker, kStackMarkerValue_hi					lqa mask_usedDmaTagMaskOk, g_WwsJob_usedDmaTagMask
+		iohl marker, kStackMarkerValue_lo					lqa lsMarker, kStackMarkerAddr
+		ceqi	mask_usedDmaTagMaskOk, mask_usedDmaTagMaskOk, 0xFF		{lnop}
+		ceq cond1, marker, lsMarker						brz mask_usedDmaTagMaskOk, ReturnToSpursKernel_AssertBufferNotFreed
+		{nop}									brz cond1, ReturnToSpursKernel_AssertStackMarker
+.endif
+.if ENABLE_TIMING_PA_BOOKMARKS
+		ila $74, kWwsJob_end							wrch	$ch69, $74
+.endif
+		nop									brsl $lr, _cellSpursModuleExit /* does not return */
+
+.end

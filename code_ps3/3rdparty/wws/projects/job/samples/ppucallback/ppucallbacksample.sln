@@ -1,0 +1,56 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ppucallbacksample", "ppucallbacksample.vcproj", "{D79D2148-BF24-4C17-BAE1-7C742934EAD0}"
+	ProjectSection(ProjectDependencies) = postProject
+		{47DD661A-7610-4C12-9ACD-744FB3BB2535} = {47DD661A-7610-4C12-9ACD-744FB3BB2535}
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331} = {20317E6D-EA95-46CE-A4B1-A1B23725B331}
+		{F0C77CC9-1935-4F5F-85A5-1798388FEE78} = {F0C77CC9-1935-4F5F-85A5-1798388FEE78}
+		{29834CCC-234A-4712-856C-DF23421345FF} = {29834CCC-234A-4712-856C-DF23421345FF}
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781} = {56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ppucallbackjob", "ppucallbackjob\ppucallbackjob.vcproj", "{F0C77CC9-1935-4F5F-85A5-1798388FEE78}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobapi-spu", "..\..\src\spu\jobapi\jobapi-spu.vcproj", "{20317E6D-EA95-46CE-A4B1-A1B23725B331}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobmanager", "..\..\src\spu\jobmanager\jobmanager.vcproj", "{29834CCC-234A-4712-856C-DF23421345FF}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobapi-ppu", "..\..\src\ppu\jobapi\jobapi-ppu.vcproj", "{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobcrt0", "..\..\src\spu\jobapi\jobcrt0.vcproj", "{47DD661A-7610-4C12-9ACD-744FB3BB2535}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{D79D2148-BF24-4C17-BAE1-7C742934EAD0}.Debug.ActiveCfg = Debug|Win32
+		{D79D2148-BF24-4C17-BAE1-7C742934EAD0}.Debug.Build.0 = Debug|Win32
+		{D79D2148-BF24-4C17-BAE1-7C742934EAD0}.Release.ActiveCfg = Release|Win32
+		{D79D2148-BF24-4C17-BAE1-7C742934EAD0}.Release.Build.0 = Release|Win32
+		{F0C77CC9-1935-4F5F-85A5-1798388FEE78}.Debug.ActiveCfg = Debug|Win32
+		{F0C77CC9-1935-4F5F-85A5-1798388FEE78}.Release.ActiveCfg = Release|Win32
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331}.Debug.ActiveCfg = Debug|Win32
+		{20317E6D-EA95-46CE-A4B1-A1B23725B331}.Release.ActiveCfg = Release|Win32
+		{29834CCC-234A-4712-856C-DF23421345FF}.Debug.ActiveCfg = Debug|Win32
+		{29834CCC-234A-4712-856C-DF23421345FF}.Release.ActiveCfg = Release|Win32
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}.Debug.ActiveCfg = Debug|Win32
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}.Release.ActiveCfg = Release|Win32
+		{47DD661A-7610-4C12-9ACD-744FB3BB2535}.Debug.ActiveCfg = Debug|Win32
+		{47DD661A-7610-4C12-9ACD-744FB3BB2535}.Release.ActiveCfg = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

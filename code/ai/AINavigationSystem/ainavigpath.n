@@ -1,0 +1,33 @@
+//! -------------------------------------------
+//! AINavigFollowNode.h
+//!
+//! Manages the  AIs Navigation Grpah
+//!
+//! Author: Dario Sancho-Pradel (DSP)
+//!
+//!--------------------------------------------
+
+#ifndef _AINAVIGFOLLOWNODE_H
+#define _AINAVIGFOLLOWNODE_H
+
+#include "ainavigtar.h"
+
+// Forward declarations
+
+
+class CAINavigFollowNode
+{
+	public:
+
+		void SetPath		( _PNavigNodeList );
+		void GetNextNode	();
+
+	private:
+	
+
+
+};
+
+#endif // _AINAVIGFOLLOWNODE_H 
+
+

@@ -1,0 +1,8 @@
+SRC := hkCommandRouter.cpp hkDebugDisplay.cpp hkDrawUtil.cpp hkProcessFactory.cpp hkProcessRegisterUtil.cpp hkServerDebugDisplayHandler.cpp hkServerProcessHandler.cpp hkVersionReporter.cpp hkVisualDebugger.cpp hkVisualDebuggerDebugOutput.cpp hkVisualize.cpp process/hkDebugDisplayProcess.cpp process/hkInspectProcess.cpp process/hkStatisticsProcess.cpp serialize/hkDisplaySerializeIStream.cpp serialize/hkDisplaySerializeOStream.cpp serialize/hkObjectSerialize.cpp serialize/hkObjectSerializeRegistry.cpp shape/hkDisplayAABB.cpp shape/hkDisplayBox.cpp shape/hkDisplayCapsule.cpp shape/hkDisplayCone.cpp shape/hkDisplayConvex.cpp shape/hkDisplayCylinder.cpp shape/hkDisplayGeometry.cpp shape/hkDisplayPlane.cpp shape/hkDisplaySemiCircle.cpp shape/hkDisplaySphere.cpp type/hkColor.cpp
+
+LIB_NAME = hkvisualize
+
+DEFINES += -DHK_DISABLE_VECTOR4_CONSTRUCTORS
+
+include ../../havokCommon_ps3_gcc.mk
+

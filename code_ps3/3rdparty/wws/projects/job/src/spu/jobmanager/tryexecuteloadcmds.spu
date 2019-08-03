@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+.start 
+.include "conventions.inl"
+.text
+
+// void WwsJob_TryExecuteLoadCmds( void )
+.reg loadJobState
+.reg mask, two
+.extern g_WwsJob_loadJobNum
+.extern g_WwsJob_loadJobState
+.extern IsDmaTagMaskDone
+.extern WwsJob_TryExecuteCmds
+.extern	StoreAuditDataInitialNoDataU64
+.global WwsJob_TryExecuteLoadCmds
+WwsJob_TryExecuteLoadCmds: // 20 instructions, 80 bytes
+.if	ENABLE_IMPORTANT_AUDITS
+		il	$74, kWwsJob_TryExecuteLoadCmds					brsl	$78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.endif
+		{nop}									stqd	$lr, 16($sp)
+		{nop}									stqd	$sp, -32($sp)
+		il	$3, DmaTagMask_kRunJob_writeShareableBuffers			brsl	$4, IsDmaTagMaskDone [#IsDmaTagMaskDoneCC]
+		ai	$sp, $sp, -32							brz	$3, TelcExit
+		ila	$5, g_WwsJob_loadCommands					lqa	$4, g_WwsJob_loadJobNum
+		ceqi	mask, $4, 0							{lnop}
+		ai	$3, $4, -1							{lnop}
+		il	two, 2								lnop
+		selb	$3, $3, two, mask						brsl	$lr, WwsJob_TryExecuteCmds [#func]
+		il	loadJobState, LoadJobState_kCommandsExecuted			brz	$3, TelcExit
+		{nop}									stqa	loadJobState, g_WwsJob_loadJobState
+TelcExit:	{nop}									lqd	$lr, 48($sp)
+		ai	$sp, $sp, 32							bi	$lr
+
+.end

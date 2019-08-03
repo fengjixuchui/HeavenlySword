@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="jobapi-ppu"
+	ProjectGUID="{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}"
+	RootNamespace="libjobapi"
+	Keyword="Win32Proj">
+	<Platforms>
+		<Platform
+			Name="Win32"/>
+	</Platforms>
+	<Configurations>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="Debug"
+			IntermediateDirectory="Debug"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=debug"
+				ReBuildCommandLine="make all VERSION=debug"
+				CleanCommandLine="make clean VERSION=debug"/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="Release"
+			IntermediateDirectory="Release"
+			ConfigurationType="0"
+			CharacterSet="2">
+			<Tool
+				Name="VCNMakeTool"
+				BuildCommandLine="make VERSION=release"
+				ReBuildCommandLine="make all VERSION=release"
+				CleanCommandLine="make clean VERSION=release"/>
+		</Configuration>
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+		<Filter
+			Name="Source Files"
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{0A0719E0-390F-4E98-9F16-DC124EAF3CA9}">
+			<File
+				RelativePath=".\auditmanager.cpp">
+			</File>
+			<File
+				RelativePath=".\commandlistbuilder.cpp">
+			</File>
+			<File
+				RelativePath=".\embeddedjm.cpp">
+			</File>
+			<File
+				RelativePath=".\eventhandler.cpp">
+			</File>
+			<File
+				RelativePath=".\exceptionhandler.cpp">
+			</File>
+			<File
+				RelativePath=".\joblist.cpp">
+			</File>
+			<File
+				RelativePath=".\jobprintf.cpp">
+			</File>
+			<File
+				RelativePath=".\spumodule.cpp">
+			</File>
+			<Filter
+				Name="Common"
+				Filter="">
+				<File
+					RelativePath="..\..\common\jobapi\commandlistchecker.cpp">
+				</File>
+			</Filter>
+		</Filter>
+		<Filter
+			Name="Header Files"
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{2E2074E9-8C01-42A9-8404-DD02EA5D7DA2}">
+			<File
+				RelativePath="..\..\..\include\ppu\jobapi\auditmanager.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\ppu\jobapi\commandlistbuilder.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\ppu\jobapi\embeddedjm.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\ppu\jobapi\eventhandler.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\ppu\jobapi\exceptionhandler.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\ppu\jobapi\joblist.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\ppu\jobapi\jobprintf.h">
+			</File>
+			<File
+				RelativePath="..\..\..\include\ppu\jobapi\spumodule.h">
+			</File>
+			<Filter
+				Name="Common"
+				Filter="">
+				<File
+					RelativePath="..\..\..\include\common\jobapi\audittypes.h">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\commandlistchecker.h">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\jobdefinition.h">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\jobmanagerauditdata.inc">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\jobmanagerauditids.h">
+				</File>
+				<File
+					RelativePath="..\..\..\include\common\jobapi\spumoduleheader.h">
+				</File>
+			</Filter>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{EA42C5D2-DD44-4860-9500-915DBC401FCF}">
+			<File
+				RelativePath=".\makefile">
+			</File>
+		</Filter>
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>

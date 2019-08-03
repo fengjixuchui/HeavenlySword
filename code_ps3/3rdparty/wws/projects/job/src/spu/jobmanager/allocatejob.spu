@@ -1,0 +1,198 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern AllocateJob
+.global WwsJob_AllocateJob
+WwsJob_AllocateJob:
+		ai $5, $lr, 0								br AllocateJob
+.end
+.endif
+
+.start
+.include "conventions.inl"
+
+.text
+
+// SpuJobHeader AllocateJob( U32 eaWorkload, U32 spuNum )
+
+// Input parameters
+.reg eaWorkloadIn	3
+.reg spuNum		4
+
+// Outputs
+.reg spuJobHeader	3
+
+.reg blockingLoadMask
+.reg comp1
+.reg comp2
+.reg comp3
+.reg cond1
+.reg counter
+.reg currentDependencyCacheEa
+.reg currentJobHeaderCacheEa
+.reg dependencyCache
+.reg eaJobHeaderData
+.reg eaRequiredJobHeaderCacheLine
+.reg eaWorkload
+.reg firstJobHeader
+.reg jlhqw1
+.reg jobExists
+.reg jobIsNopJob
+.reg jobHeader
+.reg jobHeaderCache
+.reg jobHeaderQword
+.reg jobIndex
+.reg jobIndexLowerDword
+.reg jobIndexOffset
+.reg kBlockingLoad
+.reg kDmaGet
+.reg kDmaGetllar
+.reg kDmaPutllc
+.reg lbrStatus
+.reg minActiveThisSpu
+.reg mmaDependencyCounter
+.reg newMinActive
+.reg newNumJobsILH
+.reg newNumJobsTaken
+.reg numJobsILH
+.reg pDependencyCache
+.reg pJobHeader
+.reg pTempUsageAtomicBuffer
+.reg qwordAddr
+.reg readWait
+.reg rotBytes
+.reg rotBytesForSpuNum
+.reg s_Bbcdefgh
+.reg sel_ABcd
+.reg sel_AbCDEFGH
+.reg sixteen
+.reg size
+.reg s_minActiveInsert
+.reg spuNumOffset
+.reg status
+.reg zero
+.usecc AllocateJobCC
+.global AllocateJob
+AllocateJob:
+	ila	pTempUsageAtomicBuffer, g_tempUsageAtomicBuffer			fsmbi	zero, 0x0000
+	ori	eaWorkload, eaWorkloadIn, 0					fsmbi	sel_AbCDEFGH, 0x3000
+
+aj_loop:
+	il	kDmaGetllar, 0xD0						wrch	$ch16, pTempUsageAtomicBuffer
+	ai	firstJobHeader, eaWorkload, 0x20				wrch	$ch18, eaWorkload
+	ila	jobHeaderCache, g_jobHeaderCache				wrch	$ch21, kDmaGetllar
+	a	spuNumOffset, spuNum, spuNum					rdch	status, $ch27
+.cuse status
+	il	size, 0x80							lqd	jlhqw1, 0x10(pTempUsageAtomicBuffer)
+	il	kBlockingLoad, 8						lqa	currentJobHeaderCacheEa, g_currentJobHeaderCacheEa
+	il	kDmaGet, 0x40							chd	s_minActiveInsert, 4(spuNumOffset)
+	il	blockingLoadMask, 0x100						chd	s_Bbcdefgh, 0($sp)
+	ai	rotBytesForSpuNum, spuNumOffset, 2				{lnop}
+	il	readWait, 2							{lnop}
+	and	jobIndex, jlhqw1, sel_AbCDEFGH					rotqby	minActiveThisSpu, jlhqw1, rotBytesForSpuNum
+	roti	numJobsILH, jlhqw1, 16						{lnop}
+	shli	jobIndexOffset, jobIndex, 3					{lnop}
+	il	kDmaPutllc, 0xB4						{lnop}
+	ahi	newNumJobsTaken, jobIndex, 1					{lnop}
+	clgth	comp1, minActiveThisSpu, jobIndex				{lnop}
+	a	eaJobHeaderData, firstJobHeader, jobIndexOffset			{lnop}
+	selb	newMinActive, minActiveThisSpu, jobIndex, comp1			{lnop}
+	andi	eaRequiredJobHeaderCacheLine, eaJobHeaderData, -128		{lnop}
+	clgth	comp2, numJobsILH, newNumJobsTaken				{lnop}
+	ceq	comp3, eaRequiredJobHeaderCacheLine, currentJobHeaderCacheEa	{lnop}
+	andi	pJobHeader, eaJobHeaderData, 0x7F				{lnop}
+	{nop}									brnz	comp3, aj_cache_valid
+
+	{nop}									wrch	$ch16, jobHeaderCache
+	{nop}									wrch	$ch18, eaRequiredJobHeaderCacheLine
+	{nop}									wrch	$ch19, size
+	{nop}									wrch	$ch20, kBlockingLoad
+	{nop}									wrch	$ch21, kDmaGet
+	{nop}									wrch	$ch22, blockingLoadMask
+	{nop}									wrch	$ch23, readWait
+	{nop}									stqa	eaRequiredJobHeaderCacheLine, g_currentJobHeaderCacheEa
+	{nop}									rdch	status, $ch24
+.cuse status
+
+aj_cache_valid:
+	selb	jlhqw1, jlhqw1, newNumJobsTaken, sel_AbCDEFGH			lqx	jobHeaderQword, jobHeaderCache, pJobHeader
+	selb	newNumJobsILH, newNumJobsTaken, numJobsILH, comp2		fsmbi	sel_ABcd, 0x00FF
+	{nop}									rotqmbyi jobIndexLowerDword, jobIndex, -12
+	{nop}									shufb	jlhqw1, newNumJobsILH, jlhqw1, s_Bbcdefgh
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									rotqby	jobHeader, jobHeaderQword, pJobHeader
+	{nop}									lqa	currentDependencyCacheEa, g_currentDependencyCacheEa
+	{nop}									{lnop}
+	ceqhi	jobIsNopJob, jobHeader, 3					{lnop}
+	ceqhi	jobExists, jobHeader, 1						rotqbyi	mmaDependencyCounter, jobHeader, 4
+	selb	spuJobHeader, jobHeader, jobIndexLowerDword, sel_ABcd		brhz	jobHeader, aj_no_job_yet
+	{nop}									brhnz	jobIsNopJob, aj_nop_job
+	{nop}									brhz	jobExists, aj_general_barrier
+
+aj_job_exists:
+	{nop}									shufb	jlhqw1, newMinActive, jlhqw1, s_minActiveInsert
+
+aj_nop_job:
+aj_after_switch:
+	{nop}									stqd	jlhqw1, 0x10(pTempUsageAtomicBuffer)
+	{nop}									wrch	$ch16, pTempUsageAtomicBuffer
+	{nop}									wrch	$ch18, eaWorkload
+	{nop}									wrch	$ch21, kDmaPutllc
+	{nop}									rdch	status, $ch27
+.cuse status
+	{nop}									brhz	jobExists, aj_loop
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+	andi	lbrStatus, status, 1						{lnop}
+	{nop}									{lnop}
+	{nop}									brnz	lbrStatus, aj_loop
+	{nop}									lnop
+	{nop}									stqa	zero, g_currentDependencyCacheEa
+	{nop}									bi	$5
+
+aj_general_barrier:
+	{nop}									{lnop}
+	ceq	cond1, mmaDependencyCounter, currentDependencyCacheEa		{lnop}
+	ila	pDependencyCache, g_dependencyCache				{lnop}
+	andi	qwordAddr, mmaDependencyCounter, -16				brnz	cond1, aj_after_switch
+	il	sixteen, 0x10							stqa	mmaDependencyCounter, g_currentDependencyCacheEa
+	{nop}									wrch	$ch16, pDependencyCache
+	{nop}									wrch	$ch18, qwordAddr
+	{nop}									wrch	$ch19, sixteen
+	{nop}									wrch	$ch20, kBlockingLoad
+	{nop}									wrch	$ch21, kDmaGet
+	{nop}									wrch	$ch22, blockingLoadMask
+	{nop}									wrch	$ch23, readWait
+	{nop}									rdch	status, $ch24
+.cuse status
+	{nop}									lqd	dependencyCache, 0(pDependencyCache)
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+	ai	rotBytes, mmaDependencyCounter, 14				{lnop}
+	{nop}									{lnop}
+	{nop}									rotqby	counter, dependencyCache, rotBytes
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									{lnop}
+	{nop}									brhz	counter, aj_after_switch
+	il	spuJobHeader, 0							{lnop}
+
+aj_no_job_yet:
+	{nop}									stqa	zero, g_currentJobHeaderCacheEa
+	{nop}									stqa	zero, g_currentDependencyCacheEa
+	{nop}									bi	$5
+
+.end
+

@@ -1,0 +1,383 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global DecompressF16
+; Implements DecompressF16() in ice/mesh/icemeshdecompress.cpp
+; void DecompressF16( I16* pSrc, U32 srcStride, F32* pDst, U32 numComponents, U32 numVerts );
+;
+; Decompress a series of 16 bit floating point values from an input vertex stream into VF32s in a uniform
+; table, four per loop.
+
+.extern strideShifts
+
+; Shuffle mask for moving shorts into the high 16-bits of their respective words in the uniform table
+.extern m_A0B0C0D0 
+
+; combine 2 loaded f16s to one qword
+.extern m_ACEGaceg 
+
+; Shuffle mask to shuffle the destination stride into place on 2nd loop iteration
+.extern m_BCCD 
+
+.text
+
+.reg pSrc		3
+.reg srcStride		4
+.reg pDst		5	; Must be 16 byte aligned
+.reg numElements	6	; Any value between 1 and 4; i.e. 3 for (x,y,z), 2 for (x,y), etc.
+.reg numVerts		7
+.reg scale		8
+.reg bias		9
+
+.reg boundOffset		; How far past the last 16 byte boundary the source data starts
+.reg bReturn			; Set if function is completed
+.reg countShift
+.reg crossBound			; Whether or not the vertexes cross a 16 byte boundary
+.reg dstStride
+.reg dstStride4			; The destination stride multiplied by 4
+.reg dstStrideAdd		; Holds the destination stride in the 3rd word, so that writing can be delayed
+.reg elementSize		; The size of all elements combined
+.reg expBias01			; The exponent bias which will be applied
+.reg expBias0			; Intermediate result - exponent bias has been applied
+.reg expBias1			; Intermediate result - exponent bias has been applied
+.reg expBias23			; The exponent bias which will be applied
+.reg expBias2			; Intermediate result - exponent bias has been applied
+.reg expBias3			; Intermediate result - exponent bias has been applied
+.reg expHoleMask		; Mask for exponent bits
+.reg expRebias			; Mask for exponent bits
+.reg fData0			; f16 mantissa to f32 mantissa
+.reg fData0Hole			; Exponent partially masked off
+.reg fData1			; f16 mantissa to f32 mantissa
+.reg fData1Hole			; Exponent partially masked off
+.reg fData2			; f16 mantissa to f32 mantissa
+.reg fData2Hole			; Exponent partially masked off
+.reg fData3			; f16 mantissa to f32 mantissa
+.reg fData3Hole			; Exponent partially masked off
+.reg hData01			; hData0 and hData1 shuffled to fit into one qword
+.reg hData0			; Qword where loaded f16s take up the top half of words
+.reg hData1			; Qword where loaded f16s take up the top half of words
+.reg hData23			; hData2 and hData3 shuffled to fit into one qword
+.reg hData2			; Qword where loaded f16s take up the top half of words
+.reg hData3			; Qword where loaded f16s take up the top half of words
+.reg inData0_2			; Loaded data, qword boundary cross case
+.reg inData0			; Loaded data, non boundary cross case
+.reg inData1_2			; Loaded data, qword boundary cross case
+.reg inData1			; Loaded data, non boundary cross case
+.reg inData2_2			; Loaded data, qword boundary cross case
+.reg inData2			; Loaded data, non boundary cross case
+.reg inData3_2			; Loaded data, qword boundary cross case
+.reg inData3			; Loaded data, non boundary cross case
+.reg innerCount			; Count for the inner loop.
+.reg innerStride
+.reg innerStride4		; Inner stride multiplied by 4
+.reg jumpTarget			; Address to branch to, determines loop
+.reg loopAddr			; Branch address for no qword boundary cross case
+.reg loopCount			; Keep track of how many times we've been through loop
+.reg loopMoreThanTwice		; Signals if we can bash memory or not
+.reg notZero01			; Exponent tested against zero, for clamping
+.reg notZero23			; Exponent tested against zero, for clamping
+.reg one
+.reg outData0			; Final value which will actually be stored
+.reg outData1			; Final value which will actually be stored
+.reg outData2			; Final value which will actually be stored
+.reg outData3			; Final value which will actually be stored
+.reg outerBranch		; Do we need to re-enter function (is every part of stream accounted for?) or return
+.reg outerCount
+.reg outerLoop			; Address of outer_loop
+.reg pDst1_2			; Destination pointer for second write after loop exit
+.reg pDst1			; Destination pointer for second write
+.reg pDst2_2			; Destination pointer for third write after loop exit
+.reg pDst2			; Destination pointer for third write
+.reg pDst3_2			; Destination pointer for fourth write after loop exit
+.reg pDst3			; Destination pointer for fourth write
+.reg pDstOffset			; Pointer offset for write
+.reg pSrc0_2			; Source Pointer cross qword boundary case
+.reg pSrc0			; Source Pointer
+.reg pSrc1_2			; Source Pointer cross qword boundary case
+.reg pSrc1			; Source Pointer
+.reg pSrc2_2			; Source Pointer cross qword boundary case
+.reg pSrc2			; Source Pointer
+.reg pSrc3_2			; Source Pointer cross qword boundary case
+.reg pSrc3			; Source Pointer
+.reg pSrcOffset			; Pointer offset for read
+.reg s_A0B0C0D0			; Shuffle mask for moving shorts into the high 16-bits of their respective words in the uniform table
+.reg s_ACEGaceg			; combine 2 loaded f16s to one qword
+.reg s_BCCD			; Shuffle mask to shuffle the destination stride into place on 2nd loop iteration
+.reg s_DDDDDDDDDDDDDDDD		; Used to offset shuffle mask
+.reg s_E0F0G0H0			; Shuffle mask for moving shorts into the high 16-bits of their respective words in the uniform table
+.reg shift
+.reg shufOffset			; Used to build final shuffle masks, according to how far off of qword boundary verts are
+.reg signMask			; Mask value for the sign bit
+.reg sLoopAddr			; Address to branch to in the case where data crosses qword boundary
+.reg s_mask			; Final shuffle mask after offset is applied
+.reg strideShift
+.reg strideShifts
+.reg totalSize			; Total size of data read
+.reg write1			; Used to control how many values are written after loop exit, only 1 value will be written
+.reg write2			; Used to control how many values are written after loop exit, only 2 values will be written
+.reg write3			; Used to control how many values are written after loop exit, only 3 values will be written
+.reg writeVerts
+
+.align 7
+
+DecompressF16:
+{e2}	il	one, 1						{o6}	lqr	strideShifts, m_strideShifts
+{e2}	ilhu	expHoleMask, 0x7000				{o?}	biz	numVerts, $lr
+{e2}	ilh	signMask, 0x8000					{lnop}
+{e2}	ilh	expRebias, 0x3800					{lnop}
+	{nop}								{lnop}
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303			{o6}	lqr	s_A0B0C0D0, m_A0B0C0D0
+{e2}	ila	loopAddr, decomp_f16_loop			{o4}	rotqby	strideShift, strideShifts, srcStride
+{e2}	ila	sLoopAddr, decomp_f16_straddle_loop			{lnop}
+{e4}	shli	elementSize, numElements, 1				{lnop}
+	{nop}								{lnop}
+{e4}	shl	innerStride, srcStride, strideShift		{o4}	shlqbi	shift, one, strideShift
+{e2}	sfi	countShift, strideShift, 0			{o6}	lqr	s_ACEGaceg, m_ACEGaceg
+{e2}	orbi	s_E0F0G0H0, s_A0B0C0D0, 0x08				{lnop}
+{e2}	ila	outerLoop, decomp_f16_outer_loop			{lnop}
+{e2}	ai	outerCount, shift, -1				{o4}	shlqbii	dstStride, shift, 4
+{e4}	shli	innerStride4, innerStride, 2			{o4}	shlqbii dstStride4, shift, 6
+
+decomp_f16_outer_loop:
+{e2 L}	a	innerCount, numVerts, outerCount			{lnop}
+{e2 L}	andi	boundOffset, pSrc, 0xF					{lnop}
+{e2 L}	ceqi	bReturn, outerCount, 0				{o4 L}	rotqmbi innerCount, innerCount, countShift
+{e2 L}	a	crossBound, boundOffset, elementSize		{o4 L}	shufb	shufOffset, boundOffset, boundOffset, s_DDDDDDDDDDDDDDDD
+{e2 L}	a	pDst1_2, pDst, dstStride				{lnop}
+{e2 L}	cgti	crossBound, crossBound, 0x10				{lnop}
+{e2 L}	ai	loopCount, innerCount, 7			{o? L}	biz	innerCount, $lr
+{e2 L}	a	pDst2_2, pDst1_2, dstStride			{o4 L}	fsmbi	pDstOffset, 0
+{e2 L}	selb	jumpTarget, loopAddr, sLoopAddr, crossBound	{o4 L}	rotqmbii loopCount, loopCount, -2
+{e2 L}	andi	writeVerts, innerCount, 0x3			{o4 L}	rotqmbyi dstStrideAdd, dstStride4, -8
+{e2 L}	a	pDst3_2, pDst2_2, dstStride			{o  L}	hbr	decomp_f16_branch, jumpTarget
+{e2 L}	ai	outerCount, outerCount, -1			{o6}	lqr	s_BCCD, m_BCCD
+{e7 L}	mpy	totalSize, loopCount, innerStride4			{lnop}
+{e2 L}	cgti	loopMoreThanTwice, loopCount, 2				{lnop}
+{e2 L}	selb	outerBranch, outerLoop, $lr, bReturn			{lnop}
+{e2 L}	selb	pDst1, pDst, pDst1_2, loopMoreThanTwice			{lnop}
+{e2 L}	selb	pDst2, pDst, pDst2_2, loopMoreThanTwice			{lnop}
+{e2 L}	selb	pDst3, pDst, pDst3_2, loopMoreThanTwice			{lnop}
+{e2 L}	a	s_mask, shufOffset, s_A0B0C0D0			  	{lnop}
+{e2 L}	a	pSrc0, pSrc, totalSize					{lnop}
+{e2 L}	sfi	pSrcOffset, totalSize, 0				{lnop}
+{e2 L}	a	pSrc1, pSrc0, innerStride				{lnop}
+{e2 L}	ai	pSrc0_2, pSrc0, 0x10					{lnop}
+{e2 L}	a	pSrc2, pSrc1, innerStride				{lnop}
+{e2 L}	ai	pSrc1_2, pSrc1, 0x10					{lnop}
+{e2 L}	a	pSrc3, pSrc2, innerStride				{lnop}
+.cset outData0, outData1, outData2, outData3
+.cset hData0, hData1, hData2, hData3
+
+decomp_f16_straddle_loop:
+{e2 L}	ai	pSrc2_2, pSrc2, 0x10				{o6 1}	lqx	inData0_2, pSrc0_2, pSrcOffset
+{e2 L}	ai	pSrc3_2, pSrc3, 0x10				{o6 1}	lqx	inData1_2, pSrc1_2, pSrcOffset
+{e2 L}	ceqi	write1, writeVerts, 1				{o6 1}	lqx	inData2_2, pSrc2_2, pSrcOffset
+{e2 L}	ceqi	write2, writeVerts, 2				{o6 1}	lqx	inData3_2, pSrc3_2, pSrcOffset
+
+decomp_f16_loop:
+{e4 2}	rotmai	fData0, hData0, -3				{o4 2}	shufb	hData01, hData0, hData1, s_ACEGaceg
+{e4 2}	rotmai	fData1, hData1, -3				{o4 2}	shufb	hData23, hData2, hData3, s_ACEGaceg
+{e4 2}	rotmai	fData2, hData2, -3				{o6 1}	lqx	inData0, pSrc0, pSrcOffset
+{e4 2}	rotmai	fData3, hData3, -3				{o6 1}	lqx	inData1, pSrc1, pSrcOffset
+{e2 2}	andc	fData0Hole, fData0, expHoleMask			{o6 1}	lqx	inData2, pSrc2, pSrcOffset
+{e2 2}	andc	fData1Hole, fData1, expHoleMask			{o6 1}	lqx	inData3, pSrc3, pSrcOffset
+{e2 2}	andc	notZero01, hData01, signMask			{o6 3}	stqx	outData0, pDst, pDstOffset
+{e2 2}	andc	notZero23, hData23, signMask			{o6 3}	stqx	outData1, pDst1, pDstOffset
+{e2 2}	clgthi	notZero01, notZero01, 0				{o4 1}	shufb	hData0, inData0, inData0_2, s_mask
+{e2 2}	clgthi	notZero23, notZero23, 0				{o4 1}	shufb	hData1, inData1, inData1_2, s_mask
+{e2 2}	and	expBias01, notZero01, expRebias			{o6 3}	stqx	outData2, pDst2, pDstOffset
+{e2 2}	and	expBias23, notZero23, expRebias			{o6 3}	stqx	outData3, pDst3, pDstOffset
+{e2 2}	andc	fData2Hole, fData2, expHoleMask			{o4 2}	shufb	expBias0, expBias01, expBias01, s_A0B0C0D0
+{e2 2}	andc	fData3Hole, fData3, expHoleMask			{o4 2}	shufb	expBias1, expBias01, expBias01, s_E0F0G0H0
+{e2 1}	a	pSrcOffset, pSrcOffset, innerStride4		{o4 2}	shufb	expBias2, expBias23, expBias23, s_A0B0C0D0
+{e2 1}	a	pDstOffset, pDstOffset, dstStrideAdd		{o4 2}	shufb	expBias3, expBias23, expBias23, s_E0F0G0H0
+{e2 2}	a	outData0, fData0Hole, expBias0			{o4 1}	shufb	hData2, inData2, inData2_2, s_mask
+{e2 2}	a	outData1, fData1Hole, expBias1			{o4 1}	shufb	hData3, inData3, inData3_2, s_mask
+{e2 2}	a	outData2, fData2Hole, expBias2			{o4 1}	shufb	dstStrideAdd, dstStrideAdd, dstStrideAdd, s_BCCD
+{e2 2}	a	outData3, fData3Hole, expBias3				; Branch is on next line.
+					decomp_f16_branch:	{o? 1}	binz	pSrcOffset, jumpTarget	[decomp_f16_straddle_loop decomp_f16_loop]
+
+{e2 L}	a	pSrc, pSrc, srcStride				{o6 3}	stqx	outData0, pDst, pDstOffset
+{e2 L}	ai	pDst, pDst, 0x10				{o? L}	binz	write1, outerBranch	[decomp_f16_outer_loop]
+{e2 L}	ceqi	write3, writeVerts, 3				{o6 3}	stqx	outData1, pDst1_2, pDstOffset
+	nop							{o? L}	binz	write2, outerBranch	[decomp_f16_outer_loop]
+	{nop}							{o6 3}	stqx	outData2, pDst2_2, pDstOffset
+	{nop}							{o? L}	binz	write3, outerBranch	[decomp_f16_outer_loop]
+	{nop}							{o6 3}	stqx	outData3, pDst3_2, pDstOffset
+	{nop}							{o? L}	bi	outerBranch	[decomp_f16_outer_loop]
+
+
+
+.if 0
+; If the input data is straddled between two quadwords, then we first need to load the data from the second
+; quadword for each of the four vertexes.
+	{nop}							{o6 1}	lqx	inData0_2, pSrc0_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData1_2, pSrc1_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData2_2, pSrc2_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData3_2, pSrc3_2, pSrcOffset
+
+; Load the first quadword of data for each of the four vertexes and increment the input pointer.
+	{nop}							{o6 1}	lqx	inData0, pSrc0, pSrcOffset
+	{nop}							{o6 1}	lqx	inData1, pSrc1, pSrcOffset
+	{nop}							{o6 1}	lqx	inData2, pSrc2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData3, pSrc3, pSrcOffset
+{e2 1}	a	pSrcOffset, pSrcOffset, innerStride4		
+	{nop}							
+
+; Shuffle the data from the two input quadwords, so that the up to four f16s loaded as input data wind up in the
+; upper halfword of each word field in the register.  The lower halfwords are set to 0.
+;	f16_0   0   f16_1   0   f16_2   0   f16_3   0
+	{nop}							{o4 1}	shufb	hData0, inData0, inData0_2, s_mask
+	{nop}							{o4 1}	shufb	hData1, inData1, inData1_2, s_mask
+	{nop}							{o4 1}	shufb	hData2, inData2, inData2_2, s_mask
+	{nop}							{o4 1}	shufb	hData3, inData3, inData3_2, s_mask
+
+; An F16 has one sign bit, 5 bits of exponent, and a 10 bit mantissa (1.5.10).
+; An F32 has one sign bit, 8 bits of exponent, and a 23 bit mantissa (1.8.23).
+; Thus, we are need to turn the F16 bit pattern of
+; seeeeemmmmmmmmmm
+; into the F32 bit pattern of
+; s000eeeeemmmmmmmmmm0000000000000
+; We start to do this by arithmetically shifting each of the word fields right by 3 bits, which gets us:
+; sssseeeeemmmmmmmmmm0000000000000, which has the sign bit repeated in the msost significant four bits.
+{e4 2}	rotmai	fData0, hData0, -3				
+{e4 2}	rotmai	fData1, hData1, -3				
+{e4 2}	rotmai	fData2, hData2, -3				
+{e4 2}	rotmai	fData3, hData3, -3				
+
+; Now we clear a hole in the F32 exponent for the three bits of exponent that are not in the F16 to get:
+; s000eeeeemmmmmmmmmm0000000000000
+{e2 2}	andc	fData0Hole, fData0, expHoleMask			
+{e2 2}	andc	fData1Hole, fData1, expHoleMask			
+{e2 2}	andc	fData2Hole, fData2, expHoleMask			
+{e2 2}	andc	fData3Hole, fData3, expHoleMask			
+
+; We shuffle together the original F16s so that we have two vertexes worth in each of two registers.  We do this
+; to save some even instructions below, since we are even bound.
+	{nop}							{o4 2}	shufb	hData01, hData0, hData1, s_ACEGaceg
+	{nop}							{o4 2}	shufb	hData23, hData2, hData3, s_ACEGaceg
+	{nop}							
+	{nop}							
+
+; Now, remove the sign bits from eachof the F16s.  We do this to properly test against 0 below, since 0 and -0 are both valid.
+{e2 2}	andc	notZero01, hData01, signMask			
+{e2 2}	andc	notZero23, hData23, signMask			
+
+; Compare the F16s against 0.
+{e2 2}	clgthi	notZero01, notZero01, 0				
+{e2 2}	clgthi	notZero23, notZero23, 0				
+
+; If the F16s are 0, then we do not want to rebias the exponent (we want to leave it as 0), otherwise, we need to rebias the
+; exponent.  For an F16, the value of 1.0 = 1.0 * 2^0, has a stored exponent of 15.  That is the exponent of an F16 has a
+; bias of 15.  A F32 exponent has a bias of 127.  So, to rebias the exponent of an F16 to and F32, we need to add 112 to it, but
+; only if the value is not 0.
+{e2 2}	and	expBias01, notZero01, expRebias			
+{e2 2}	and	expBias23, notZero23, expRebias			
+
+; Shuffle the exponent rebiases for each vertex into a seperate register.
+	{nop}							{o4 2}	shufb	expBias0, expBias01, expBias01, s_A0B0C0D0
+	{nop}							{o4 2}	shufb	expBias1, expBias01, expBias01, s_E0F0G0H0
+	{nop}							{o4 2}	shufb	expBias2, expBias23, expBias23, s_A0B0C0D0
+	{nop}							{o4 2}	shufb	expBias3, expBias23, expBias23, s_E0F0G0H0
+
+; Add the exponent rebiases to the F32s with holes.
+{e2 2}	a	outData0, fData0Hole, expBias0			
+{e2 2}	a	outData1, fData1Hole, expBias1			
+{e2 2}	a	outData2, fData2Hole, expBias2			
+{e2 2}	a	outData3, fData3Hole, expBias3			
+
+; Output the results, which are now real F32s and increment the output pointer.
+	{nop}							{o6 3}	stqx	outData0, pDst, pDstOffset
+	{nop}							{o6 3}	stqx	outData1, pDst1, pDstOffset
+	{nop}							{o6 3}	stqx	outData2, pDst2, pDstOffset
+	{nop}							{o6 3}	stqx	outData3, pDst3, pDstOffset
+{e2 1}	a	pDstOffset, pDstOffset, dstStrideAdd		
+
+; Test the source pointer to see if we should exit.
+	{nop}				decomp_f16_branch:	{o? 1}	binz	pSrcOffset, jumpTarget	[decomp_f16_straddle_loop decomp_f16_loop]
+
+.endif
+
+
+
+.if TEST
+
+.data
+
+.align 12
+m_in_stream:	.dh	0x1234, 0x2345, 0x3456, 0x4567, 0x5678, 0x6789, 0x789a, 0x89ab
+		.dh	0x1abc, 0xabfd, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x2abc, 0xabed, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x3abc, 0xabdd, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x4abc, 0xabcd, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x5abc, 0xabed, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x6abc, 0xabad, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x7abc, 0xab9d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x8abc, 0xab8d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x9abc, 0xab7d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0xaabc, 0xab6d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0xbabc, 0xab5d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0xcabc, 0xab4d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0xdabc, 0xab3d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0xeabc, 0xab2d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0xfabc, 0xab1d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		.dh	0x0abc, 0xab0d, 0xbcde, 0xcdef, 0xdef0, 0xef01, 0xf012, 0x0123
+		
+m_out_stream:	.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+
+.text
+
+.global _start
+_start:
+{e2}	ila	pSrc, m_in_stream					{lnop}
+{e2}	il	srcStride, 0x14						{lnop}
+{e2}	ai	pSrc, pSrc, 2						{lnop}
+{e2}	ila	pDst, m_out_stream					{lnop}
+{e2}	il	numElements, 3						{lnop}
+{e2}	il	numVerts, 119						{lnop}
+	{nop}							{o?}	brsl	$lr, DecompressF16 [#func]
+	{nop}								stop
+.endif
+
+.end
+

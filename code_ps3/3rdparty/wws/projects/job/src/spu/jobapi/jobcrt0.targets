@@ -1,0 +1,26 @@
+<?xml version="1.0" ?>
+<targets>
+	<rules>
+		<include>$/atgapi/atg.rules</include>
+	</rules>
+
+	<configurations>
+		<include>$/atgapi/atgps3.configurations</include>
+	</configurations>
+
+	<tools>
+		<include>$/atgapi/atg.tools</include>
+	</tools>
+
+	<clean>
+		<command>make</command>
+		<arguments>-f jobcrt0.makefile VERSION=$(configuration.wws.config) clean</arguments>
+	</clean>
+
+	<job name="Preprocessing">
+		<out>../../../../../lib/$(configuration.wws.config)/spu/jobcrt0.spu.o</out>
+		<command>make</command>
+		<arguments>-f jobcrt0.makefile VERSION=$(configuration.wws.config)</arguments>
+	</job>
+	
+</targets>

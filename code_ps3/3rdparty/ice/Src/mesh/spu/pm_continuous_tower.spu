@@ -1,0 +1,671 @@
+/*
+ * Copyright (c) 2005 Naughty Dog, Inc. 
+ * A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+ * Use and distribution without consent strictly prohibited
+ * 
+ * Revision History:
+ *  - Created 7/21/05
+ */
+
+.start
+.stdasm
+
+.data
+/*
+m_in_parent_table:	.dh 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+			.dh 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+			.dh 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17
+			.dh 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f
+			.dh 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27
+			.dh 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f
+			.dh 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37
+			.dh 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f
+
+m_src_stream:		.df 0.0, 1.0, 2.0, 3.0
+			.df 4.0, 5.0, 6.0, 7.0
+			.df 10.0, 11.0, 12.0, 13.0
+			.df 14.0, 15.0, 16.0, 17.0
+			.df 20.0, 21.0, 22.0, 23.0
+			.df 24.0, 25.0, 26.0, 27.0
+			.df 30.0, 31.0, 32.0, 33.0
+			.df 34.0, 35.0, 36.0, 37.0
+			.df 40.0, 41.0, 42.0, 43.0
+			.df 44.0, 45.0, 46.0, 47.0
+			.df 50.0, 51.0, 52.0, 53.0
+			.df 54.0, 55.0, 56.0, 57.0
+			.df 60.0, 61.0, 62.0, 63.0
+			.df 64.0, 65.0, 66.0, 67.0
+			.df 70.0, 71.0, 72.0, 73.0
+			.df 74.0, 75.0, 76.0, 77.0
+			.df 80.0, 81.0, 82.0, 83.0
+			.df 84.0, 85.0, 86.0, 87.0
+			.df 90.0, 91.0, 92.0, 93.0
+			.df 94.0, 95.0, 96.0, 97.0
+			.df 0.5, 1.5, 2.5, 3.5
+			.df 4.5, 5.5, 6.5, 7.5
+			.df 10.5, 11.5, 12.5, 13.5
+			.df 14.5, 15.5, 16.5, 17.5
+			.df 20.5, 21.5, 22.5, 23.5
+			.df 24.5, 25.5, 26.5, 27.5
+			.df 30.5, 31.5, 32.5, 33.5
+			.df 34.5, 35.5, 36.5, 37.5
+			.df 40.5, 41.5, 42.5, 43.5
+			.df 44.5, 45.5, 46.5, 47.5
+			.df 50.5, 51.5, 52.5, 53.5
+			.df 54.5, 55.5, 56.5, 57.5
+			.df 60.5, 61.5, 62.5, 63.5
+			.df 64.5, 65.5, 66.5, 67.5
+			.df 70.5, 71.5, 72.5, 73.5
+			.df 74.5, 75.5, 76.5, 77.5
+			.df 80.5, 81.5, 82.5, 83.5
+			.df 84.5, 85.5, 86.5, 87.5
+			.df 90.5, 91.5, 92.5, 93.5
+			.df 94.5, 95.5, 96.5, 97.5
+
+m_dst_stream:		.dw 0x0037c0de, 0x0037c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0137c0de, 0x0137c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0237c0de, 0x0237c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0337c0de, 0x0337c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0437c0de, 0x0437c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0537c0de, 0x0537c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0637c0de, 0x0637c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0737c0de, 0x0737c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0837c0de, 0x0837c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0937c0de, 0x0937c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0a37c0de, 0x0a37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0b37c0de, 0x0b37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0c37c0de, 0x0c37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0d37c0de, 0x0d37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0e37c0de, 0x0e37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x0f37c0de, 0x0f37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1037c0de, 0x1037c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1137c0de, 0x1137c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1237c0de, 0x1237c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1437c0de, 0x1437c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1537c0de, 0x1537c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1637c0de, 0x1637c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1737c0de, 0x1737c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1837c0de, 0x1837c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1937c0de, 0x1937c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1a37c0de, 0x1a37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1b37c0de, 0x1b37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1c37c0de, 0x1c37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1d37c0de, 0x1d37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1e37c0de, 0x1e37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x1f37c0de, 0x1f37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2037c0de, 0x2037c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2137c0de, 0x2137c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2237c0de, 0x2237c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2337c0de, 0x2337c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2437c0de, 0x2437c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2537c0de, 0x2537c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2637c0de, 0x2637c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2737c0de, 0x2737c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2837c0de, 0x2837c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2937c0de, 0x2937c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2a37c0de, 0x2a37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2b37c0de, 0x2b37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2c37c0de, 0x2c37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2d37c0de, 0x2d37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2e37c0de, 0x2e37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x2f37c0de, 0x2f37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3037c0de, 0x3037c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3137c0de, 0x3137c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3237c0de, 0x3237c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3337c0de, 0x3337c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3437c0de, 0x3437c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3537c0de, 0x3537c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3637c0de, 0x3637c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3737c0de, 0x3737c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3837c0de, 0x3837c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3937c0de, 0x3937c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3a37c0de, 0x3a37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3b37c0de, 0x3b37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3c37c0de, 0x3c37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3d37c0de, 0x3d37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3e37c0de, 0x3e37c0de, 0x1337c0de, 0x1337c0de
+			.dw 0x3f37c0de, 0x3f37c0de, 0x1337c0de, 0x1337c0de
+
+m_alpha_stream:		.df 0.05, 0.5, 0.5, 0.5
+			.df 0.15, 0.5, 0.5, 0.5
+			.df 0.25, 0.5, 0.5, 0.5
+			.df 0.35, 0.5, 0.5, 0.5
+			.df 0.45, 0.5, 0.5, 0.5
+			.df 0.55, 0.5, 0.5, 0.5
+			.df 0.65, 0.5, 0.5, 0.5
+			.df 0.75, 0.5, 0.5, 0.5
+			.df 0.85, 0.5, 0.5, 0.5
+			.df 0.95, 0.5, 0.5, 0.5
+			.df 0.105, 0.5, 0.5, 0.5
+			.df 0.115, 0.5, 0.5, 0.5
+			.df 0.125, 0.5, 0.5, 0.5
+			.df 0.135, 0.5, 0.5, 0.5
+			.df 0.145, 0.5, 0.5, 0.5
+			.df 0.155, 0.5, 0.5, 0.5
+			.df 0.165, 0.5, 0.5, 0.5
+			.df 0.175, 0.5, 0.5, 0.5
+			.df 0.185, 0.5, 0.5, 0.5
+			.df 0.195, 0.5, 0.5, 0.5
+			.df 0.205, 0.5, 0.5, 0.5
+			.df 0.215, 0.5, 0.5, 0.5
+			.df 0.225, 0.5, 0.5, 0.5
+			.df 0.235, 0.5, 0.5, 0.5
+			.df 0.245, 0.5, 0.5, 0.5
+			.df 0.255, 0.5, 0.5, 0.5
+			.df 0.265, 0.5, 0.5, 0.5
+			.df 0.275, 0.5, 0.5, 0.5
+			.df 0.285, 0.5, 0.5, 0.5
+			
+m_srcs: .dw m_src_stream, 0,0,0
+m_dsts: .dw m_dst_stream, 0,0,0
+m_camera_loc:		.df	0, 0, 200, 0
+m_blend_params:		.df	200.0, 100000.0, 5.0, 7.0
+*/
+
+.extern m_AaAa 
+.extern m_AaBb 
+.extern m_ABcd 
+.extern m_CDab 
+
+m_jumpTable:	.dw loop_1,		loop_2,		loop_3,		loop_4
+		.dw loop_5,		loop_6,		loop_7,		loop_8
+		.dw loop_9to12,		loop_9to12,	loop_9to12,	loop_9to12
+		.dw loop_13to16,	loop_13to16,	loop_13to16,	loop_13to16
+
+.text
+	.reg	pParent			3
+	.reg	numPtrs			4
+	.reg	pPos			5
+	.reg	pSrcs			6
+	.reg	pDsts			7
+	.reg	in_blend_params		8
+	.reg	in_camera_loc		9
+	.reg	in_start_vert		10
+	.reg	in_vert_count		11
+
+	.reg	recip, diff
+	.reg	blend_params1, rtemp, rtemp2, rtemp3
+	.reg	dst, dst_offset, dst_offset_, write_size
+	.reg	in1, in2, in3, in4
+	.reg	max1
+	.reg	min1
+	.reg	val1
+	.reg	mul1
+	.reg	zero, one
+	.reg	blendFactors
+	.reg	count_mask
+	.reg	s_AaAa, s_AaBb, s_BbAa, s_CcCc, s_ABcd, s_CDab, s_BCDd, s_BbBb, s_DdDd, m_FFFF
+	.reg	temp1, temp2, temp3, temp4
+	.reg	pos0, pos1, pos2, pos3
+	.reg	px, py, pz
+	.reg	distSq, distSq_, distSq__, distSq___, distSq____, dist, pest, dest, invDist, ratio
+	.reg	jumpTo, jumpTable
+	.reg	numPtrsx4, numPtrsx4m4
+	.reg	parentIdx0, parentIdx1, parentIdx2, parentIdx3
+	.reg	pDst, pSrc
+	.reg	pDstChild, pDstChild_, pSrcChild
+	.reg	pSrcs0, pSrcs1, pSrcs2, pSrcs3
+	.reg	pDsts0, pDsts1, pDsts2, pDsts3
+	.reg	child0, child1, child2, child3
+	.reg	parent0, parent1, parent2, parent3
+	.reg	src_offset
+	.reg	diff0, diff1, diff2, diff3
+	.reg	out0, out1, out2, out3
+	.reg	blendFactor0, blendFactor1, blendFactor2, blendFactor3
+	.reg	blendFactor0_, blendFactor1_, blendFactor2_, blendFactor3_
+	.reg	varShift, varShift_
+	.reg	numShift9to12, numShift13to16
+	.reg	tmp
+	.reg	pSrcs0r12, pSrcs0r8, pSrcs0r4
+	.reg	pSrcs1r12, pSrcs1r8, pSrcs1r4
+	.reg	pDsts2_, pDsts3_
+	
+.align 7
+/*
+.global _start
+_start:
+		ila	in_parent_ptr, m_in_parent_table				{lnop}
+		ila	numPtrs, 1							{lnop}
+		ila	pPos, m_src_stream						{lnop}
+		ila	pSrcs, m_srcs							{lnop}
+		ila	pDsts, m_dsts							{lnop}
+		ila	in_blend_params, m_blend_params					{lnop}
+		ila	in_camera_loc, m_camera_loc					{lnop}
+		il	in_start_vert, 0x2						{lnop}
+		il	in_vert_count, 0x1						brsl	$lr, PmContinuousTower
+		nop									stop
+*/
+
+/*
+		// Unrolled Loops -- 4 at a time
+
+		// Loop 3
+		{nop}									stqd	out0, 0x00(pDstChild)
+		{nop}									stqd	out1, 0x10(pDstChild)
+		{nop}									stqd	out2, 0x20(pDstChild)
+		{nop}									stqd	out3, 0x30(pDstChild)
+
+		// Loop 2
+		a	pDstChild, pDst, dst_offset_					lnop
+		fs	diff0, parent0, child0						{lnop}
+		fs	diff1, parent1, child1						{lnop}
+		fs	diff2, parent2, child2						{lnop}
+		fs	diff3, parent3, child3						{lnop}
+		fma	out0, diff0, blendFactor0_, child0				{lnop}
+		fma	out1, diff1, blendFactor1_, child1				{lnop}
+		fma	out2, diff2, blendFactor2_, child2				{lnop}
+		fma	out3, diff3, blendFactor3_, child3				{lnop}
+
+		// Loop 1
+		nop									rotqbyi pSrc, pSrcs1, 0
+		nop									rotqbyi pDst, pDsts1, 0
+		a	pSrcChild, pSrc, src_offset					lqx	parent0, pSrc, parentIdx0
+		nop									lqx	parent1, pSrc, parentIdx1
+		{nop}									lqx	parent2, pSrc, parentIdx2
+		{nop}									lqx	parent3, pSrc, parentIdx3
+		{nop}									lqd	child0, 0x00(pSrcChild)
+		{nop}									lqd	child1, 0x10(pSrcChild)
+		{nop}									lqd	child2, 0x20(pSrcChild)
+		{nop}									lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					lnop
+		ai	blendFactor1_, blendFactor1, 0					lnop
+		ai	blendFactor2_, blendFactor2, 0					lnop
+		ai	blendFactor3_, blendFactor3, 0					lnop
+		ai	dst_offset_, dst_offset, 0					lnop
+
+		// Rolled Loops
+
+		fs	diff1, parent1, child1						rotqbyi pSrc, pSrcs1, 0
+		fs	diff2, parent2, child2						stqd	out1, 0x10(pDstChild)
+		fs	diff0, parent0, child0						stqd	out2, 0x20(pDstChild)
+		fs	diff3, parent3, child3						stqd	out0, 0x00(pDstChild)
+		a	pSrcChild, pSrc, src_offset					stqd	out3, 0x30(pDstChild)
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrc, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent2, pSrc, parentIdx2
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqx	parent0, pSrc, parentIdx0
+		ai	blendFactor1_, blendFactor1, 0					lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor2_, blendFactor2, 0					lqx	parent3, pSrc, parentIdx3
+		ai	blendFactor0_, blendFactor0, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi pDst, pDsts1, 0
+		ai	dst_offset_, dst_offset, 0					lnop
+
+		
+		// Last Loop
+		
+		fs	diff1, parent1, child1						rotqbyi pSrc, pSrcs0, 0
+		fs	diff2, parent2, child2						stqd	out1, 0x10(pDstChild)
+		fs	diff0, parent0, child0						stqd	out2, 0x20(pDstChild)
+		fs	diff3, parent3, child3						stqd	out0, 0x00(pDstChild)
+		a	pSrcChild, pSrc, src_offset					stqd	out3, 0x30(pDstChild)
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrc, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent2, pSrc, parentIdx2
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqx	parent0, pSrc, parentIdx0
+		ai	blendFactor1_, blendFactor1, 0					lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor2_, blendFactor2, 0					lqx	parent3, pSrc, parentIdx3
+		ai	blendFactor0_, blendFactor0, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi pDst, pDsts0, 0
+		ai	dst_offset_, dst_offset, 0					lnop
+		
+	// Loop Post-amble	
+		// Loop 2
+		nop									frsqest	pest, distSq___
+		fi	invDist, distSq___, pest					lnop
+		fms	dist, distSq___, invDist, in_blend_params			lnop
+		fm	ratio, dist, recip						lnop
+		fcgt	max1, ratio, zero						lnop
+		selb	val1, zero, ratio, max1						lnop
+		fcgt	min1, one, val1							lnop
+		selb	blendFactors, one, val1, min1					lnop
+		nop									shufb	blendFactor0, blendFactors, blendFactors, s_AaAa
+		nop									shufb	blendFactor1, blendFactors, blendFactors, s_BbBb
+		nop									shufb	blendFactor2, blendFactors, blendFactors, s_CcCc
+		nop									shufb	blendFactor3, blendFactors, blendFactors, s_DdDd
+
+		// Loop 1
+		ai	pPos, pPos, 0x40						lnop
+		fs	pos0, in1, in_camera_loc					lnop
+		fs	pos1, in2, in_camera_loc					lnop
+		fs	pos2, in3, in_camera_loc					lnop
+		fs	pos3, in4, in_camera_loc					lnop
+		nop									lqd	in1, 0x00(pPos)
+		nop									lqd	in2, 0x10(pPos)
+		nop									lqd	in3, 0x20(pPos)
+		nop									lqd	in4, 0x30(pPos)
+		nop									shufb	temp1, pos0, pos1, s_AaBb
+		nop									shufb	temp3, pos0, pos1, s_CcCc
+		nop									shufb	temp2, pos2, pos3, s_BbAa
+		nop									shufb	temp4, pos2, pos3, s_CcCc
+		nop									shufb	px, temp1, temp2, s_ABcd
+		nop									shufb	py, temp1, temp2, s_CDab
+		nop									shufb	pz, temp3, temp4, s_ABcd
+		fm	distSq, px, px							lnop
+		fma	distSq_, py, py, distSq						lnop
+		fma	distSq___, pz, pz, distSq_					lnop
+
+		nop									lqd	parentIdx1, 0x00(pParent)
+		nop									rotqby	parentIdx1, parentIdx1, pParent
+		shli	parentIdx1, parentIdx1, 4					lnop
+		roti	parentIdx0, parentIdx1, 16					lnop
+		nop									rotqbyi parentIdx3, parentIdx1, 4
+		roti	parentIdx2, parentIdx3, 16					lnop
+		ai	pParent, pParent, 8						lnop
+		
+		ai	src_offset, src_offset, 0x40					lnop
+
+		a	dst_offset, dst_offset, 0x40					lnop
+		nop									hbr	BRANCH, jumpTo
+		{nop}							BRANCH:	{1}	binz	dst_offset, jumpTo
+		
+*/
+
+
+.global PmContinuousTower
+PmContinuousTower:
+.cset parent0, parent1, parent2, parent3
+.cset diff0, diff1, diff2, diff3
+
+		nop									biz	numPtrs, $lr [#func]
+		shli	numPtrsx4, numPtrs, 2						biz	in_vert_count, $lr [#func]
+		ai	in_vert_count, in_vert_count, 3					lqr	s_AaAa, m_AaAa
+		il	count_mask, 0x3							lqd	in_camera_loc, 0x0(in_camera_loc)
+		ila	zero, 0								lqr	s_AaBb, m_AaBb
+		andc	in_vert_count, in_vert_count, count_mask			lqd	in_blend_params, 0x0(in_blend_params)
+		ai	numPtrsx4m4, numPtrsx4, -4					lqr	s_ABcd, m_ABcd
+		ila	jumpTable, m_jumpTable						lqr	s_CDab, m_CDab
+		orbi	s_CcCc, s_AaAa, 0x8						shufb	in_start_vert, in_start_vert, in_start_vert, s_AaAa
+		ilhu	one, 0x3F80							shufb	in_vert_count, in_vert_count, in_vert_count, s_AaAa
+		ila	numShift9to12, 12						rotqbyi s_BbAa, s_AaBb, 8
+		orbi	s_BbBb, s_AaAa, 0x4						rotqbyi	blend_params1, in_blend_params, 4
+		shli	in_start_vert, in_start_vert, 4					shufb	in_blend_params, in_blend_params, in_blend_params, s_AaAa
+		shli	write_size, in_vert_count, 4					lqd	pDsts0, 0x00(pDsts)
+		cgt	tmp, numPtrs, numShift9to12					lqd	parentIdx1, 0x00(pParent)
+		orbi	s_DdDd, s_AaAa, 0xc						shufb	blend_params1, blend_params1, blend_params1, s_AaAa
+		a	pPos, pPos, in_start_vert					lqx	jumpTo, jumpTable, numPtrsx4m4
+		sfi	dst_offset, write_size, 0x0					lqd	pDsts1, 0x10(pDsts)
+		a	write_size, write_size, in_start_vert				lqd	in1, 0x00(pPos)
+		fs	diff, blend_params1, in_blend_params				lqd	in3, 0x20(pPos)
+		a	pDsts0, pDsts0, write_size					lqd	in4, 0x30(pPos)
+		selb	numShift9to12, numPtrs, numShift9to12, tmp			lqd	in2, 0x10(pPos)
+		ai	pPos, pPos, 0x40						rotqby	parentIdx1, parentIdx1, pParent
+		a	pDstChild, pDsts0, dst_offset					rotqby	jumpTo, jumpTo, numPtrsx4m4
+		fs	pos0, in1, in_camera_loc					lqd	in1, 0x00(pPos)
+		fs	pos2, in3, in_camera_loc					lqd	in3, 0x20(pPos)
+		fs	pos3, in4, in_camera_loc					lqd	in4, 0x30(pPos)
+		fs	pos1, in2, in_camera_loc					lqd	in2, 0x10(pPos)
+		ai	pPos, pPos, 0x40						frest	rtemp, diff
+		shli	parentIdx1, parentIdx1, 4					hbr	BRANCH1, jumpTo
+		ai	pDst, pDsts0, 0							lqd	pDsts2, 0x20(pDsts)
+		il	blendFactor2_, 0						lqd	out2, 0x20(pDstChild)
+		fi	recip, diff, rtemp						shufb	temp2, pos2, pos3, s_BbAa
+		roti	parentIdx0, parentIdx1, 16					shufb	temp1, pos0, pos1, s_AaBb
+		il	blendFactor0_, 0						shufb	temp3, pos0, pos1, s_CcCc
+		fs	pos0, in1, in_camera_loc					shufb	temp4, pos2, pos3, s_CcCc
+		fs	pos3, in4, in_camera_loc					rotqbyi parentIdx3, parentIdx1, 4
+		fs	pos2, in3, in_camera_loc					shufb	px, temp1, temp2, s_ABcd
+		fs	pos1, in2, in_camera_loc					shufb	py, temp1, temp2, s_CDab
+		ai	src_offset, in_start_vert, 0					shufb	pz, temp3, temp4, s_ABcd
+		roti	parentIdx2, parentIdx3, 16					lqd	pDsts3, 0x30(pDsts)
+		fm	distSq, px, px							lqd	out3, 0x30(pDstChild)
+		il	blendFactor3_, 0						lqd	out1, 0x10(pDstChild)
+		a	pDsts2, pDsts2, write_size					shufb	temp2, pos2, pos3, s_BbAa
+		ai	numShift13to16, numPtrs, -12					shufb	temp1, pos0, pos1, s_AaBb
+		ai	child2, out2, 0							shufb	temp4, pos2, pos3, s_CcCc
+		a	pDsts3, pDsts3, write_size					shufb	temp3, pos0, pos1, s_CcCc
+		fma	distSq_, py, py, distSq						lqd	out0, 0x00(pDstChild)
+		ai	child3, out3, 0							shufb	px, temp1, temp2, s_ABcd
+		ai	child1, out1, 0							shufb	py, temp1, temp2, s_CDab
+		ai	dst_offset_, dst_offset, 0					lqd	pSrcs2, 0x20(pSrcs)
+		a	pDsts1, pDsts1, write_size					lqd	in1, 0x00(pPos)
+		fm	distSq, px, px							lqd	in2, 0x10(pPos)
+		fma	distSq___, pz, pz, distSq_					shufb	pz, temp3, temp4, s_ABcd
+		ai	child0, out0, 0							lqd	in3, 0x20(pPos)
+		ai	numShift9to12, numShift9to12, -8				lqd	in4, 0x30(pPos)
+		ai	pParent, pParent, 8						lqd	pSrcs0, 0x00(pSrcs)
+		lnop									lqd	pSrcs1, 0x10(pSrcs)
+		fma	distSq_, py, py, distSq						lqd	pSrcs3, 0x30(pSrcs)
+		il	blendFactor1_, 0						frsqest	pest, distSq___
+		{nop}									{lnop}
+		{nop}									{lnop}
+		nop									rotqbyi pSrcs0r12, pSrcs0, 12
+		fi	invDist, distSq___, pest					rotqbyi pSrcs0r8, pSrcs0, 8
+		{nop}									rotqbyi pSrcs0r4, pSrcs0, 4
+		{nop}									rotqbyi pSrcs1r12, pSrcs1, 12
+		{nop}									rotqbyi pSrcs1r8, pSrcs1, 8
+		{nop}									rotqbyi pSrcs1r4, pSrcs1, 4
+		{nop}									rotqbyi	pSrcs2, pSrcs2, 12
+		{nop}									rotqbyi	pSrcs3, pSrcs3, 12
+		fms	dist, distSq___, invDist, in_blend_params			{lnop}
+		fma	distSq___, pz, pz, distSq_					{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		fm	ratio, dist, recip						{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		nop									{lnop}
+		fcgt	max1, ratio, zero						{lnop}
+		nop									{lnop}
+		selb	val1, zero, ratio, max1						{lnop}
+		nop									{lnop}
+		fcgt	min1, one, val1							{lnop}
+		nop									{lnop}
+		selb	blendFactors, one, val1, min1					{lnop}
+		{nop}									{lnop}
+		{nop}									shufb	blendFactor3, blendFactors, blendFactors, s_DdDd
+		{nop}									shufb	blendFactor0, blendFactors, blendFactors, s_AaAa
+		{nop}									shufb	blendFactor1, blendFactors, blendFactors, s_BbBb
+		{nop}									shufb	blendFactor2, blendFactors, blendFactors, s_CcCc
+		{nop}							BRANCH1:	bi	jumpTo [loop_13to16 loop_9to12 loop_8 loop_7 loop_6 loop_5 loop_4 loop_3 loop_2 loop_1 loop_break]
+										
+loop_13to16:
+		ai	pSrc, pSrcs3, 0							hbrr	branch_13to16, loop_13to16_inner
+		ai	varShift, numShift13to16, 0					rotqbyi	pDsts3_, pDsts3, 0
+loop_13to16_inner:
+		fs	diff1, parent1, child1						rotqbyi pSrc, pSrc, 4
+		fs	diff2, parent2, child2						stqd	out1, 0x10(pDstChild)
+		fs	diff0, parent0, child0						stqd	out2, 0x20(pDstChild)
+		fs	diff3, parent3, child3						stqd	out0, 0x00(pDstChild)
+		a	pSrcChild, pSrc, src_offset					stqd	out3, 0x30(pDstChild)
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrc, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent2, pSrc, parentIdx2
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqx	parent0, pSrc, parentIdx0
+		ai	blendFactor1_, blendFactor1, 0					lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor2_, blendFactor2, 0					lqx	parent3, pSrc, parentIdx3
+		ai	varShift, varShift, -1						lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts3_, 0
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi pDsts3_, pDsts3_, 4
+		ai	dst_offset_, dst_offset, 0			branch_13to16:	brnz	varShift, loop_13to16_inner
+loop_9to12:
+		ai	pSrc, pSrcs2, 0							hbrr	branch_9to12, loop_9to12_inner
+		ai	varShift, numShift9to12, 0					rotqbyi	pDsts2_, pDsts2, 0
+loop_9to12_inner:
+		fs	diff1, parent1, child1						rotqbyi pSrc, pSrc, 4
+		fs	diff2, parent2, child2						stqd	out1, 0x10(pDstChild)
+		fs	diff0, parent0, child0						stqd	out2, 0x20(pDstChild)
+		fs	diff3, parent3, child3						stqd	out0, 0x00(pDstChild)
+		a	pSrcChild, pSrc, src_offset					stqd	out3, 0x30(pDstChild)
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrc, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent2, pSrc, parentIdx2
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqx	parent0, pSrc, parentIdx0
+		ai	blendFactor1_, blendFactor1, 0					lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor2_, blendFactor2, 0					lqx	parent3, pSrc, parentIdx3
+		ai	varShift, varShift, -1						lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts2_, 0
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi pDsts2_, pDsts2_, 4
+		ai	dst_offset_, dst_offset, 0			branch_9to12:	brnz	varShift, loop_9to12_inner
+loop_8:
+		fs	diff1, parent1, child1						stqd	out1, 0x10(pDstChild)
+		fs	diff2, parent2, child2						stqd	out2, 0x20(pDstChild)
+		fs	diff0, parent0, child0						stqd	out0, 0x00(pDstChild)
+		fs	diff3, parent3, child3						stqd	out3, 0x30(pDstChild)
+		a	pSrcChild, pSrcs1r12, src_offset				lqx	parent2, pSrcs1r12, parentIdx2
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrcs1r12, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent0, pSrcs1r12, parentIdx0
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor1_, blendFactor1, 0					lqx	parent3, pSrcs1r12, parentIdx3
+		ai	blendFactor2_, blendFactor2, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts1, 12
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi dst_offset_, dst_offset, 0
+loop_7:
+		fs	diff1, parent1, child1						stqd	out1, 0x10(pDstChild)
+		fs	diff2, parent2, child2						stqd	out2, 0x20(pDstChild)
+		fs	diff0, parent0, child0						stqd	out0, 0x00(pDstChild)
+		fs	diff3, parent3, child3						stqd	out3, 0x30(pDstChild)
+		a	pSrcChild, pSrcs1r8, src_offset					lqx	parent2, pSrcs1r8, parentIdx2
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrcs1r8, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent0, pSrcs1r8, parentIdx0
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor1_, blendFactor1, 0					lqx	parent3, pSrcs1r8, parentIdx3
+		ai	blendFactor2_, blendFactor2, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts1, 8
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi dst_offset_, dst_offset, 0
+loop_6:
+		fs	diff1, parent1, child1						stqd	out1, 0x10(pDstChild)
+		fs	diff2, parent2, child2						stqd	out2, 0x20(pDstChild)
+		fs	diff0, parent0, child0						stqd	out0, 0x00(pDstChild)
+		fs	diff3, parent3, child3						stqd	out3, 0x30(pDstChild)
+		a	pSrcChild, pSrcs1r4, src_offset					lqx	parent2, pSrcs1r4, parentIdx2
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrcs1r4, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent0, pSrcs1r4, parentIdx0
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor1_, blendFactor1, 0					lqx	parent3, pSrcs1r4, parentIdx3
+		ai	blendFactor2_, blendFactor2, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts1, 4
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi dst_offset_, dst_offset, 0
+loop_5:
+		fs	diff1, parent1, child1						stqd	out1, 0x10(pDstChild)
+		fs	diff2, parent2, child2						stqd	out2, 0x20(pDstChild)
+		fs	diff0, parent0, child0						stqd	out0, 0x00(pDstChild)
+		fs	diff3, parent3, child3						stqd	out3, 0x30(pDstChild)
+		a	pSrcChild, pSrcs1, src_offset					lqx	parent2, pSrcs1, parentIdx2
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrcs1, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent0, pSrcs1, parentIdx0
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor1_, blendFactor1, 0					lqx	parent3, pSrcs1, parentIdx3
+		ai	blendFactor2_, blendFactor2, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts1, 0
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi dst_offset_, dst_offset, 0
+loop_4:
+		fs	diff1, parent1, child1						stqd	out1, 0x10(pDstChild)
+		fs	diff2, parent2, child2						stqd	out2, 0x20(pDstChild)
+		fs	diff0, parent0, child0						stqd	out0, 0x00(pDstChild)
+		fs	diff3, parent3, child3						stqd	out3, 0x30(pDstChild)
+		a	pSrcChild, pSrcs0r12, src_offset				lqx	parent2, pSrcs0r12, parentIdx2
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrcs0r12, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent0, pSrcs0r12, parentIdx0
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor1_, blendFactor1, 0					lqx	parent3, pSrcs0r12, parentIdx3
+		ai	blendFactor2_, blendFactor2, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts0, 12
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi dst_offset_, dst_offset, 0
+loop_3:
+		fs	diff1, parent1, child1						stqd	out1, 0x10(pDstChild)
+		fs	diff2, parent2, child2						stqd	out2, 0x20(pDstChild)
+		fs	diff0, parent0, child0						stqd	out0, 0x00(pDstChild)
+		fs	diff3, parent3, child3						stqd	out3, 0x30(pDstChild)
+		a	pSrcChild, pSrcs0r8, src_offset					lqx	parent2, pSrcs0r8, parentIdx2
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrcs0r8, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent0, pSrcs0r8, parentIdx0
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor1_, blendFactor1, 0					lqx	parent3, pSrcs0r8, parentIdx3
+		ai	blendFactor2_, blendFactor2, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts0, 8
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi dst_offset_, dst_offset, 0
+loop_2:
+		fs	diff1, parent1, child1						stqd	out1, 0x10(pDstChild)
+		fs	diff2, parent2, child2						stqd	out2, 0x20(pDstChild)
+		fs	diff0, parent0, child0						stqd	out0, 0x00(pDstChild)
+		fs	diff3, parent3, child3						stqd	out3, 0x30(pDstChild)
+		a	pSrcChild, pSrcs0r4, src_offset					lqx	parent2, pSrcs0r4, parentIdx2
+		a	pDstChild, pDst, dst_offset_					lqx	parent1, pSrcs0r4, parentIdx1
+		fma	out1, diff1, blendFactor1_, child1				lqd	child1, 0x10(pSrcChild)
+		fma	out2, diff2, blendFactor2_, child2				lqx	parent0, pSrcs0r4, parentIdx0
+		fma	out0, diff0, blendFactor0_, child0				lqd	child2, 0x20(pSrcChild)
+		fma	out3, diff3, blendFactor3_, child3				lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor1_, blendFactor1, 0					lqx	parent3, pSrcs0r4, parentIdx3
+		ai	blendFactor2_, blendFactor2, 0					lqd	child3, 0x30(pSrcChild)
+		ai	blendFactor0_, blendFactor0, 0					rotqbyi pDst, pDsts0, 4
+		ai	blendFactor3_, blendFactor3, 0					rotqbyi dst_offset_, dst_offset, 0
+loop_1:
+		fs	pos3, in4, in_camera_loc					frsqest	pest, distSq___
+		fs	pos1, in2, in_camera_loc					stqd	out3, 0x30(pDstChild)
+		fs	pos0, in1, in_camera_loc					stqd	out0, 0x00(pDstChild)
+		fs	pos2, in3, in_camera_loc					stqd	out1, 0x10(pDstChild)
+		fi	invDist, distSq___, pest					stqd	out2, 0x20(pDstChild)
+		a	pSrcChild, pSrcs0, src_offset					hbr	BRANCH, jumpTo
+		fs	diff1, parent1, child1						lqx	parent1, pSrcs0, parentIdx1
+		fs	diff3, parent3, child3						lqd	parentIdx1, 0x00(pParent)
+		fs	diff0, parent0, child0						shufb	temp1, pos0, pos1, s_AaBb
+		fs	diff2, parent2, child2						shufb	temp2, pos2, pos3, s_BbAa
+		ai	pPos, pPos, 0x40						shufb	temp4, pos2, pos3, s_CcCc
+		fms	dist, distSq___, invDist, in_blend_params			lqx	parent3, pSrcs0, parentIdx3
+		fma	out1, diff1, blendFactor1_, child1				lqx	parent0, pSrcs0, parentIdx0
+		fma	out3, diff3, blendFactor3_, child3				rotqby	parentIdx1, parentIdx1, pParent
+		fma	out0, diff0, blendFactor0_, child0				shufb	px, temp1, temp2, s_ABcd
+		fma	out2, diff2, blendFactor2_, child2				shufb	py, temp1, temp2, s_CDab
+		ai	blendFactor3_, blendFactor3, 0					shufb	temp3, pos0, pos1, s_CcCc
+		fm	ratio, dist, recip						lqd	child1, 0x10(pSrcChild)
+		fm	distSq, px, px							lqd	child0, 0x00(pSrcChild)
+		ai	blendFactor2_, blendFactor2, 0					lqd	in4, 0x30(pPos)
+		shli	parentIdx1, parentIdx1, 4					shufb	pz, temp3, temp4, s_ABcd
+		a	pDstChild, pDst, dst_offset_					lqx	parent2, pSrcs0, parentIdx2
+		ai	blendFactor0_, blendFactor0, 0					lqd	in2, 0x10(pPos)
+		fcgt	max1, ratio, zero						lqd	child2, 0x20(pSrcChild)
+		fma	distSq_, py, py, distSq						rotqbyi parentIdx3, parentIdx1, 4
+		selb	val1, zero, ratio, max1						rotqbyi	blendFactor1_, blendFactor1, 0
+		fcgt	min1, one, val1							lqd	child3, 0x30(pSrcChild)
+		ai	pParent, pParent, 8						lqd	in1, 0x00(pPos)
+		selb	blendFactors, one, val1, min1					lqd	in3, 0x20(pPos)
+		roti	parentIdx2, parentIdx3, 16					rotqbyi pDst, pDsts0, 0
+		fma	distSq___, pz, pz, distSq_					shufb	blendFactor0, blendFactors, blendFactors, s_AaAa
+		ai	dst_offset_, dst_offset, 0					shufb	blendFactor3, blendFactors, blendFactors, s_DdDd
+		ai	dst_offset, dst_offset, 0x40					shufb	blendFactor1, blendFactors, blendFactors, s_BbBb
+		roti	parentIdx0, parentIdx1, 16					shufb	blendFactor2, blendFactors, blendFactors, s_CcCc
+		ai	src_offset, src_offset, 0x40			BRANCH:		binz	dst_offset, jumpTo [loop_13to16 loop_9to12 loop_8 loop_7 loop_6 loop_5 loop_4 loop_3 loop_2 loop_1 loop_break]
+		
+		// Data Completion
+		fs	diff0, parent0, child0						stqd	out0, 0x00(pDstChild)
+		fs	diff1, parent1, child1						stqd	out1, 0x10(pDstChild)
+		fs	diff2, parent2, child2						stqd	out2, 0x20(pDstChild)
+		fs	diff3, parent3, child3						stqd	out3, 0x30(pDstChild)
+		a	pDstChild, pDst, dst_offset_					{lnop}
+		nop									{lnop}
+		fma	out0, diff0, blendFactor0_, child0				{lnop}
+		fma	out1, diff1, blendFactor1_, child1				{lnop}
+		fma	out2, diff2, blendFactor2_, child2				{lnop}
+		fma	out3, diff3, blendFactor3_, child3				{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		{nop}									stqd	out0, 0x00(pDstChild)
+		{nop}									stqd	out1, 0x10(pDstChild)
+		{nop}									stqd	out2, 0x20(pDstChild)
+		{nop}									stqd	out3, 0x30(pDstChild)
+	
+loop_break:
+		nop									bi	$lr [#func]
+.end
+

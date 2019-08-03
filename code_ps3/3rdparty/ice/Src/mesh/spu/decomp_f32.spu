@@ -1,0 +1,270 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global DecompressF32
+; Implements DecompressF32 in ice/mesh/icemeshdecompress.cpp
+; void DecompressF32( F32* pSrc, U32 srcStride, F32* pDst, U32 numComponents, U32 numVerts );
+;
+; Decompresses a series of F32 floating point values from a vertex stream to a uniform table.  Only requested data
+; will be written, this routine does not trash data.
+; For this routine, pSrc and srcStride need only be aligned to four bytes.
+; pDst must be 16 byte aligned.
+
+.extern m_strideShifts
+
+; Used to build shuffle mask to pull words into correct place
+.extern m_ABCD 
+
+.text
+
+.reg pSrc		3
+.reg srcStride		4
+.reg pDst		5	; Myst be 16 byte(qword) aligned
+.reg numElements	6	; Number of elements per vertex
+.reg numVerts		7
+
+.reg boundOffset		; Amount source pointer is offset from qword boundary
+.reg bReturn			; Set if function is completed
+.reg countShift
+.reg crossBound			; Set if data crosses a qword boundary
+.reg dstStride
+.reg dstStride4
+.reg dstStrideAdd		; Will eventually hold the destination stride times 4
+.reg elementSize		; Size of element data per vertex, in bytes
+.reg inData0
+.reg inData0_2			; In the case of a boundary cross, the source data will be contained in 2 qwords
+.reg inData1
+.reg inData1_2
+.reg inData2
+.reg inData2_2
+.reg inData3
+.reg inData3_2
+.reg innerCount			; Count for the inner loop.
+.reg innerStride
+.reg innerStride4		; Four times the inner stride.
+.reg jumpTarget			; Where branch jumps to, depends on if qword boundary cross case exists
+.reg loopAddr			; Non-boundary cross loop address
+.reg loopCount			; Keeps track of number of loop iterations
+.reg loopMoreThanOnce		; Set if there are less than 4 values to decompress.
+.reg one
+.reg outData0
+.reg outData1
+.reg outData2
+.reg outData3
+.reg outerBranch		; Do we need to re-enter function (is every part of stream accounted for?) or return
+.reg outerCount
+.reg outerLoop			; Address of outer_loop
+.reg pDst1_2			; Holds the real destination offset, it will be used if looping more than once
+.reg pDst1			; Initially points at pDst to insure that memory isn't trashed if writing less than 4 values
+.reg pDst2
+.reg pDst2_2
+.reg pDst3
+.reg pDst3_2
+.reg pDstOffset			; Destination pointer offset
+.reg pSrc0_2
+.reg pSrc1
+.reg pSrc1_2
+.reg pSrc2
+.reg pSrc2_2
+.reg pSrc3
+.reg pSrc3_2
+.reg pSrcOffset			; Source pointer offset, also used to control loop
+.reg s_ABCD			; Used to build shuffle mask to pull words into correct place
+.reg s_DDDDDDDDDDDDDDDD		; Used to offset shuffle mask
+.reg shift
+.reg shufOffset			; Used with s_DDDDDDDDDDDDDDDD to offset the shuffle mask
+.reg sLoopAddr			; Boundary cross loop address
+.reg s_mask			; Resultant shuffle mask for getting the bytes into the correct fields after the
+				; input stream offset is taken into consideration.
+.reg strideShift
+.reg strideShifts
+.reg write1			; Do we write just one entry on exit?
+.reg write2			; Do we write just two entries on exit?
+.reg write3			; Do we write just three entries on exit?
+.reg writeVerts
+
+.align 7
+
+DecompressF32:
+{e2}	il	one, 1						{o6}	lqr	strideShifts, m_strideShifts
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+{e2}	ilh	s_DDDDDDDDDDDDDDDD, 0x0303			{o6}	lqr	s_ABCD, m_ABCD
+{e2}	ila	loopAddr, decomp_f32_loop			{o4}	rotqby	strideShift, strideShifts, srcStride
+{e2}	ila	sLoopAddr, decomp_f32_straddle_loop			{lnop}
+{e4}	shli	elementSize, numElements, 2				{lnop}
+	{nop}								{lnop}
+{e4}	shl	innerStride, srcStride, strideShift		{o4}	shlqbi	shift, one, strideShift
+{e2}	sfi	countShift, strideShift, 0				{lnop}
+	{nop}								{lnop}
+{e2}	ila	outerLoop, decomp_f32_outer_loop			{lnop}
+{e2}	ai	outerCount, shift, -1				{o4}	shlqbii	dstStride, shift, 4
+{e4}	shli	innerStride4, innerStride, 2			{o4}	shlqbii dstStride4, shift, 6
+
+decomp_f32_outer_loop:
+{e2 L}	a	innerCount, numVerts, outerCount			{lnop}
+{e2 L}	andi	boundOffset, pSrc, 0xF					{lnop}
+{e2 L}	ceqi	bReturn, outerCount, 0				{o4 L}	rotqmbi innerCount, innerCount, countShift
+{e2 L}	a	crossBound, boundOffset, elementSize		{o4 L}	shufb	shufOffset, boundOffset, boundOffset, s_DDDDDDDDDDDDDDDD
+{e2 L}	a	pSrc1, pSrc, innerStride				{lnop}
+{e2 L}	cgti	crossBound, crossBound, 0x10				{lnop}
+{e2 L}	ai	loopCount, innerCount, 3			{o? L}	biz	innerCount, $lr
+{e2 L}	selb	jumpTarget, loopAddr, sLoopAddr, crossBound	{o4 L}	fsmbi	pSrcOffset, 0
+{e2 L}	ai	pSrc0_2, pSrc, 0x10				{o4 L}	rotqmbii loopCount, loopCount, -2
+{e2 L}	a	pSrc2, pSrc1, innerStride			{o  L}	hbr	decomp_f32_branch, jumpTarget
+{e2 L}	ai	pSrc1_2, pSrc1, 0x10					{lnop}
+{e2 L}	a	pSrc3, pSrc2, innerStride				{lnop}
+{e2 L}	cgti	loopMoreThanOnce, loopCount, 1			{o4 L}	fsmbi	pDstOffset, 0
+{e2 L}	ai	outerCount, outerCount, -1			{o4 L}	fsmbi	dstStrideAdd, 0
+.cset outData0, outData1, outData2, outData3
+
+decomp_f32_straddle_loop:
+{e2 L}	ai	pSrc2_2, pSrc2, 0x10				{o6 1}	lqx	inData0_2, pSrc0_2, pSrcOffset
+{e2 L}	ai	pSrc3_2, pSrc3, 0x10				{o6 1}	lqx	inData1_2, pSrc1_2, pSrcOffset
+{e2 L}	selb	outerBranch, outerLoop, $lr, bReturn		{o6 1}	lqx	inData2_2, pSrc2_2, pSrcOffset
+{e2 L}	andi	writeVerts, innerCount, 0x3			{o6 1}	lqx	inData3_2, pSrc3_2, pSrcOffset
+
+decomp_f32_loop:
+{e2 L}	a	pDst1_2, pDst, dstStride			{o6 1}	lqx	inData0, pSrc, pSrcOffset
+{e2 L}	a	s_mask, shufOffset, s_ABCD			{o6 1}	lqx	inData1, pSrc1, pSrcOffset
+{e2 L}	a	pDst2_2, pDst1_2, dstStride			{o6 1}	lqx	inData2, pSrc2, pSrcOffset
+{e2 L}	selb	pDst1, pDst, pDst1_2, loopMoreThanOnce		{o6 1}	lqx	inData3, pSrc3, pSrcOffset
+{e2 L}	a	pDst3_2, pDst2_2, dstStride			{o6 2}	stqx	outData0, pDst, pDstOffset
+{e2 L}	selb	pDst2, pDst, pDst2_2, loopMoreThanOnce		{o6 2}	stqx	outData1, pDst1, pDstOffset
+{e2 1}	a	pSrcOffset, pSrcOffset, innerStride4		{o4 1}	shufb	outData0, inData0, inData0_2, s_mask
+{e2 L}	selb	pDst3, pDst, pDst3_2, loopMoreThanOnce		{o4 1}	shufb	outData1, inData1, inData1_2, s_mask
+{e2 1}	ai	loopCount, loopCount, -1			{o6 2}	stqx	outData2, pDst2, pDstOffset
+{e2 L}	ceqi	write1, writeVerts, 1				{o6 2}	stqx	outData3, pDst3, pDstOffset
+{e2 2}	a	pDstOffset, pDstOffset, dstStrideAdd		{o4 1}	shufb	outData2, inData2, inData2_2, s_mask
+{e2 1}	ori	dstStrideAdd, dstStride4, 0			{o4 1}	shufb	outData3, inData3, inData3_2, s_mask
+{e2 L}	ceqi	write2, writeVerts, 2	decomp_f32_branch:	{o? 1}	binz	loopCount, jumpTarget	[decomp_f32_straddle_loop decomp_f32_loop]
+
+{e2 L}	a	pSrc, pSrc, srcStride				{o6 2}	stqx	outData0, pDst, pDstOffset
+{e2 L}	ai	pDst, pDst, 0x10				{o? L}	binz	write1, outerBranch	[decomp_f32_outer_loop]
+{e2 L}	ceqi	write3, writeVerts, 3				{o6 2}	stqx	outData1, pDst1_2, pDstOffset
+	nop							{o? L}	binz	write2, outerBranch	[decomp_f32_outer_loop]
+	{nop}							{o6 2}	stqx	outData2, pDst2_2, pDstOffset
+	{nop}							{o? L}	binz	write3, outerBranch	[decomp_f32_outer_loop]
+	{nop}							{o6 2}	stqx	outData3, pDst3_2, pDstOffset
+	{nop}							{o? L}	bi	outerBranch	[decomp_f32_outer_loop]
+
+
+
+.if 0
+; Unrolled loop
+
+; If the input data is straddled across two quadwords, then the second quadword for each of the four input vertexes must
+; be loaded here.  If the input data is not straddled, then these loads do not occur at all.
+	{nop}							{o6 1}	lqx	inData0_2, pSrc0_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData1_2, pSrc1_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData2_2, pSrc2_2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData3_2, pSrc3_2, pSrcOffset
+
+; Load the first quadword of data for each of the four vertexes.
+	{nop}							{o6 1}	lqx	inData0, pSrc0, pSrcOffset
+	{nop}							{o6 1}	lqx	inData1, pSrc1, pSrcOffset
+	{nop}							{o6 1}	lqx	inData2, pSrc2, pSrcOffset
+	{nop}							{o6 1}	lqx	inData3, pSrc3, pSrcOffset
+
+; Shuffle the two input quadwords so that the data is in one quadword starting in the first field.
+; 1 element:	x - - -
+; 2 elements:	x y - -
+; 3 elements:	x y z -
+; 4 elements:	x y z w
+	{nop}							{o4 1}	shufb	outData0, inData0, inData0_2, s_mask
+	{nop}							{o4 1}	shufb	outData1, inData1, inData1_2, s_mask
+	{nop}							{o4 1}	shufb	outData2, inData2, inData2_2, s_mask
+	{nop}							{o4 1}	shufb	outData3, inData3, inData3_2, s_mask
+
+; Store the resulting four quadwords to the destination buffer.
+	{nop}							{o6 2}	stqx	outData0, pDst, pDstOffset
+	{nop}							{o6 2}	stqx	outData1, pDst1, pDstOffset
+	{nop}							{o6 2}	stqx	outData2, pDst2, pDstOffset
+	{nop}							{o6 2}	stqx	outData3, pDst3, pDstOffset
+
+; Increment the source and destination pointers and test for exit based upon the source pointer.
+{e2 1}	a	pSrcOffset, pSrcOffset, innerStride4			
+{e2 2}	a	pDstOffset, pDstOffset, dstStrideAdd			
+	{nop}				decomp_f32_branch:	{o? 1}	binz	loopCount, jumpTarget	[decomp_f32_straddle_loop decomp_f32_loop]
+.endif
+
+
+
+.if TEST
+
+.data
+
+.align 12
+m_in_stream:	.df	1.0,	2.0,	3.0,	4.0
+		.df	5.0,	6.0,	7.0,	8.0
+		.df	9.0,	10.0,	11.0,	12.0
+		.df	13.0,	14.0,	15.0,	16.0
+		.df	17.0,	18.0,	19.0,	20.0
+		.df	21.0,	22.0,	23.0,	24.0
+		.df	25.0,	26.0,	27.0,	28.0
+		.df	29.0,	30.0,	31.0,	32.0
+		.df	33.0,	34.0,	35.0,	36.0
+		.df	37.0,	38.0,	39.0,	40.0
+		
+m_out_stream:	.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		.dw	0x1337c0de, 0x1337c0de, 0x1337c0de, 0x1337c0de
+		
+.text
+
+.global _start
+_start:
+								
+	ila	pSrc, m_in_stream					{lnop}
+	il	srcStride, 0x14						{lnop}
+	ila	pDst, m_out_stream					{lnop}
+	ai	pSrc, pSrc, 8						{lnop}
+	il	numElements, 0x3					{lnop}
+	il	numVerts, 319						{lnop}
+	{nop}								brsl	$lr, DecompressF32 [#func]
+	{nop}								stop
+		
+.endif
+
+.end
+

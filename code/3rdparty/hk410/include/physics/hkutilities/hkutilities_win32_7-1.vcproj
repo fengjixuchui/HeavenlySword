@@ -1,0 +1,1742 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="hkutilities"
+	ProjectGUID="{923DA050-F8B1-4306-9070-373D9EBA2F26}"
+	>
+	<Platforms>
+		<Platform
+			Name="Win32"
+		/>
+	</Platforms>
+
+	<Configurations>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="4"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release_multithreaded\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\release_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\release_multithreaded_dll\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,NDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="2"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="5"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug_multithreaded\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\fulldebug_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\fulldebug_multithreaded_dll\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,HK_FULLDEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="5"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug_multithreaded\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\debug_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\debug_multithreaded_dll\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="true"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="2"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="true"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Hybrid Multithreaded DLL|Win32"
+			OutputDirectory="..\..\..\lib\win32-net\hybrid_multithreaded_dll"
+			IntermediateDirectory="..\..\..\obj\win32-net_7-1\havok_2+mayhem_client\hybrid_multithreaded_dll\hkutilities"
+			ConfigurationType="4"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="true"
+			CharacterSet="2"
+			WholeProgramOptimization="false">
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				GlobalOptimizations="false"
+				OptimizeForProcessor="3"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\animation,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="WIN32,_DEBUG,HK_DEBUG,_LIB,,"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="3"
+				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="0"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="0"
+				PrecompiledHeaderThrough=""
+				PrecompiledHeaderFile="$(INTDIR)\hkutilities.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"
+				CompileAs="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkutilities.lib"
+				SuppressStartupBanner="TRUE"
+				IgnoreAllDefaultLibraries="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG,HK_DEBUG,"
+				Culture="6153"
+				ResourceOutputFileName="$(OUTDIR)\hkutilities.res"
+				AdditionalIncludeDirectories=""/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+			<Filter
+Name="actions"
+>
+	<Filter
+Name="angulardashpot"
+>
+	<File
+RelativePath=".\actions\angulardashpot\hkAngularDashpotAction.cpp"
+>
+</File>
+	<File
+RelativePath=".\actions\angulardashpot\hkAngularDashpotAction.h"
+>
+</File>
+	<File
+RelativePath=".\actions\angulardashpot\hkAngularDashpotAction.inl"
+>
+</File>
+	<File
+RelativePath=".\actions\angulardashpot\hkAngularDashpotActionClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="dashpot"
+>
+	<File
+RelativePath=".\actions\dashpot\hkDashpotAction.cpp"
+>
+</File>
+	<File
+RelativePath=".\actions\dashpot\hkDashpotAction.h"
+>
+</File>
+	<File
+RelativePath=".\actions\dashpot\hkDashpotAction.inl"
+>
+</File>
+	<File
+RelativePath=".\actions\dashpot\hkDashpotActionClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="motor"
+>
+	<File
+RelativePath=".\actions\motor\hkMotorAction.cpp"
+>
+</File>
+	<File
+RelativePath=".\actions\motor\hkMotorAction.h"
+>
+</File>
+	<File
+RelativePath=".\actions\motor\hkMotorAction.inl"
+>
+</File>
+	<File
+RelativePath=".\actions\motor\hkMotorActionClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="reorient"
+>
+	<File
+RelativePath=".\actions\reorient\hkReorientAction.cpp"
+>
+</File>
+	<File
+RelativePath=".\actions\reorient\hkReorientAction.h"
+>
+</File>
+	<File
+RelativePath=".\actions\reorient\hkReorientActionClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="spring"
+>
+	<File
+RelativePath=".\actions\spring\hkSpringAction.cpp"
+>
+</File>
+	<File
+RelativePath=".\actions\spring\hkSpringAction.h"
+>
+</File>
+	<File
+RelativePath=".\actions\spring\hkSpringAction.inl"
+>
+</File>
+	<File
+RelativePath=".\actions\spring\hkSpringActionClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="cameras"
+>
+	<File
+RelativePath=".\cameras\hkCamera.h"
+>
+</File>
+	<Filter
+Name="fpscamera"
+>
+	<File
+RelativePath=".\cameras\fpscamera\hkFpsCamera.cpp"
+>
+</File>
+	<File
+RelativePath=".\cameras\fpscamera\hkFpsCamera.h"
+>
+</File>
+	<File
+RelativePath=".\cameras\fpscamera\hkFpsCameraCi.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="charactercontrol"
+>
+	<Filter
+Name="characterproxy"
+>
+	<File
+RelativePath=".\charactercontrol\characterproxy\hkCharacterProxy.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\characterproxy\hkCharacterProxy.h"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\characterproxy\hkCharacterProxyCinfo.h"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\characterproxy\hkCharacterProxyCinfoClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\characterproxy\hkCharacterProxyListener.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="statemachine"
+>
+	<File
+RelativePath=".\charactercontrol\statemachine\hkCharacterContext.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\hkCharacterContext.h"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\hkCharacterState.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\hkCharacterState.h"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\hkCharacterStateManager.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\hkCharacterStateManager.h"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\hkDefaultCharacterStates.h"
+>
+</File>
+	<Filter
+Name="climbing"
+>
+	<File
+RelativePath=".\charactercontrol\statemachine\climbing\hkCharacterStateClimbing.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\climbing\hkCharacterStateClimbing.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="flying"
+>
+	<File
+RelativePath=".\charactercontrol\statemachine\flying\hkCharacterStateFlying.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\flying\hkCharacterStateFlying.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="inair"
+>
+	<File
+RelativePath=".\charactercontrol\statemachine\inair\hkCharacterStateInAir.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\inair\hkCharacterStateInAir.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="jumping"
+>
+	<File
+RelativePath=".\charactercontrol\statemachine\jumping\hkCharacterStateJumping.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\jumping\hkCharacterStateJumping.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="onground"
+>
+	<File
+RelativePath=".\charactercontrol\statemachine\onground\hkCharacterStateOnGround.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\onground\hkCharacterStateOnGround.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="util"
+>
+	<File
+RelativePath=".\charactercontrol\statemachine\util\hkCharacterMovementUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\charactercontrol\statemachine\util\hkCharacterMovementUtil.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	</Filter>
+	<Filter
+Name="classes"
+>
+	<File
+RelativePath=".\classes\hkUtilitiesClasses.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="collide"
+>
+	<File
+RelativePath=".\collide\hkCollapseTransformsDeprecated.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkCollapseTransformsDeprecated.h"
+>
+</File>
+	<File
+RelativePath=".\collide\hkCollisionMassChangerUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkCollisionMassChangerUtil.h"
+>
+</File>
+	<File
+RelativePath=".\collide\hkEntityContactCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkEntityContactCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collide\hkMoppCodeStreamer.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkMoppCodeStreamer.h"
+>
+</File>
+	<File
+RelativePath=".\collide\hkShapeGenerator.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkShapeGenerator.h"
+>
+</File>
+	<File
+RelativePath=".\collide\hkShapeSharingUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkShapeSharingUtil.h"
+>
+</File>
+	<File
+RelativePath=".\collide\hkShapeShrinker.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkShapeShrinker.h"
+>
+</File>
+	<File
+RelativePath=".\collide\hkTklStreamer.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkTklStreamer.h"
+>
+</File>
+	<File
+RelativePath=".\collide\hkTransformCollapseUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\hkTransformCollapseUtil.h"
+>
+</File>
+	<Filter
+Name="filter"
+>
+	<File
+RelativePath=".\collide\filter\hkGroupFilterUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\hkGroupFilterUtil.h"
+>
+</File>
+	<Filter
+Name="constrainedsystem"
+>
+	<File
+RelativePath=".\collide\filter\constrainedsystem\hkConstrainedSystemFilter.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\constrainedsystem\hkConstrainedSystemFilter.h"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\constrainedsystem\hkConstrainedSystemFilterClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="disableentity"
+>
+	<File
+RelativePath=".\collide\filter\disableentity\hkDisableEntityCollisionFilter.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\disableentity\hkDisableEntityCollisionFilter.h"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\disableentity\hkDisableEntityCollisionFilterClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="h1group"
+>
+	<File
+RelativePath=".\collide\filter\h1group\hkGroupCollisionFilter.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\h1group\hkGroupCollisionFilter.h"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\h1group\hkGroupCollisionFilterClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="pairwise"
+>
+	<File
+RelativePath=".\collide\filter\pairwise\hkPairwiseCollisionFilter.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\pairwise\hkPairwiseCollisionFilter.h"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\pairwise\hkPairwiseCollisionFilter.inl"
+>
+</File>
+	<File
+RelativePath=".\collide\filter\pairwise\hkPairwiseCollisionFilterClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="softcontact"
+>
+	<File
+RelativePath=".\collide\softcontact\hkSoftContactUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\softcontact\hkSoftContactUtil.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="surface"
+>
+	<File
+RelativePath=".\collide\surface\hkViscoseSurfaceUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\surface\hkViscoseSurfaceUtil.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="surfacevelocity"
+>
+	<File
+RelativePath=".\collide\surfacevelocity\hkSurfaceVelocityUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\surfacevelocity\hkSurfaceVelocityUtil.h"
+>
+</File>
+	<File
+RelativePath=".\collide\surfacevelocity\hkSurfaceVelocityUtil.inl"
+>
+</File>
+	<Filter
+Name="filtered"
+>
+	<File
+RelativePath=".\collide\surfacevelocity\filtered\hkFilteredSurfaceVelocityUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\collide\surfacevelocity\filtered\hkFilteredSurfaceVelocityUtil.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	</Filter>
+	<Filter
+Name="constraint"
+>
+	<File
+RelativePath=".\constraint\hkConstraintChainUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkConstraintChainUtil.h"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkConstraintUtils.cpp"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkConstraintUtils.h"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkPoweredChainMapper.cpp"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkPoweredChainMapper.h"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkPoweredChainMapper.inl"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkPoweredChainMapperClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkPoweredChainMapperUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\constraint\hkPoweredChainMapperUtil.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="dynamics"
+>
+	<Filter
+Name="suspendInactiveAgents"
+>
+	<File
+RelativePath=".\dynamics\suspendInactiveAgents\hkSuspendInactiveAgentsUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\dynamics\suspendInactiveAgents\hkSuspendInactiveAgentsUtil.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="inertia"
+>
+	<File
+RelativePath=".\inertia\hkInertiaTensorComputer.cpp"
+>
+</File>
+	<File
+RelativePath=".\inertia\hkInertiaTensorComputer.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="integration"
+>
+	<File
+RelativePath=".\integration\hkConvertCS.cpp"
+>
+</File>
+	<File
+RelativePath=".\integration\hkConvertCS.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="keyframe"
+>
+	<File
+RelativePath=".\keyframe\hkKeyFrameUtility.cpp"
+>
+</File>
+	<File
+RelativePath=".\keyframe\hkKeyFrameUtility.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="lazyadd"
+>
+	<File
+RelativePath=".\lazyadd\hkLazyAddToWorld.cpp"
+>
+</File>
+	<File
+RelativePath=".\lazyadd\hkLazyAddToWorld.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="mousespring"
+>
+	<File
+RelativePath=".\mousespring\hkMouseSpringAction.cpp"
+>
+</File>
+	<File
+RelativePath=".\mousespring\hkMouseSpringAction.h"
+>
+</File>
+	<File
+RelativePath=".\mousespring\hkMouseSpringActionClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="serialize"
+>
+	<File
+RelativePath=".\serialize\hkDisplayBindingData.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkDisplayBindingDataClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkHavokSnapshot.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkHavokSnapshot.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkPhysicsData.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkPhysicsData.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkPhysicsData.inl"
+>
+</File>
+	<File
+RelativePath=".\serialize\hkPhysicsDataClass.cpp"
+>
+</File>
+	<Filter
+Name="display"
+>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayMarker.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayMarker.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayMarker.inl"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayMarkerClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayMarkerList.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayMarkerList.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayMarkerList.inl"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayMarkerListClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayRbTransforms.cpp"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayRbTransforms.h"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayRbTransforms.inl"
+>
+</File>
+	<File
+RelativePath=".\serialize\display\hkSerializedDisplayRbTransformsClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="simulation"
+>
+	<File
+RelativePath=".\simulation\hkAsynchronousTimestepper.cpp"
+>
+</File>
+	<File
+RelativePath=".\simulation\hkAsynchronousTimestepper.h"
+>
+</File>
+	<File
+RelativePath=".\simulation\hkVariableTimestepper.cpp"
+>
+</File>
+	<File
+RelativePath=".\simulation\hkVariableTimestepper.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="thread"
+>
+	<File
+RelativePath=".\thread\hkMultithreadingUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\thread\hkMultithreadingUtil.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="visualdebugger"
+>
+	<File
+RelativePath=".\visualdebugger\hkPhysicsContext.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\hkPhysicsContext.h"
+>
+</File>
+	<Filter
+Name="viewer"
+>
+	<File
+RelativePath=".\visualdebugger\viewer\hkBroadphaseViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkBroadphaseViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkCollideDebugUtil.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkConstraintViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkConstraintViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkContactPointViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkContactPointViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkConvexRadiusBuilder.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkConvexRadiusBuilder.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkConvexRadiusViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkConvexRadiusViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkForcedContactPointViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkForcedContactPointViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkMousePickingViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkMousePickingViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkPhantomDisplayViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkPhantomDisplayViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkRigidBodyCentreOfMassViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkRigidBodyCentreOfMassViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkRigidBodyInertiaViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkRigidBodyInertiaViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkShapeDisplayBuilder.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkShapeDisplayBuilder.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkShapeDisplayViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkShapeDisplayViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkSimulationIslandViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkSimulationIslandViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkSweptTransformDisplayViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkSweptTransformDisplayViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkVehicleViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkVehicleViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkWorldMemoryViewer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkWorldMemoryViewer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkWorldViewerBase.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\hkWorldViewerBase.h"
+>
+</File>
+	<Filter
+Name="constraint"
+>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkBallSocketDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkBallSocketDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkConstraintChainDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkConstraintChainDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkConstraintDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkConstraintDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkHingeDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkHingeDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkHingeLimitsDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkHingeLimitsDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkLimitedHingeDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkLimitedHingeDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPointToPathDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPointToPathDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPointToPlaneDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPointToPlaneDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPrimitiveDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPrimitiveDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPrismaticDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPrismaticDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPulleyDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkPulleyDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkRagdollDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkRagdollDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkRagdollLimitsDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkRagdollLimitsDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkStiffSpringDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkStiffSpringDrawer.h"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkWheelDrawer.cpp"
+>
+</File>
+	<File
+RelativePath=".\visualdebugger\viewer\constraint\hkWheelDrawer.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	</Filter>
+
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
+

@@ -1,0 +1,256 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+.global DecompressMatrices
+; Implements DecompressMatrices() in ice/mesh/icemeshdecompress.cpp.
+; void DecompressMatrices(F32 *pDst, F32 *pSrc, U32 count)
+;
+; Transposes count number of 3x4 matrices at pSrc into 4x3 matrices and stores them at pDst.
+; pSrc and pDst must be 16 byte aligned.   The input matrices use 64 bytes of storage each.
+; The output matrices use 48 bytes of storage each.
+; Generally, the memory regions can not overlap, unless pDst <= pSrc.
+; NOTE: This routine will always write out an EVEN number of matrices, if if count is odd, then
+; count+1 matrices will be output.
+;
+; Turns		m00 m10 m20 ---
+;		m01 m11 m21 ---
+;		m02 m12 m22 ---
+;		m03 m13 m23 ---
+;
+; Into		m00 m01 m02 m03
+;		m10 m11 m12 m13
+;		m20 m21 m22 m23
+
+
+
+.data
+
+; Shuffle masks required for performing the transpose.
+.extern m_DCba 
+.extern m_CDdc 
+.extern m_BAab 
+
+
+
+.text
+
+.reg pDst	3	; Must be 16 byte aligned.
+.reg pSrc	4	; Must be 16 byte aligned.
+.reg count	5
+
+.reg loopCount
+.reg a0, b0, c0, d0, e0, f0, g0, h0, i0, j0, k0, l0, m0, n0, o0, p0	; Data for a matrix as it goes through the loop.
+.reg a1, b1, c1, d1, e1, f1, g1, h1, i1, j1, k1, l1, m1, n1, o1, p1	; Data for a matrix as it goes through the loop.
+.reg sel_AbcD, sel_ABcd							; Select masks needed for the transpose.
+.reg s_DCba, s_CDdc, s_BAab						; Shuffle masks needed for the transpose.
+
+.align 7
+
+DecompressMatrices:
+{e2}	ai	pSrc, pSrc, 0x80				{o?}	biz	count, $lr
+	{nop}							{o6}	lqr	s_DCba, m_DCba
+	{nop}							{o6}	lqr	s_CDdc, m_CDdc
+	{nop}							{o6}	lqr	s_BAab, m_BAab
+	{nop}							{o6 0}	lqd	a1, -128(pSrc)
+	{nop}							{o4}	fsmbi	sel_AbcD, 0x0FF0
+	{nop}							{o6 0}	lqd	b1, -112(pSrc)
+	{nop}							{o6 0}	lqd	c1, -96(pSrc)
+	{nop}							{o6 0}	lqd	d1, -80(pSrc)
+	{nop}							{o6 1}	lqd	a0, -64(pSrc)		{0123}
+	{nop}							{o6 1}	lqd	b0, -48(pSrc)		{4567}
+{e2}	ai	loopCount, count, 1				{o4}	fsmbi	sel_ABcd, 0x00FF
+{e2 1}	selb	e1, a1, b1, sel_AbcD				{o6 1}	lqd	c0, -32(pSrc)		{89ab}
+{e2 1}	selb	f1, b1, a1, sel_AbcD				{o6 1}	lqd	d0, -16(pSrc)		{cdef}
+{e2 1}	selb	g1, d1, c1, sel_AbcD				{o6 0}	lqd	a1, 0x00(pSrc)
+{e2 1}	selb	h1, c1, d1, sel_AbcD				{o6 0}	lqd	b1, 0x10(pSrc)
+{e4}	rotmi	loopCount, loopCount, -1			{o4 1}	shufb	i1, e1, g1, s_DCba
+{e2 1}	selb	e0, a0, b0, sel_AbcD	{0563}			{o4 1}	shufb	j1, f1, h1, s_CDdc
+{e2 1}	selb	f0, b0, a0, sel_AbcD	{4127}			{o4 1}	shufb	k1, f1, h1, s_BAab
+{e2 1}	selb	g0, d0, c0, sel_AbcD	{c9af}			{o6 0}	lqd	c1, 0x20(pSrc)
+{e2 1}	selb	h0, c0, d0, sel_AbcD	{8deb}			{o6 0}	lqd	d1, 0x30(pSrc)
+{e2 1}	selb	l1, e1, i1, sel_ABcd				{o4 1}	shufb	i0, e0, g0, s_DCba	{369c}
+{e2 1}	selb	m1, i1, g1, sel_ABcd				{o4 1}	shufb	j0, f0, h0, s_CDdc	{27be}
+{e2 1}	selb	n1, l1, k1, sel_AbcD				{o4 1}	shufb	k0, f0, h0, s_BAab	{148d}
+{e2 1}	selb	o1, k1, l1, sel_AbcD				{o}	hbra	decomp_matrix_branch, decomp_matrix_loop
+
+decomp_matrix_loop:	; 21 Cycles -- 10.5/matrix
+{e2 2}	selb	p1, j1, m1, sel_AbcD				{o6 2}	stqd	n1, 0x00(pDst)
+{e2 1}	ai	pSrc, pSrc, 0x80				{o6 2}	stqd	o1, 0x10(pDst)
+{e2 1}	selb	e1, a1, b1, sel_AbcD				{o6 2}	stqd	p1, 0x20(pDst)
+{e2 2}	ai	pDst, pDst, 0x60				{o6 1}	lqd	a0, -64(pSrc)
+{e2 1}	selb	f1, b1, a1, sel_AbcD				{o6 1}	lqd	b0, -48(pSrc)
+{e2 1}	selb	g1, d1, c1, sel_AbcD				{o6 1}	lqd	c0, -32(pSrc)
+{e2 1}	selb	h1, c1, d1, sel_AbcD				{o6 1}	lqd	d0, -16(pSrc)
+{e2 2}	selb	l0, e0, i0, sel_ABcd	{059c}			{o4 1}	shufb	i1, e1, g1, s_DCba
+{e2 2}	selb	m0, i0, g0, sel_ABcd	{36af}			{o4 1}	shufb	j1, f1, h1, s_CDdc
+{e2 2}	selb	n0, l0, k0, sel_AbcD	{048c}			{o4 1}	shufb	k1, f1, h1, s_BAab
+{e2 2}	selb	o0, k0, l0, sel_AbcD	{159d}			{o6 0}	lqd	a1, 0x00(pSrc)
+{e2 2}	selb	p0, j0, m0, sel_AbcD	{26ae}			{o6 2}	stqd	n0, -48(pDst)		{048c}
+{e2 2}	ai	loopCount, loopCount, -1			{o6 2}	stqd	o0, -32(pDst)		{159d}
+{e2 1}	selb	e0, a0, b0, sel_AbcD				{o6 2}	stqd	p0, -16(pDst)		{26ae}
+{e2 1}	selb	f0, b0, a0, sel_AbcD				{o6 0}	lqd	b1, 0x10(pSrc)
+{e2 1}	selb	g0, d0, c0, sel_AbcD				{o6 0}	lqd	c1, 0x20(pSrc)
+{e2 1}	selb	h0, c0, d0, sel_AbcD				{o6 0}	lqd	d1, 0x30(pSrc)
+{e2 1}	selb	l1, e1, i1, sel_ABcd				{o4 1}	shufb	i0, e0, g0, s_DCba
+{e2 1}	selb	m1, i1, g1, sel_ABcd				{o4 1}	shufb	j0, f0, h0, s_CDdc
+{e2 1}	selb	n1, l1, k1, sel_AbcD				{o4 1}	shufb	k0, f0, h0, s_BAab
+{e2 1}	selb	o1, k1, l1, sel_AbcD	decomp_matrix_branch:	{o? 2}	brnz	loopCount, decomp_matrix_loop
+
+	nop							{o?}	bi	$lr
+
+
+
+.if 0
+; Unrolled loop for transposing one matrix.
+
+; Load the original 3x4 matrix.
+	nop							{o6 0}	lqd	a1, 0x00(pSrc)		{0123}
+	nop							{o6 0}	lqd	b1, 0x10(pSrc)		{4567}
+	nop							{o6 0}	lqd	c1, 0x20(pSrc)		{89ab}
+	nop							{o6 0}	lqd	d1, 0x30(pSrc)		{cdef}
+	nop								lnop
+	nop								lnop
+	nop								lnop
+
+; Transpose the 3x4 matrix into a 4x3 matrix.
+; This can be done with 8 shuffles, but instead it is done with 9 selects and 3 shuffles in order to balance the loop.
+{e2 1}	selb	e1, a1, b1, sel_AbcD	{0563}				lnop
+{e2 1}	selb	f1, b1, a1, sel_AbcD	{4127}				lnop
+{e2 1}	selb	g1, d1, c1, sel_AbcD	{c9af}				lnop
+{e2 1}	selb	h1, c1, d1, sel_AbcD	{8deb}				lnop
+	nop							{o4 1}	shufb	i1, e1, g1, s_DCba	{369c}
+	nop							{o4 1}	shufb	j1, f1, h1, s_CDdc	{27be}
+	nop							{o4 1}	shufb	k1, f1, h1, s_BAab	{148d}
+	nop								lnop
+{e2 1}	selb	l1, e1, i1, sel_ABcd	{059c}				lnop
+{e2 1}	selb	m1, i1, g1, sel_ABcd	{36af}				lnop
+{e2 1}	selb	n1, l1, k1, sel_AbcD	{048c}				lnop
+{e2 1}	selb	o1, k1, l1, sel_AbcD	{159d}				lnop
+{e2 2}	selb	p1, j1, m1, sel_AbcD	{26ae}				lnop
+
+; Store the resulting matrix.
+	nop							{o6 2}	stqd	n1, 0x00(pDst)
+	nop							{o6 2}	stqd	o1, 0x10(pDst)
+	nop							{o6 2}	stqd	p1, 0x20(pDst)
+
+; Increment pointers.
+{e2 1}	ai	pSrc, pSrc, 0x40					lnop
+{e2 2}	ai	pDst, pDst, 0x30					lnop
+
+; Test for exit and exit if necessary.
+{e2 2}	ai	loopCount, loopCount, -1				lnop
+	nop								lnop
+	nop				decomp_matrix_branch:	{o? 2}	brnz	loopCount, decomp_matrix_loop
+.endif
+
+
+
+.if TEST
+
+.align 12
+; Test matrices
+m_input:	.dw 1,0,0,0
+		.dw 0,1,0,0
+		.dw 0,0,1,0
+		.dw 0,0,0,1
+
+		.dw 0,1,2,3
+		.dw 4,5,6,7
+		.dw 8,9,10,11
+		.dw 12,13,14,15
+
+		.dw 0xFEDBABE5,0xFEDBABE5,0xFEDBABE5,0xFEDBABE5
+		.dw 0xFEDBABE5,0xFEDBABE5,0xFEDBABE5,0xFEDBABE5
+		.dw 0xFEDBABE5,0xFEDBABE5,0xFEDBABE5,0xFEDBABE5
+		.dw 0xFEDBABE5,0xFEDBABE5,0xFEDBABE5,0xFEDBABE5
+
+		.dw 0, 0, 0, 1
+		.dw 0, 0, 1, 0
+		.dw 0, 1, 0, 0
+		.dw 1, 0, 0, 0
+
+		.dw 0x00050005,0x00050055,0x00050555,0x00055555
+		.dw 0x00550005,0x00550055,0x00550555,0x00555555
+		.dw 0x05550005,0x05550055,0x05550555,0x05555555
+		.dw 0x55550005,0x55550055,0x55550555,0x55555555
+
+		.dw 0x00060006,0x00060066,0x00060666,0x00066666
+		.dw 0x00660006,0x00660066,0x00660666,0x00666666
+		.dw 0x06660006,0x06660066,0x06660666,0x06666666
+		.dw 0x66660006,0x66660066,0x66660666,0x66666666
+
+		.dw 0x00070007,0x00070077,0x00070777,0x00077777
+		.dw 0x00770007,0x00770077,0x00770777,0x00777777
+		.dw 0x07770007,0x07770077,0x07770777,0x07777777
+		.dw 0x77770007,0x77770077,0x77770777,0x77777777
+
+		.dw 0x00080008,0x00080088,0x00080888,0x00088888
+		.dw 0x00880008,0x00880088,0x00880888,0x00888888
+		.dw 0x08880008,0x08880088,0x08880888,0x08888888
+		.dw 0x88880008,0x88880088,0x88880888,0x88888888
+
+		.dw 0x00700FA2,0x00700FA2,0x00700FA2,0x00700FA2
+		.dw 0x00700FA2,0x00700FA2,0x00700FA2,0x00700FA2
+		.dw 0x00700FA2,0x00700FA2,0x00700FA2,0x00700FA2
+		.dw 0x00700FA2,0x00700FA2,0x00700FA2,0x00700FA2
+
+		.dw 0x01700FA2,0x01700FA2,0x01700FA2,0x01700FA2
+		.dw 0x01700FA2,0x01700FA2,0x01700FA2,0x01700FA2
+		.dw 0x01700FA2,0x01700FA2,0x01700FA2,0x01700FA2
+		.dw 0x01700FA2,0x01700FA2,0x01700FA2,0x01700FA2
+
+
+m_output:	.dw 0,0,0,0
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+		.dw 0,0,0,0
+
+
+
+.text
+
+.global _start
+_start:
+{e2}	ila	pSrc, m_input						{lnop}
+{e2}	ila	pDst, m_output						{lnop}
+{e2}	ila	count, 8					{o?}	brsl	$lr, DecompressMatrices	[#func]
+	nop								stop
+
+.endif
+
+.end
+

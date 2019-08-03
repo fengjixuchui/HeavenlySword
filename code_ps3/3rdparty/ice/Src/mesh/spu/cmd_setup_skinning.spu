@@ -1,0 +1,245 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.global CmdSetupSkinning
+; Implements CmdSetupSkinning() in ice/mesh/icemeshdecompress.cpp
+; void CmdSetupSkinning(U32 *pStaticMem, Ice::IceQuadWord cmdQuad1, Ice::IceQuadWord cmdQuad2); 
+
+.include "icemeshinternal.spu.h"
+
+.extern CopyQWords
+.extern DecompressU8
+.extern BlendUniform
+
+.data
+
+.align 4
+.extern m_AaAa 
+
+.text
+
+; Input Paramaters
+.reg pStaticMemIn	3	; Pointer to static memory area.
+.reg cmdQuad1		4	; First 8 command halfwords.
+.reg cmdQuad2		5	; Last 8 command haflwords.
+
+; Copy Input Parameters
+.reg pCopyDst		3	; Pointer to copy destination.
+.reg pCopySrc		4	; Pointer to copy source.
+.reg copySize		5	; Size of copy in bytes.
+
+; Decompression Input Paramaters
+.reg pDecompSrc		3	; Pointer to the source for the decompression.
+.reg decompStride	4	; Input stride for the decompression.
+.reg pDecompDst		5	; Pointer to the destination for the decompression.
+.reg decompNumElements	6	; Number of elements to be decompressed at a time.
+.reg decompNum		7	; Number of things to be decompressed.
+.reg decompScale	8	; Scale to be multiplied by during decompression (1/255).
+.reg decompBias		9	; Bias to be added during decompression (0).
+
+; BlendUniform() Input Paramaters
+.reg pBlendSrc1		3	; Pointer to the first source for the blend.
+.reg pBlendSrc2		4	; Pointer to the second source for the blend.
+.reg pBlendDst		5	; Pointer to the destination for the blend.
+.reg blendFactor1	6	; Blend factor for the first source.
+.reg blendFactor2	7	; Blend factor for the second source.
+.reg blendNum		8	; Number of VF32s to blend.
+
+.reg blend
+.reg blendDm			; Blend factor for DM.
+.reg blendPm			; Blend factor for PM.
+.reg controlEnd			; Control value for ending skinning.
+.reg lastControl		; Last quadword of control values.
+.reg miscFlags			; Flags stored with the command (determines weight format).
+.reg noDmInfo
+.reg noPmInfo
+.reg numWeights			; Number of weights rounded up to the next mutliple of 16.
+.reg numWeightsIn
+.reg oneF			; 1.0f
+.reg pAuxWeight
+.reg pControl
+.reg pDiff
+.reg pDmInfo
+.reg pInAuxWeight
+.reg pInControl
+.reg pInputBuffer
+.reg pPmInfo
+.reg pSame
+.reg pSkin			; Pointers to each of the four skinning tables.
+.reg pSkin1			; Temp value used to build pSkin.
+.reg pSkin2			; Temp value used to build pSkin.
+.reg pStaticMem
+.reg pWeight
+.reg s_AaAa
+.reg s_insert			; Shuffle mask used to insert the end control value into the skinning control stream.
+.reg sel_ABcd
+.reg sel_AbCdEfGh
+.reg sizeControl		; Size of the control stream plus one, then rounded up to the next multiple of 16.
+.reg sizeControlOrg		; Original size of the control stream.
+.reg sizeDiff			; Size of the diff index stream rounded up to the next multiple of 16.
+.reg sizeSame			; Size of the same index stream rounded up to the next multiple of 16.
+.reg sizeWeight	
+.reg sizes			; sizes of the same and diff index streams.
+.reg sizesIn
+.reg weightF32Shift
+.reg weightShift
+.reg weightU8			; Format of weights is U8.
+
+.align 7
+
+CmdSetupSkinning:
+; Calculate the pointers to the input skinning streams, determine their rounded sizes, and allocate memory in the work
+; buffer for each one.  Also, patch the end control value into the control stream and then copy the control stream into
+; the work buffer.
+{e2}	ori	$2, $sp, 0					{o6}	lqd	pInputBuffer, kStaticInputBufferPtr(pStaticMemIn)
+{e2}	ai	$sp, $sp, -0xB0					{o4}	rotqmbyi miscFlags, cmdQuad1, -2
+{e2}	ila	sel_AbCdEfGh, 0xFFFF				{o6}	lqr	s_AaAa, m_AaAa
+{e2}	il	weightF32Shift, -2				{o6}	stqd	$2, 0x00($sp)
+{e2}	andc	sizesIn, cmdQuad1, sel_AbCdEfGh			{o6}	stqd	$lr, 0xC0($sp)
+{e2}	andi	miscFlags, miscFlags, 0xF			{o6}	stqd	$80, 0x20($sp)
+{e2}	and	numWeightsIn, cmdQuad2, sel_AbCdEfGh		{o4}	rotqbyi	sizeControlOrg, sizesIn, 2
+{e2}	ceqi	weightU8, miscFlags, kFormatWeightU8		{o6}	stqd	$81, 0x30($sp)
+{e2}	ahi	sizesIn, sizesIn, 0x0F				{o4}	shufb	pInputBuffer, pInputBuffer, pInputBuffer, s_AaAa
+{e2}	andc	weightShift, weightF32Shift, weightU8		{o6}	stqd	$82, 0x40($sp)
+{e2}	ai	sizeControl, sizeControlOrg, 0x10		{o6}	lqd	pControl, kStaticWorkFreeStart(pStaticMemIn)
+{e4}	rotm	numWeightsIn, numWeightsIn, weightShift		{o6}	stqd	$83, 0x50($sp)
+{e2}	and	pInControl, cmdQuad1, sel_AbCdEfGh		{o6}	stqd	$84, 0x60($sp)
+{e2}	andhi	sizes, sizesIn, -16				{o6}	stqd	$85, 0x70($sp)
+{e2}	a	pInControl, pInControl, pInputBuffer		{o}	hbrr	cmd_setup_skinning_control, CopyQWords
+{e2}	andi	sizeControl, sizeControl, -16			{o4}	rotqbyi	sizeSame, sizes, 6
+{e2}	ai	numWeightsIn, numWeightsIn, 0xF			{o6}	stqd	$86, 0x80($sp)
+{e2}	a	pSame, pControl, sizeControl			{o4}	rotqbyi	sizeDiff, sizes, 10
+{e2}	andi	numWeights, numWeightsIn, -16			{o6}	stqd	$87, 0x90($sp)
+{e2}	a	pDiff, pSame, sizeSame				{o6}	stqd	$88, 0xA0($sp)
+{e4}	shli	sizeWeight, numWeights, 2			{o4}	shufb	pSkin1, pControl, pSame, s_AaAa
+{e2}	a	pWeight, pDiff, sizeDiff			{o4}	fsmbi	sel_ABcd, 0x00FF
+{e2}	il	controlEnd, 8					{o6}	lqx	lastControl, pInControl, sizeControlOrg
+	{nop}							{o4}	shufb	pSkin2, pDiff, pWeight, s_AaAa
+	{nop}							{o4}	cbx	s_insert, pInControl, sizeControlOrg
+{e2}	a	pAuxWeight, pWeight, sizeWeight			{o4}	rotqmbyi pInAuxWeight, cmdQuad2, -2
+{e2}	ori	pStaticMem, pStaticMemIn, 0				lnop
+{e2}	selb	pSkin, pSkin1, pSkin2, sel_ABcd			{o6}	stqd	pAuxWeight, kStaticWorkFreeStart(pStaticMemIn)
+{e2}	ori	pCopySrc, pInControl, 0				{o4}	shufb	lastControl, controlEnd, lastControl, s_insert
+{e2}	ori	pCopyDst, pControl, 0				{o6}	stqd	pSkin, kStaticSkinControlPtr(pStaticMem)
+{e2}	ai	copySize, sizeControl, -16			; Function call below.
+; Shut up incorrect warnings about these not being used.
+.cuse pCopySrc, pCopyDst, copySize
+				cmd_setup_skinning_control:	{o?}	brsl	$lr, CopyQWords	[#func]
+			
+; Copy the same matrix index stream into the work buffer.
+	{nop}							{o4}	rotqbyi	pCopyDst, pSkin, 4
+	{nop}							{o4}	rotqbyi	pCopySrc, pInControl, 4
+	{nop}							{o4}	rotqbyi	copySize, sizes, 6
+	{nop}								lnop
+	{nop}							{o6}	stqd	lastControl, -16(pCopyDst)
+; Shut up incorrect warnings about these not being used.
+.cuse pCopySrc, pCopyDst, copySize
+	{nop}							{o?}	brsl	$lr, CopyQWords	[#func]
+
+; Copy the diff matrix index stream into the work buffer.
+	{nop}							{o4}	rotqbyi	pCopyDst, pSkin, 8
+	{nop}							{o4}	rotqbyi	pCopySrc, pInControl, 8
+	{nop}							{o4}	rotqbyi	copySize, sizes, 10
+; Shut up incorrect warnings about these not being used.
+.cuse pCopySrc, pCopyDst, copySize
+	{nop}							{o?}	brsl	$lr, CopyQWords	[#func]
+
+; Now we handle the skinning weights.  These weights can either be in U8 or F32 format, which was determined above.
+; If they are in F32 format, then we branch out to code that performs a copy, otherwise we setup all of the parameters
+; for a call to DecompressU8().  After that, we look to see if aux weights are present in the skinning data.  If they are
+; then we jump into the aux weight decompression and blending code, otherwise we are done.
+{e2}	il	decompBias, 0					{o?}	brz	weightU8, cmd_setup_skinning_copy
+{e2}	il	decompStride, 4					{o4}	rotqbyi	pDecompSrc, pInControl, 12
+{e2}	ilhu	decompScale, 0x3B80				{o4}	rotqbyi	pDecompDst, pSkin, 12
+{e2}	il	decompNumElements, 4				{o4}	rotqmbii decompNum, numWeights, -2
+{e2}	iohl	decompScale, 0x8081				; Function call below.
+; Shut up incorrect warnings about these not being used.
+.cuse pDecompSrc, decompStride, pDecompDst, decompNumElements, decompNum, decompScale, decompBias
+								{o?}	brsl	$lr, DecompressU8	[#func]
+	{nop}							{o?}	brnz	pInAuxWeight, cmd_setup_skinning_aux
+	{nop}							{o?}	br	cmd_setup_skinning_end
+
+; The weights are in F32 format and only require a copy.  The paramaters to CopyQWords() are setup here and then
+; CopyQWords() is called.  After that, we look to see if aux weights are present in the skinning data.  If they aren't
+; then we are done, otherwise we continue into the aux weight decompression and blending.
+cmd_setup_skinning_copy:
+{e4}	shli	copySize, numWeights, 2				{o4}	rotqbyi	pCopyDst, pSkin, 12
+	{nop}							{o4}	rotqbyi	pCopySrc, pInControl, 12
+; Shut up incorrect warnings about these not being used.
+.cuse pCopySrc, pCopyDst, copySize
+	{nop}							{o?}	brsl	$lr, CopyQWords	[#func]
+	nop							{o?}	brz	pInAuxWeight, cmd_setup_skinning_end
+
+; We have determined that aux weights are present with the skinning data, so we need to decompress the aux weights into
+; the work buffer and then blend them with the normal weights.  Aux weights will have the same format as the normal
+; weights, so we either need to call DecompressU8() or simply copy the data into the work buffer.
+; Here we calculate the address of the aux weight table in the input buffer and setup all the paramaters for a call to
+; DecompressU8().  If the format is not in U8s, then we branch just before the call to the code that performs the copy instead.
+cmd_setup_skinning_aux:
+{e2}	il	decompStride, 4					{o6}	lqd	pInputBuffer, kStaticInputBufferPtr(pStaticMem)
+{e2}	il	decompNumElements, 4				{o4}	rotqbyi	pDecompDst, pAuxWeight, 0
+{e2}	ilhu	decompScale, 0x3B80					{lnop}
+{e4}	rotmi	decompNum, numWeights, -2				{lnop}
+{e2}	iohl	decompScale, 0x8081					{lnop}
+{e2}	il	decompBias, 0						{lnop}
+{e2}	a	pDecompSrc, pInAuxWeight, pInputBuffer		{o?}	brz	weightU8, cmd_setup_skinning_aux_copy
+; Shut up incorrect warnings about these not being used.
+.cuse pDecompSrc, decompStride, pDecompDst, decompNumElements, decompNum, decompScale, decompBias
+	{nop}							{o?}	brsl	$lr, DecompressU8	[#func]
+	{nop}							{o?}	br	cmd_setup_skinning_aux_blend
+
+; Setting up the aux weights simply requires a copy, so perform the copy.
+cmd_setup_skinning_aux_copy:
+{e2}	a	pCopySrc, pInAuxWeight, pInputBuffer		{o4}	rotqbyi	pCopyDst, pAuxWeight, 0
+{e4}	shli	copySize, numWeights, 2				; Function call below.
+; Shut up incorrect warnings about these not being used.
+.cuse pCopySrc, pCopyDst, copySize
+								{o?}	brsl	$lr, CopyQWords	[#func]
+
+; First, get the correct blend factor.  The blend factor may come from either the PM info structure or the DM info structure
+; depending on whether we are performing PM or DM.
+; Once we have the correct blend factor, call BlendUniform() with the proper parameters.
+cmd_setup_skinning_aux_blend:
+	{nop}							{o6}	lqd	pPmInfo, kStaticDiscretePmInfoPtr(pStaticMem)
+	{nop}							{o6}	lqd	pDmInfo, kStaticDmInfoPtr(pStaticMem)
+	{nop}							{o}	hbrr	cmd_setup_skinning_blend, BlendUniform
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}								{lnop}
+	{nop}							{o6}	lqd	blendPm, 0x00(pPmInfo)
+	{nop}							{o6}	lqd	blendDm, 0x00(pDmInfo)
+	{nop}							{o4}	rotqbyi	pBlendSrc1, pSkin, 12
+{e2}	ilhu	oneF, 0x3F80					{o4}	rotqbyi	pBlendDst, pSkin, 12
+{e2}	ceqi	noPmInfo, pPmInfo, 0					{lnop}
+{e2}	ceqi	noDmInfo, pDmInfo, 0					{lnop}
+{e2}	andc	blend, blendPm, noPmInfo				{lnop}
+{e4}	rotmi	blendNum, numWeights, -2				{lnop}
+{e2}	selb	blendFactor1, blendDm, blend, noDmInfo			{lnop}
+{e2}	ori	pBlendSrc2, pAuxWeight, 0				{lnop}
+{e2}	fs	blendFactor2, oneF, blendFactor1		; Function call below.
+; Shut up incorrect warnings about these not being used.
+.cuse pBlendSrc1, pBlendSrc2, pBlendDst, blendFactor1, blendFactor2, blendNum
+				cmd_setup_skinning_blend:	{o?}	brsl	$lr, BlendUniform	[#func]
+
+; Restore saved registers from stack and return.
+cmd_setup_skinning_end:
+	{nop}							{o6}	lqd	$lr, 0xC0($sp)
+	{nop}							{o6}	lqd	$80, 0x20($sp)
+	{nop}							{o6}	lqd	$81, 0x30($sp)
+	{nop}							{o6}	lqd	$82, 0x40($sp)
+	{nop}							{o6}	lqd	$83, 0x50($sp)
+	{nop}							{o6}	lqd	$84, 0x60($sp)
+	{nop}							{o6}	lqd	$85, 0x70($sp)
+	{nop}							{o6}	lqd	$86, 0x80($sp)
+	{nop}							{o6}	lqd	$87, 0x90($sp)
+	{nop}							{o6}	lqd	$88, 0xA0($sp)
+	{nop}							{o6}	lqd	$sp, 0x00($sp)
+	{nop}							{o?}	bi	$lr
+
+.end
+

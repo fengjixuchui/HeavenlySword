@@ -1,0 +1,112 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern GetLogicalBuffer
+.reg pMiscData
+// 13 GetLogicalBuffer outputs /
+.reg Gbt_pBufferSet           20
+.reg Gbt_bufferSet            21
+.reg Gbt_bufferSetNr          22
+.reg Gbt_firstPageNum         23
+.reg Gbt_numPagesPerBuffer    24
+.reg Gbt_numBuffers           25
+.reg Gbt_pBuffers             26
+.reg Gbt_bufferNum            27
+.reg Gbt_pBuffer              28
+.reg Gbt_buffer               29
+.reg Gbt_bufferNr             30
+.reg Gbt_bufferPageNum        31
+.reg Gbt_pLogicalToBufferNums 32
+////////////////////////////////
+.global WwsJob_GetLogicalBuffer
+WwsJob_GetLogicalBuffer:
+		.cset $3, $4, $5, $6
+		ai pMiscData, $6, 0							brsl $6, GetLogicalBuffer [#GetLogicalBufferCC]
+		{nop}									stqd Gbt_pBufferSet,           0x00(pMiscData)
+		{nop}									stqd Gbt_bufferSet,            0x10(pMiscData)
+		{nop}									stqd Gbt_firstPageNum,         0x20(pMiscData)
+		{nop}									stqd Gbt_numPagesPerBuffer,    0x30(pMiscData)
+		{nop}									stqd Gbt_numBuffers,           0x40(pMiscData)
+		{nop}									stqd Gbt_pBuffers,             0x50(pMiscData)
+		{nop}									stqd Gbt_bufferNum,            0x60(pMiscData)
+		{nop}									stqd Gbt_pBuffer,              0x70(pMiscData)
+		{nop}									stqd Gbt_buffer,               0x80(pMiscData)
+		{nop}									stqd Gbt_bufferPageNum,        0x90(pMiscData)
+		{nop}									stqd Gbt_pLogicalToBufferNums, 0xA0(pMiscData)
+		{nop}									bi $lr
+.end
+.endif
+
+.start
+.include "conventions.inl"
+.text
+.usecc GetLogicalBufferCC
+
+//void GetLogicalBuffer( I32 jobNum, U32 logicalBufferSetNum, U32 logicalBufferNum, MiscData *miscData )
+// 0x00 WwsJob_BufferSet *&pBufferSet, 
+// 0x10 WwsJob_BufferSet &bufferSet, 
+// 0x20 U32 &bufferSetFirstPageNum, 
+// 0x30 U32 &numPagesPerBuffer, 
+// 0x40 U32 &numBuffers,
+// 0x50 BufferEtc *&pBuffers, 
+// 0x60 U32 &bufferNum, 
+// 0x70 BufferEtc *&pBuffer, 
+// 0x80 BufferEtc &buffer, 
+// 0x90 U32 &bufferPageNum, 
+// 0xA0 U8 *&pLogicalToBufferNums )
+.reg bufferSetNum, pBufferSet, bufferSetArray, bufferSet, firstPageNum, numPagesPerBuffer
+.reg numBuffers, firstBufferNum, mask, pBuffers, pLogicalToBufferNums, bufferNum, pBuffer
+.reg buffer, bufferPageNum, logicalToBufferNumArray, tmp, bufferArray, firstBufferNum_
+// 13 GetLogicalBuffer outputs /
+.reg Gbt_pBufferSet           20
+.reg Gbt_bufferSet            21
+.reg Gbt_bufferSetNr          22
+.reg Gbt_firstPageNum         23
+.reg Gbt_numPagesPerBuffer    24
+.reg Gbt_numBuffers           25
+.reg Gbt_pBuffers             26
+.reg Gbt_bufferNum            27
+.reg Gbt_pBuffer              28
+.reg Gbt_buffer               29
+.reg Gbt_bufferNr             30
+.reg Gbt_bufferPageNum        31
+.reg Gbt_pLogicalToBufferNums 32
+////////////////////////////////
+.extern g_WwsJob_bufferSetArray
+.extern g_WwsJob_logicalToBufferNumArray
+.global GetLogicalBuffer
+GetLogicalBuffer: // 31 instructions, 124 bytes, 45 cycles
+		shli bufferSetNum, $3, 6						fsmbi mask, 0x1000
+		shli pBufferSet, $4, 2							hbr GlbBranch, $6
+		ila bufferSetArray, g_WwsJob_bufferSetArray				{lnop}
+		a pBufferSet, pBufferSet, bufferSetNum					{lnop}
+		{nop}									lqx Gbt_bufferSetNr, pBufferSet, bufferSetArray
+		a Gbt_pBufferSet, pBufferSet, bufferSetArray	  			{lnop}
+		{nop}									rotqby Gbt_bufferSet, Gbt_bufferSetNr, Gbt_pBufferSet
+		ila logicalToBufferNumArray, g_WwsJob_logicalToBufferNumArray		{lnop}
+		and firstBufferNum, Gbt_bufferSet, mask					rotqbyi firstPageNum, Gbt_bufferSet, 13
+		ila bufferArray, g_WwsJob_bufferArray					rotqbyi numPagesPerBuffer, Gbt_bufferSet, 14
+		a Gbt_pLogicalToBufferNums, firstBufferNum, logicalToBufferNumArray	{lnop}
+		shli firstBufferNum_, firstBufferNum, 3					{lnop}
+		and Gbt_firstPageNum, firstPageNum, mask				lqx bufferNum, Gbt_pLogicalToBufferNums, $5
+		and Gbt_numPagesPerBuffer, numPagesPerBuffer, mask			rotqbyi numBuffers, Gbt_bufferSet, 15
+		a tmp, Gbt_pLogicalToBufferNums, $5					{lnop}
+		a Gbt_pBuffers, firstBufferNum_, bufferArray				{lnop}
+		ai tmp, tmp, 13								{lnop}
+		andi Gbt_numBuffers, numBuffers, 0x7F					{lnop}
+		{nop}									rotqby Gbt_bufferNum, bufferNum, tmp
+		andi Gbt_bufferNum, Gbt_bufferNum, 0xFF					{lnop}
+		roti pBuffer, Gbt_bufferNum, 3						{lnop}
+		mpya Gbt_bufferPageNum, Gbt_numPagesPerBuffer, Gbt_bufferNum, Gbt_firstPageNum	{lnop}
+		a Gbt_pBuffer, pBuffer, Gbt_pBuffers					lqx Gbt_bufferNr, pBuffer, Gbt_pBuffers
+		{nop}									rotqby Gbt_buffer, Gbt_bufferNr, Gbt_pBuffer
+		{nop}							GlbBranch:	bi $6
+.end

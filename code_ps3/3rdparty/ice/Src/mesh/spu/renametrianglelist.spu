@@ -1,0 +1,211 @@
+;
+; Copyright (c) 2005 Naughty Dog, Inc.
+; A Wholly Owned Subsidiary of Sony Computer Entertainment, Inc.
+; Use and distribution without consent strictly prohibited
+;
+
+.start
+
+.define TEST 0
+
+;in
+; $3 ptr rename tbl
+; $4 number of renames
+; $5 ptr to uniform tbl
+; $6 ptr to current out data
+;
+;temp
+; $7 out ptr addition
+; $8 out ptr addition
+
+.data
+.align 4
+initialIdx:		.dh 0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70
+
+s_ABab:
+.dshuf "ABab"
+s_Aa000000:
+.dshuf "Aa000000"
+s_ABaA0000:
+.dshuf "ABaA0000"
+
+.text
+.align 7
+
+.reg pIn	6
+.reg pOut
+.reg pRename 3
+.reg count	4
+.reg pIndex	5
+.reg s_ABab
+.reg s_Aa000000
+.reg s_ABaA0000
+.reg mask
+.reg idx
+.reg _idx
+.reg ind1
+.reg ind2
+.reg ind3
+.reg ind4
+.reg tri1
+.reg tri2
+.reg tri3
+.reg tri4
+.reg _tri1
+.reg _tri2
+.reg _tri3
+.reg _tri4
+.reg d_a1
+.reg d_a2
+.reg d_a3
+.reg d_b1
+.reg d_b2
+.reg d_b3
+.reg d_c1
+.reg d_c2
+.reg d_c3
+.reg d_d1
+.reg d_d2
+.reg d_d3
+.reg it_a1
+.reg it_a2
+.reg it_a3
+.reg it_a4
+.reg it_b1
+.reg it_b2
+.reg it_b3
+.reg it_b4
+.reg it_c1
+.reg it_c2
+.reg it_c3
+.reg it_c4
+.reg it_d1
+.reg it_d2
+.reg it_d3
+.reg it_d4
+.reg out1
+.reg out2
+.reg offset
+.reg offset_d1
+.reg offset_d2
+
+.global RenameTriangleList
+RenameTriangleList:
+	il	offset_d1, 0x00						{1} lqd		_idx, 0x00(pRename)
+	il	offset_d2, 0x20						lqr		s_Aa000000, s_Aa000000
+	ori		pOut, pIn, 0					hbrr	loopFrom, loop
+	ai		count, count, 3+4				lqr		s_ABab, s_ABab
+	il		mask, 0x7fff					lqr		s_ABaA0000, s_ABaA0000
+	andi	count, count, -4				{1} rotqby	idx, _idx, pRename
+									
+
+.cset d_a1
+.cset d_a2
+.cset d_a3
+.cset d_b1
+.cset d_b2
+.cset d_b3
+.cset d_c1
+.cset d_c2
+.cset d_c3
+.cset d_d1
+.cset d_d2
+.cset d_d3
+
+loop:
+											{2} shufb	_tri1, d_a1, d_a2, s_Aa000000
+											{2} shufb	_tri2, d_b1, d_b2, s_Aa000000
+{1}	shlhi	idx, idx, 3						{2} shufb	_tri3, d_c1, d_c2, s_Aa000000
+	nop										{2} shufb	_tri4, d_d1, d_d2, s_Aa000000
+{1}	ai		pRename, pRename, 0x08			{2} shufb	_tri1, _tri1, d_a3, s_ABaA0000
+											{2} shufb	_tri2, _tri2, d_b3, s_ABaA0000
+											{2} shufb	_tri3, _tri3, d_c3, s_ABaA0000	
+{1} rotmai	ind1, idx, -16					{1} shlqbyi	ind4, idx, 4
+	ori		offset, offset_d1, 0			{1} lqx		tri2, pIn, idx
+											{1} shlqbyi	ind3, idx, 2
+											{2} shufb	_tri4, _tri4, d_d3, s_ABaA0000
+	ori		offset_d1, offset_d2, 0			{1} lqx		tri1, pIn, ind1
+{1}	ai		count, count, -4				{1} lqx		tri4, pIn, ind4
+											{1} lqx		tri3, pIn, ind3
+											{2} lqd		_idx, 0x00(pRename)
+											{1} rotqby	tri2, tri2, idx
+											{2} shufb	out1, _tri1, _tri2, s_ABab
+											{1} rotqby	tri1, tri1, ind1
+											{1} rotqby	tri4, tri4, ind4
+{1} shlhi	tri2, tri2, 1					{1} rotqby	tri3, tri3, ind3
+	nop										{2} shufb	out2, _tri3, _tri4, s_ABab
+{1} shlhi	tri1, tri1, 1					{2} rotqby	idx, _idx, pRename
+{1} shlhi	tri4, tri4, 1					{2} stqd	out1, 0x00(pOut)
+{1} shlhi	tri3, tri3, 1					{1} shlqbyi	it_b4, tri2, 4
+{1} rotmai	it_b1, tri2, -16				{2} stqd	out2, 0x10(pOut)
+{1} rotmai	it_a1, tri1, -16				{1} shlqbyi	it_a4, tri1, 4
+{1} rotmai	it_d1, tri4, -16				{1} shlqbyi	it_d4, tri4, 4
+{1} rotmai	it_c1, tri3, -16				{1} shlqbyi	it_c4, tri3, 4
+{1} rotmai	it_b3, it_b4, -16				{1} lqx		d_b1, pIndex, it_b1	
+{1} rotmai	it_a3, it_a4, -16				{1} lqx		d_a1, pIndex, it_a1	
+{1} rotmai	it_d3, it_d4, -16				{1} lqx		d_d1, pIndex, it_d1
+{1} rotmai	it_c3, it_c4, -16				{1} lqx		d_c1, pIndex, it_c1
+{1} and		it_b2, tri2, mask				{1} lqx		d_b3, pIndex, it_b3
+{1} and		it_a2, tri1, mask				{1} lqx		d_a3, pIndex, it_a3
+{1} and		it_d2, tri4, mask				{1} lqx		d_d3, pIndex, it_d3
+{1} and		it_c2, tri3, mask				{1} lqx		d_c3, pIndex, it_c3
+											{1} lqx		d_b2, pIndex, it_b2
+											{1} lqx		d_a2, pIndex, it_a2
+											{1} lqx		d_d2, pIndex, it_d2
+											{1} lqx		d_c2, pIndex, it_c2
+											{1} rotqby	d_a1, d_a1, it_a1
+											{1} rotqby	d_b1, d_b1, it_b1
+											{1} rotqby	d_c1, d_c1, it_c1
+											{1} rotqby	d_d1, d_d1, it_d1
+											{1} rotqby	d_a2, d_a2, it_a2
+											{1} rotqby	d_b2, d_b2, it_b2
+											{1} rotqby	d_c2, d_c2, it_c2
+											{1} rotqby	d_d2, d_d2, it_d2
+											{1} rotqby	d_a3, d_a3, it_a3
+											{1} rotqby	d_b3, d_b3, it_b3
+											{1} rotqby	d_c3, d_c3, it_c3
+											{1} rotqby	d_d3, d_d3, it_d3
+	a		pOut, pOut, offset				loopFrom:	brnz	count, loop
+
+											bi	$lr
+
+
+.if TEST
+
+.data
+
+.align 12
+m_triList:			.dh	0, 1, 2, 0,						0xffff, 0xffff, 0xffff, 0xffff
+					.dh	1, 2, 3, 1,						2, 3, 4, 2
+					.dh	0xffff, 0xffff, 0xffff, 0xffff,	0xffff, 0xffff, 0xffff, 0xffff
+					.dh	0xffff, 0xffff, 0xffff, 0xffff,	3, 4, 5, 3
+					.dh	0xffff, 0xffff, 0xffff, 0xffff,	4, 5, 6, 4
+					.dh	5, 6, 7, 5,						0xffff, 0xffff, 0xffff, 0xffff
+					.dh	6, 7, 8, 6,						0xffff, 0xffff, 0xffff, 0xffff
+					.dh	7, 8, 9, 7,						8, 9, 10, 8
+					.dh	0xffff, 0xffff, 0xffff, 0xffff,	0xffff, 0xffff, 0xffff, 0xffff
+					.dh	0xffff, 0xffff, 0xffff, 0xffff,	0xffff, 0xffff, 0xffff, 0xffff
+					.dh	0xffff, 0xffff, 0xffff, 0xffff,	0xffff, 0xffff, 0xffff, 0xffff
+					.dh	0xffff, 0xffff, 0xffff, 0xffff,	0xffff, 0xffff, 0xffff, 0xffff
+
+m_renameTbl:		.dh	0x00, 0x02, 0x03, 0x07, 0x09, 0x0a, 0x0c, 0x0e
+					.dh	0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+
+m_vertexForwarding:	.dh	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
+					.dh	0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10
+
+.text
+
+.global _start
+_start:
+	ila	$3, m_renameTbl						hbrr	f, RenameTriangleList
+	ila	$5, m_vertexForwarding				lnop
+	il	$4, 9								lnop
+	il	$6, m_triList
+	nop										f:	brsl	$lr, RenameTriangleList [#func]
+	nop										stop
+
+.endif
+
+.end
+

@@ -1,0 +1,95 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.define ABIWRAPPER 0
+
+.if ABIWRAPPER
+.start
+.include "conventions.inl"
+.text
+.extern SetQwordMem
+.global WwsJob_SetQwordMem
+WwsJob_SetQwordMem:
+		.cset $3, $4, $5
+		{nop}									stqd $lr, 16($sp)
+		{nop}									stqd $sp, -32($sp)
+		ai $sp, $sp, -32							brsl $6, SetQwordMem [#SetMemCC]
+		ai $sp, $sp, 32								lqd $lr, 16($sp)
+		nop									bi $lr
+
+.extern SetDwordMem
+.global WwsJob_SetDwordMem
+WwsJob_SetDwordMem:
+		.cset $3, $4, $5
+		{nop}									stqd $lr, 16($sp)
+		{nop}									stqd $sp, -32($sp)
+		ai $sp, $sp, -32							brsl $6, SetDwordMem [#SetMemCC]
+		ai $sp, $sp, 32								lqd $lr, 16($sp)
+		nop									bi $lr
+
+.end
+.endif
+
+.start
+.include "conventions.inl"
+.text
+.usecc SetMemCC
+
+;=================================================================================================
+;------ 25 ---- 54 instructions/216 bytes total ------- 29 ---------------------------------------
+//static void WwsJob_SetQwordMem(QuadWord* pMem, U32 size, U64 data)
+//static void WwsJob_SetDwordMem(QuadWord* pMem, U32 size, U64 data)
+.reg	in_pMem		 3	{QuadWord*}
+.reg	in_size		 4	{U32}
+.reg	in_data		 5	{U64}
+.reg	_0, sel_abcd, s_Aa
+.reg	pMem, size, qw_data, pMem_
+.reg	align_start, align_end, pMem_end, shift_end, sel_qw0, sel_end, qw0, qw_end
+.reg	mask_done, size_mod32, mask_x00, mask_x10, mask_x20, audit_U64, sel_aBCD
+.reg	align_size, qword_size_mask, dword_size_mask
+;-------8-----------------------------------------------------------------------------------------
+.if	VERBOSE_ASSERTS_ENABLED
+.extern SetDwordMem_AssertSize
+.extern SetQwordMem_AssertSize
+.endif
+
+;-------36----------------------------------------------------------------------------------------
+.global SetDwordMem
+SetDwordMem:
+.if	VERBOSE_ASSERTS_ENABLED
+		ila	dword_size_mask, 0x3FFF8					lnop
+.endif
+		ila	_0, 0								fsmbi	sel_abcd, 0xFFFF
+.if	VERBOSE_ASSERTS_ENABLED
+		andc	align_size, in_size, dword_size_mask				brnz	align_size, SetDwordMem_AssertSize
+.endif
+		a	pMem_end, in_pMem, in_size					cdd	s_Aa, 0x8(_0)
+		andi	align_start, in_pMem, 0x8					lqd	qw0, 0x00(in_pMem)
+		andi	align_end, pMem_end, 0x8					lqd	qw_end, 0x00(pMem_end)
+		sf	size, align_start, in_size					shlqby	sel_qw0, sel_abcd, align_start
+		sfi	shift_end, align_end, 16					shufb	qw_data, in_data, in_data, s_Aa
+		sf	size, align_end, size						{lnop}
+		a	pMem, in_pMem, align_start					{lnop}
+		{nop}									shlqby	sel_end, sel_abcd, shift_end
+		selb	qw0, qw_data, qw0, sel_qw0					{lnop}
+SetQwordMem_Entry:
+		ai	pMem_, pMem, 0							hbrr	SetDwordMem_Branch, SetDwordMem_Loop
+		andi	size_mod32, size, 0x10						biz	in_size, $6
+		selb	qw_end, qw_end, qw_data, sel_end				stqd	qw0, 0x00(in_pMem)
+		sf	size, size_mod32, size						stqd	qw_end, 0x00(pMem_end)
+		a	pMem, pMem, size_mod32						brz	size_mod32, SetDwordMem_Branch
+		{nop}									stqd	qw_data, 0x00(pMem_)
+		{nop}									biz	size, $6
+;------ 4 ----- 3 cycles/2 qwords --------------------- 5 ----------------------------------------
+SetDwordMem_Loop:
+		ai	size, size, -32							stqd	qw_data, 0x10(pMem_)
+		ai	pMem_, pMem, 0x20						stqd	qw_data, 0x00(pMem)
+		ai	pMem, pMem, 0x20		SetDwordMem_Branch:		brnz	size, SetDwordMem_Loop
+;-------------------------------------------------------------------------------------------------
+						; double branch stall ~36 cycles on return
+		nop									bi	$6
+;=================================================================================================
+
+.end

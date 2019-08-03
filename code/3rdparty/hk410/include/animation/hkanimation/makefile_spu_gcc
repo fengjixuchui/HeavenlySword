@@ -1,0 +1,10 @@
+SRC := hkAnimation.cpp hkAnimationContainer.cpp animation/deltacompressed/hkDeltaCompressedSkeletalAnimation.cpp animation/interleaved/hkInterleavedSkeletalAnimation.cpp animation/util/hkTrackAnalysis.cpp animation/waveletcompressed/hkWaveletSkeletalAnimation.cpp motion/default/hkDefaultAnimatedReferenceFrame.cpp playback/control/hkAnimationControl.cpp playback/control/default/hkDefaultAnimationControl.cpp playback/multithreaded/hkAnimationJobQueueUtils.cpp playback/multithreaded/hkMultithreadedAnimationUtils.cpp playback/multithreaded/spu/hkSpuAnimation.cpp playback/utilities/hkSampleAndCombineUtils.cpp
+
+FD_SRC := .
+
+LIB_NAME = hkanimation
+
+DEFINES += -DHK_DISABLE_VECTOR4_CONSTRUCTORS
+
+include ../../havokCommon_spu_gcc.mk
+

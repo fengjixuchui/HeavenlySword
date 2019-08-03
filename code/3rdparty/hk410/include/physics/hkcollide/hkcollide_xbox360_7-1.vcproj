@@ -1,0 +1,1982 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+
+<VisualStudioProject
+	ProjectType="Visual C++"
+	Version="7.10"
+	Name="hkcollide"
+	ProjectGUID="{C87D5B7A-9564-4555-AD8F-01C7B1EA36D9}"
+	>
+	<Platforms>
+		<Platform
+			Name="Xenon"
+		/>
+	</Platforms>
+
+	<Configurations>
+		<Configuration
+			Name="Release|Xenon"
+			OutputDirectory="..\..\..\lib\xbox360-net\release"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_7-1\havok_2+mayhem_client\release\hkcollide"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="false"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="4"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkcollide/hkCollide.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkcollide.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkcollide.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release Multithreaded|Xenon"
+			OutputDirectory="..\..\..\lib\xbox360-net\release_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_7-1\havok_2+mayhem_client\release_multithreaded\hkcollide"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="false"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,NDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="false"
+				ExceptionHandling="0"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkcollide/hkCollide.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkcollide.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="0"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkcollide.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug|Xenon"
+			OutputDirectory="..\..\..\lib\xbox360-net\fulldebug"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_7-1\havok_2+mayhem_client\fulldebug\hkcollide"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="false"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="5"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkcollide/hkCollide.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkcollide.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkcollide.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="FullDebug Multithreaded|Xenon"
+			OutputDirectory="..\..\..\lib\xbox360-net\fulldebug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_7-1\havok_2+mayhem_client\fulldebug_multithreaded\hkcollide"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="false"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="0"
+				FavorSizeOrSpeed="0"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,_DEBUG,HK_DEBUG,HK_FULLDEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkcollide/hkCollide.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkcollide.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkcollide.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug|Xenon"
+			OutputDirectory="..\..\..\lib\xbox360-net\debug"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_7-1\havok_2+mayhem_client\debug\hkcollide"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="false"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="5"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkcollide/hkCollide.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkcollide.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkcollide.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+		<Configuration
+			Name="Debug Multithreaded|Xenon"
+			OutputDirectory="..\..\..\lib\xbox360-net\debug_multithreaded"
+			IntermediateDirectory="..\..\..\obj\xbox360-net_7-1\havok_2+mayhem_client\debug_multithreaded\hkcollide"
+			ConfigurationType="4"
+			CharacterSet="2"
+			WholeProgramOptimization="false"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool Name="VCCustomBuildTool" 			 />
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/QVMX128 /QVMXReserve"
+				Optimization="3"
+				FavorSizeOrSpeed="1"
+				AdditionalIncludeDirectories="..\..\common,..,..\..\..\sdk\include\physics,..\..\..\sdk\include\common,..\..\..\sdk\include\animation,..\..\..\sdk\include\complete,"
+				PreprocessorDefinitions="_XBOX,XBOX,_DEBUG,HK_DEBUG,_LIB,,HK_DISABLE_VECTOR4_CONSTRUCTORS"
+				StringPooling="TRUE"
+				MinimalRebuild="true"
+				ExceptionHandling="0"
+				RuntimeLibrary="1"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="FALSE"
+				RuntimeTypeInfo="TRUE"
+				UsePrecompiledHeader="3"
+				PrecompiledHeaderThrough="hkcollide/hkCollide.h"
+				PrecompiledHeaderFile="$(INTDIR)\hkcollide.pch"
+				AssemblerListingLocation="$(INTDIR)/"
+				ObjectFile="$(INTDIR)/"
+				ProgramDataBaseFileName="$(OUTDIR)/$(TARGETNAME).pdb"
+				WarningLevel="4"
+				SuppressStartupBanner="TRUE"
+				Detect64BitPortabilityProblems="FALSE"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OUTDIR)\hkcollide.lib"
+				SuppressStartupBanner="TRUE"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+		</Configuration>
+
+	</Configurations>
+	<References>
+	</References>
+	<Files>
+			<Filter
+Name="agent"
+>
+	<File
+RelativePath=".\agent\hkCdBody.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCdBody.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCdBodyClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCdBodyPairCollector.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCdBodyPairCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCdPoint.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCdPointCollector.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCdPointCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollidable.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollidable.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollidable.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollidableClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollidableQualityType.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollisionAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollisionAgent.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollisionAgent.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollisionAgentConfig.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollisionAgentConfig.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollisionInput.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkCollisionQualityInfo.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkContactMgr.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkLinearCastCollisionInput.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkLinearCastCollisionInput.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\hkProcessCdPoint.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkProcessCollisionData.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkProcessCollisionData.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\hkProcessCollisionInput.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkProcessCollisionOutput.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkShapeCollectionFilter.h"
+>
+</File>
+	<File
+RelativePath=".\agent\hkShapeCollectionFilterClass.cpp"
+>
+</File>
+	<Filter
+Name="boxbox"
+>
+	<File
+RelativePath=".\agent\boxbox\hkBoxBoxAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\boxbox\hkBoxBoxAgent.h"
+>
+</File>
+	<File
+RelativePath=".\agent\boxbox\hkBoxBoxContactPoint.h"
+>
+</File>
+	<File
+RelativePath=".\agent\boxbox\hkBoxBoxManifold.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\boxbox\hkBoxBoxManifold.h"
+>
+</File>
+	<File
+RelativePath=".\agent\boxbox\hkBoxBoxManifold.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="bv"
+>
+	<File
+RelativePath=".\agent\bv\hkBvAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\bv\hkBvAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="bvtree"
+>
+	<File
+RelativePath=".\agent\bvtree\hkBvTreeAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\bvtree\hkBvTreeAgent.h"
+>
+</File>
+	<File
+RelativePath=".\agent\bvtree\hkBvTreeAgent.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\bvtree\hkMoppAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\bvtree\hkMoppAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="bvtreestream"
+>
+	<File
+RelativePath=".\agent\bvtreestream\hkBvTreeStreamAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\bvtreestream\hkBvTreeStreamAgent.h"
+>
+</File>
+	<File
+RelativePath=".\agent\bvtreestream\hkMoppBvTreeStreamAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\bvtreestream\hkMoppBvTreeStreamAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="capsulecapsule"
+>
+	<File
+RelativePath=".\agent\capsulecapsule\hkCapsuleCapsuleAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\capsulecapsule\hkCapsuleCapsuleAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="capsuletriangle"
+>
+	<File
+RelativePath=".\agent\capsuletriangle\hkCapsuleTriangleAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\capsuletriangle\hkCapsuleTriangleAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="convexlist"
+>
+	<File
+RelativePath=".\agent\convexlist\hkConvexListAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\convexlist\hkConvexListAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="gjk"
+>
+	<File
+RelativePath=".\agent\gjk\hkClosestPointManifold.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkClosestPointManifold.h"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkGskBaseAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkGskBaseAgent.h"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkGskConvexConvexAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkGskConvexConvexAgent.h"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkGskfAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkGskfAgent.h"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkPredGskfAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\gjk\hkPredGskfAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="heightfield"
+>
+	<File
+RelativePath=".\agent\heightfield\hkHeightFieldAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\heightfield\hkHeightFieldAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="linearcast"
+>
+	<File
+RelativePath=".\agent\linearcast\hkIterativeLinearCastAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\linearcast\hkIterativeLinearCastAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="list"
+>
+	<File
+RelativePath=".\agent\list\hkListAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\list\hkListAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="multirayconvex"
+>
+	<File
+RelativePath=".\agent\multirayconvex\hkMultiRayConvexAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\multirayconvex\hkMultiRayConvexAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="multisphere"
+>
+	<File
+RelativePath=".\agent\multisphere\hkMultiSphereAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\multisphere\hkMultiSphereAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="multispheretriangle"
+>
+	<File
+RelativePath=".\agent\multispheretriangle\hkMultiSphereTriangleAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\multispheretriangle\hkMultiSphereTriangleAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="null"
+>
+	<File
+RelativePath=".\agent\null\hkNullAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\null\hkNullAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="phantom"
+>
+	<File
+RelativePath=".\agent\phantom\hkPhantomAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\phantom\hkPhantomAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="shapecollection"
+>
+	<File
+RelativePath=".\agent\shapecollection\hkShapeCollectionAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\shapecollection\hkShapeCollectionAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="spherebox"
+>
+	<File
+RelativePath=".\agent\spherebox\hkSphereBoxAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\spherebox\hkSphereBoxAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="spherecapsule"
+>
+	<File
+RelativePath=".\agent\spherecapsule\hkSphereCapsuleAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\spherecapsule\hkSphereCapsuleAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="spheresphere"
+>
+	<File
+RelativePath=".\agent\spheresphere\hkSphereSphereAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\spheresphere\hkSphereSphereAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="spheretriangle"
+>
+	<File
+RelativePath=".\agent\spheretriangle\hkSphereTriangleAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\spheretriangle\hkSphereTriangleAgent.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="symmetric"
+>
+	<File
+RelativePath=".\agent\symmetric\hkSymmetricAgent.h"
+>
+</File>
+	<File
+RelativePath=".\agent\symmetric\hkSymmetricAgent.inl"
+>
+</File>
+	<File
+RelativePath=".\agent\symmetric\hkSymmetricAgentLinearCast.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\symmetric\hkSymmetricAgentLinearCast.h"
+>
+</File>
+	<File
+RelativePath=".\agent\symmetric\hkSymmetricAgentLinearCast.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="transform"
+>
+	<File
+RelativePath=".\agent\transform\hkTransformAgent.cpp"
+>
+</File>
+	<File
+RelativePath=".\agent\transform\hkTransformAgent.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="castutil"
+>
+	<File
+RelativePath=".\castutil\hkLinearCastInput.h"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkSimpleWorldRayCaster.cpp"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkSimpleWorldRayCaster.h"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkWorldLinearCaster.cpp"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkWorldLinearCaster.h"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkWorldRayCaster.cpp"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkWorldRayCaster.h"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkWorldRayCastInput.h"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkWorldRayCastOutput.h"
+>
+</File>
+	<File
+RelativePath=".\castutil\hkWorldRayCastOutput.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="classes"
+>
+	<File
+RelativePath=".\classes\hkCollideClasses.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="collector"
+>
+	<Filter
+Name="bodypaircollector"
+>
+	<File
+RelativePath=".\collector\bodypaircollector\hkAllCdBodyPairCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkAllCdBodyPairCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkAllCdBodyPairCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkFirstCdBodyPairCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkFirstCdBodyPairCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkFirstCdBodyPairCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkFlagCdBodyPairCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkFlagCdBodyPairCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkFlagCdBodyPairCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\collector\bodypaircollector\hkRootCdBodyPair.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="pointcollector"
+>
+	<File
+RelativePath=".\collector\pointcollector\hkAllCdPointCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkAllCdPointCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkAllCdPointCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkClosestCdPointCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkClosestCdPointCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkClosestCdPointCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkRootCdPoint.h"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkRootCdPoint.inl"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkSimpleClosestContactCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkSimpleClosestContactCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collector\pointcollector\hkSimpleClosestContactCollector.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="raycollector"
+>
+	<File
+RelativePath=".\collector\raycollector\hkAllRayHitCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collector\raycollector\hkAllRayHitCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collector\raycollector\hkAllRayHitCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\collector\raycollector\hkClosestRayHitCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\collector\raycollector\hkClosestRayHitCollector.h"
+>
+</File>
+	<File
+RelativePath=".\collector\raycollector\hkClosestRayHitCollector.inl"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="dispatch"
+>
+	<File
+RelativePath=".\dispatch\hkAgentDispatchUtil.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\hkAgentRegisterUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\dispatch\hkAgentRegisterUtil.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\hkCollisionDispatcher.cpp"
+>
+</File>
+	<File
+RelativePath=".\dispatch\hkCollisionDispatcher.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\hkCollisionDispatcher.inl"
+>
+</File>
+	<Filter
+Name="agent3bridge"
+>
+	<File
+RelativePath=".\dispatch\agent3bridge\hkAgent3Bridge.cpp"
+>
+</File>
+	<File
+RelativePath=".\dispatch\agent3bridge\hkAgent3Bridge.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="broadphase"
+>
+	<File
+RelativePath=".\dispatch\broadphase\hkBroadPhaseListener.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkNullBroadPhaseListener.cpp"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkNullBroadPhaseListener.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkTypedBroadPhaseDispatcher.cpp"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkTypedBroadPhaseDispatcher.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkTypedBroadPhaseDispatcher.inl"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkTypedBroadPhaseHandle.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkTypedBroadPhaseHandle.inl"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkTypedBroadPhaseHandleClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkTypedBroadPhaseHandlePair.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\broadphase\hkTypedBroadPhaseHandlePair.inl"
+>
+</File>
+	</Filter>
+	<Filter
+Name="contactmgr"
+>
+	<File
+RelativePath=".\dispatch\contactmgr\hkContactMgrFactory.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\contactmgr\hkNullContactMgr.h"
+>
+</File>
+	<File
+RelativePath=".\dispatch\contactmgr\hkNullContactMgrFactory.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="filter"
+>
+	<File
+RelativePath=".\filter\hkCollidableCollidableFilter.h"
+>
+</File>
+	<File
+RelativePath=".\filter\hkCollidableCollidableFilterClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\filter\hkCollisionFilter.h"
+>
+</File>
+	<File
+RelativePath=".\filter\hkCollisionFilterClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\filter\hkConvexListFilter.h"
+>
+</File>
+	<File
+RelativePath=".\filter\hkConvexListFilterClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\filter\hkRayCollidableFilter.h"
+>
+</File>
+	<File
+RelativePath=".\filter\hkRayCollidableFilterClass.cpp"
+>
+</File>
+	<Filter
+Name="defaultconvexlist"
+>
+	<File
+RelativePath=".\filter\defaultconvexlist\hkDefaultConvexListFilter.cpp"
+>
+</File>
+	<File
+RelativePath=".\filter\defaultconvexlist\hkDefaultConvexListFilter.h"
+>
+</File>
+	<File
+RelativePath=".\filter\defaultconvexlist\hkDefaultConvexListFilterClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="group"
+>
+	<File
+RelativePath=".\filter\group\hkGroupFilter.cpp"
+>
+</File>
+	<File
+RelativePath=".\filter\group\hkGroupFilter.h"
+>
+</File>
+	<File
+RelativePath=".\filter\group\hkGroupFilter.inl"
+>
+</File>
+	<File
+RelativePath=".\filter\group\hkGroupFilterClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\filter\group\hkGroupFilterSetup.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="list"
+>
+	<File
+RelativePath=".\filter\list\hkCollisionFilterList.cpp"
+>
+</File>
+	<File
+RelativePath=".\filter\list\hkCollisionFilterList.h"
+>
+</File>
+	<File
+RelativePath=".\filter\list\hkCollisionFilterListClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="null"
+>
+	<File
+RelativePath=".\filter\null\hkNullCollisionFilter.cpp"
+>
+</File>
+	<File
+RelativePath=".\filter\null\hkNullCollisionFilter.h"
+>
+</File>
+	<File
+RelativePath=".\filter\null\hkNullCollisionFilterClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="shape"
+>
+	<File
+RelativePath=".\shape\hkCdVertex.h"
+>
+</File>
+	<File
+RelativePath=".\shape\hkRayHitCollector.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\hkRayHitCollector.h"
+>
+</File>
+	<File
+RelativePath=".\shape\hkRayHitCollector.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\hkRayShapeCollectionFilter.h"
+>
+</File>
+	<File
+RelativePath=".\shape\hkRayShapeCollectionFilterClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeContainer.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeContainer.h"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeContainerClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeRayCastCollectorOutput.h"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeRayCastCollectorOutput.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeRayCastInput.h"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeRayCastInput.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeRayCastInputClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeRayCastOutput.h"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeRayCastOutput.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeType.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\hkShapeType.h"
+>
+</File>
+	<Filter
+Name="box"
+>
+	<File
+RelativePath=".\shape\box\hkBoxShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\box\hkBoxShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\box\hkBoxShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\box\hkBoxShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="bv"
+>
+	<File
+RelativePath=".\shape\bv\hkBvShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\bv\hkBvShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\bv\hkBvShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\bv\hkBvShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="bvtree"
+>
+	<File
+RelativePath=".\shape\bvtree\hkBvTreeShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\bvtree\hkBvTreeShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\bvtree\hkBvTreeShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\bvtree\hkBvTreeShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="capsule"
+>
+	<File
+RelativePath=".\shape\capsule\hkCapsuleShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\capsule\hkCapsuleShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\capsule\hkCapsuleShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\capsule\hkCapsuleShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="collection"
+>
+	<File
+RelativePath=".\shape\collection\hkShapeCollection.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\collection\hkShapeCollection.h"
+>
+</File>
+	<File
+RelativePath=".\shape\collection\hkShapeCollectionClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="convex"
+>
+	<File
+RelativePath=".\shape\convex\hkConvexShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\convex\hkConvexShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\convex\hkConvexShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\convex\hkConvexShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="convexlist"
+>
+	<File
+RelativePath=".\shape\convexlist\hkConvexListShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\convexlist\hkConvexListShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\convexlist\hkConvexListShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="convexpiecemesh"
+>
+	<File
+RelativePath=".\shape\convexpiecemesh\hkConvexPieceMeshShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\convexpiecemesh\hkConvexPieceMeshShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\convexpiecemesh\hkConvexPieceMeshShapeClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\convexpiecemesh\hkConvexPieceShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\convexpiecemesh\hkConvexPieceShape.h"
+>
+</File>
+	</Filter>
+	<Filter
+Name="convextransform"
+>
+	<File
+RelativePath=".\shape\convextransform\hkConvexTransformShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\convextransform\hkConvexTransformShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\convextransform\hkConvexTransformShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\convextransform\hkConvexTransformShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="convextranslate"
+>
+	<File
+RelativePath=".\shape\convextranslate\hkConvexTranslateShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\convextranslate\hkConvexTranslateShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\convextranslate\hkConvexTranslateShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\convextranslate\hkConvexTranslateShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="convexvertices"
+>
+	<File
+RelativePath=".\shape\convexvertices\hkConvexVerticesShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\convexvertices\hkConvexVerticesShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\convexvertices\hkConvexVerticesShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="cylinder"
+>
+	<File
+RelativePath=".\shape\cylinder\hkCylinderShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\cylinder\hkCylinderShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\cylinder\hkCylinderShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\cylinder\hkCylinderShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="extendedmeshshape"
+>
+	<File
+RelativePath=".\shape\extendedmeshshape\hkExtendedMeshShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\extendedmeshshape\hkExtendedMeshShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\extendedmeshshape\hkExtendedMeshShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\extendedmeshshape\hkExtendedMeshShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="fastmesh"
+>
+	<File
+RelativePath=".\shape\fastmesh\hkFastMeshShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\fastmesh\hkFastMeshShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\fastmesh\hkFastMeshShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="heightfield"
+>
+	<File
+RelativePath=".\shape\heightfield\hkHeightFieldShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\heightfield\hkHeightFieldShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="list"
+>
+	<File
+RelativePath=".\shape\list\hkListShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\list\hkListShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\list\hkListShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="mesh"
+>
+	<File
+RelativePath=".\shape\mesh\hkMeshMaterial.h"
+>
+</File>
+	<File
+RelativePath=".\shape\mesh\hkMeshMaterialClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\mesh\hkMeshShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\mesh\hkMeshShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\mesh\hkMeshShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\mesh\hkMeshShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="mopp"
+>
+	<File
+RelativePath=".\shape\mopp\hkMoppBvTreeShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\mopp\hkMoppBvTreeShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\mopp\hkMoppBvTreeShapeClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\mopp\hkMoppFitToleranceRequirements.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\mopp\hkMoppFitToleranceRequirements.h"
+>
+</File>
+	<File
+RelativePath=".\shape\mopp\hkMoppUtility.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\mopp\hkMoppUtility.h"
+>
+</File>
+	<Filter
+Name="modifiers"
+>
+	<File
+RelativePath=".\shape\mopp\modifiers\hkRemoveTerminalsMoppModifier.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\mopp\modifiers\hkRemoveTerminalsMoppModifier.h"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="multiray"
+>
+	<File
+RelativePath=".\shape\multiray\hkMultiRayShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\multiray\hkMultiRayShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\multiray\hkMultiRayShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="multisphere"
+>
+	<File
+RelativePath=".\shape\multisphere\hkMultiSphereShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\multisphere\hkMultiSphereShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\multisphere\hkMultiSphereShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\multisphere\hkMultiSphereShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="phantomcallback"
+>
+	<File
+RelativePath=".\shape\phantomcallback\hkPhantomCallbackShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\phantomcallback\hkPhantomCallbackShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\phantomcallback\hkPhantomCallbackShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="plane"
+>
+	<File
+RelativePath=".\shape\plane\hkPlaneShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\plane\hkPlaneShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\plane\hkPlaneShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="sampledheightfield"
+>
+	<File
+RelativePath=".\shape\sampledheightfield\hkSampledHeightFieldBaseCinfo.h"
+>
+</File>
+	<File
+RelativePath=".\shape\sampledheightfield\hkSampledHeightFieldShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\sampledheightfield\hkSampledHeightFieldShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\sampledheightfield\hkSampledHeightFieldShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\sampledheightfield\hkSampledHeightFieldShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="simplemesh"
+>
+	<File
+RelativePath=".\shape\simplemesh\hkSimpleMeshShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\simplemesh\hkSimpleMeshShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\simplemesh\hkSimpleMeshShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\simplemesh\hkSimpleMeshShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="sphere"
+>
+	<File
+RelativePath=".\shape\sphere\hkSphereShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\sphere\hkSphereShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\sphere\hkSphereShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="sphererep"
+>
+	<File
+RelativePath=".\shape\sphererep\hkSphereRepShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\sphererep\hkSphereRepShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\sphererep\hkSphereRepShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="storagemesh"
+>
+	<File
+RelativePath=".\shape\storagemesh\hkStorageMeshShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\storagemesh\hkStorageMeshShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\storagemesh\hkStorageMeshShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="storagesampledheightfield"
+>
+	<File
+RelativePath=".\shape\storagesampledheightfield\hkStorageSampledHeightFieldShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\storagesampledheightfield\hkStorageSampledHeightFieldShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\storagesampledheightfield\hkStorageSampledHeightFieldShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="transform"
+>
+	<File
+RelativePath=".\shape\transform\hkTransformShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\transform\hkTransformShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\transform\hkTransformShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\transform\hkTransformShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="triangle"
+>
+	<File
+RelativePath=".\shape\triangle\hkTriangleShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\triangle\hkTriangleShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\triangle\hkTriangleShape.inl"
+>
+</File>
+	<File
+RelativePath=".\shape\triangle\hkTriangleShapeClass.cpp"
+>
+</File>
+	</Filter>
+	<Filter
+Name="trisampledheightfield"
+>
+	<File
+RelativePath=".\shape\trisampledheightfield\hkTriSampledHeightFieldBvTreeShape.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\trisampledheightfield\hkTriSampledHeightFieldBvTreeShape.h"
+>
+</File>
+	<File
+RelativePath=".\shape\trisampledheightfield\hkTriSampledHeightFieldBvTreeShapeClass.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\trisampledheightfield\hkTriSampledHeightFieldCollection.cpp"
+>
+</File>
+	<File
+RelativePath=".\shape\trisampledheightfield\hkTriSampledHeightFieldCollection.h"
+>
+</File>
+	<File
+RelativePath=".\shape\trisampledheightfield\hkTriSampledHeightFieldCollectionClass.cpp"
+>
+</File>
+	</Filter>
+	</Filter>
+	<Filter
+Name="util"
+>
+	<File
+RelativePath=".\util\hkAabbUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkAabbUtil.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkAabbUtil.inl"
+>
+</File>
+	<File
+RelativePath=".\util\hkTriangleUtil.cpp"
+>
+</File>
+	<File
+RelativePath=".\util\hkTriangleUtil.h"
+>
+</File>
+	<File
+RelativePath=".\util\hkTriangleUtil.inl"
+>
+</File>
+	</Filter>
+	<File
+RelativePath=".\hkCollide.cpp"
+>
+	<FileConfiguration Name="debug multithreaded|Xenon"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="debug|Xenon"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release multithreaded|Xenon"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug|Xenon"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="release|Xenon"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+	<FileConfiguration Name="fulldebug multithreaded|Xenon"> 
+		<Tool Name="VCCLCompilerTool" UsePrecompiledHeader="1"/>
+	</FileConfiguration>
+</File>
+	<File
+RelativePath=".\hkCollide.h"
+>
+</File>
+
+	</Files>
+	<Globals>
+	</Globals>
+</VisualStudioProject>
+

@@ -1,0 +1,35 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AuditsSample", "AuditsSample.vcproj", "{0E80D006-E27B-4952-8375-1E7F65ED6C9B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{606A3706-6206-466C-AACB-C9F2A16C767F} = {606A3706-6206-466C-AACB-C9F2A16C767F}
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781} = {56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "auditsjob", "auditsjob\auditsjob.vcproj", "{606A3706-6206-466C-AACB-C9F2A16C767F}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jobapi-ppu", "..\..\src\ppu\jobapi\jobapi-ppu.vcproj", "{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{0E80D006-E27B-4952-8375-1E7F65ED6C9B}.Debug.ActiveCfg = Debug|Win32
+		{0E80D006-E27B-4952-8375-1E7F65ED6C9B}.Debug.Build.0 = Debug|Win32
+		{0E80D006-E27B-4952-8375-1E7F65ED6C9B}.Release.ActiveCfg = Release|Win32
+		{0E80D006-E27B-4952-8375-1E7F65ED6C9B}.Release.Build.0 = Release|Win32
+		{606A3706-6206-466C-AACB-C9F2A16C767F}.Debug.ActiveCfg = Debug|Win32
+		{606A3706-6206-466C-AACB-C9F2A16C767F}.Release.ActiveCfg = Release|Win32
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}.Debug.ActiveCfg = Debug|Win32
+		{56CDAAE2-D0E0-48DF-9DC4-DDDE7E8E9781}.Release.ActiveCfg = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

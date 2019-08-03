@@ -1,0 +1,150 @@
+/*
+ * Copyright (c) 2003-2006 Sony Computer Entertainment.
+ * Use and distribution without consent strictly prohibited.
+ */
+
+.include "globaldefines.spu"
+
+.start
+.include "conventions.inl"
+.text
+
+.usecc ChangeLoadToRunJobCC
+
+// void WwsJob_ChangeLoadToRunJob( void )
+.reg pJobCode 5
+.reg loadJobNum, zero, none, mask, runJobState
+.reg runJobNum, runJobNum_, jobIndex, jobId, lsaJobCodeBuffer, entryOffset, jobDataArray
+.reg bBreakpointRequested, bJobAuditsEnabled, bJobManagerAuditsEnabled
+.reg jumpTo
+.reg workloadId
+.reg uniqueID, ilaShuffMask
+.extern g_WwsJob_lsaJobCodeBuffer
+.extern g_WwsJob_loadJobNum
+.extern g_WwsJob_loadJobState
+.extern g_WwsJob_loadJobNum
+.extern g_WwsJob_runJobState
+.extern g_WwsJob_runJobNum
+.extern g_WwsJob_spursContext
+.extern g_bJobAuditsEnabled
+.extern g_WwsJob_dataForJob
+.extern g_WwsJob_bBreakpointRequested
+.extern g_cltrjLrStore
+.extern g_WwsJob_pJobCodeBufferSet
+.extern g_WwsJob_numUnassignedDmaTagIds
+.extern g_ilaMarkerShuffMask
+.extern g_WwsJob_spursWorkloadId
+.extern StoreAuditDataInitialNoParmsU64
+.extern StoreAuditDataInitialNoDataU64
+.extern StoreAuditDataInitialU64
+.extern StoreAuditDataParameterU64
+.if ASSERTS_ENABLED
+.extern ChangeLoadToRunJob_AssertJobModuleHeader
+.extern ChangeLoadToRunJob_AssertLoadNextJobCalled
+.endif
+.if VERBOSE_ASSERTS_ENABLED
+.extern ChangeLoadToRunJob_AssertJobCodeSize
+.endif
+
+.global WwsJob_ChangeLoadToRunJob
+WwsJob_ChangeLoadToRunJob: // 28 instructions, 112 bytes,
+		nop									stqa	$lr, g_cltrjLrStore
+		{nop}									lqa	workloadId, g_WwsJob_spursWorkloadId
+
+		{nop}									lqa lsaJobCodeBuffer, g_WwsJob_lsaJobCodeBuffer
+		il runJobState, WwsJob_RunJobState_kLoadNotAllowed			lqa runJobNum, g_WwsJob_loadJobNum
+		il none, -1								lqa bJobAuditsEnabled, g_bJobAuditsEnabled
+		{nop}									fsmbi mask, 0x0F00
+		{nop}									stqa runJobState, g_WwsJob_runJobState
+		{nop}									stqa none, g_WwsJob_loadJobNum
+		{nop}									lqd entryOffset, 0x10(lsaJobCodeBuffer)
+		roti runJobNum_, runJobNum, 5						stqa runJobNum, g_WwsJob_runJobNum
+		roti jobId, workloadId, 16						stqa mask, g_WwsJob_loadJobState
+		ila jobDataArray, g_WwsJob_jobDataArray					stqa bJobAuditsEnabled, g_WwsJob_dataForJob+96
+.if ASSERTS_ENABLED
+.reg	jobModuleHeader1, jobModuleMarker, mask_jobModuleHeaderOk
+		ilhu	jobModuleMarker, kSpuModuleMarker_hi				lqd jobModuleHeader1, 0x20(lsaJobCodeBuffer)
+		iohl	jobModuleMarker, kSpuModuleMarker_lo				lnop
+		ceq	mask_jobModuleHeaderOk, jobModuleHeader1, jobModuleMarker	brz mask_jobModuleHeaderOk, ChangeLoadToRunJob_AssertJobModuleHeader
+.endif
+.if VERBOSE_ASSERTS_ENABLED
+.reg	pJobCodeBufferSet, jobCodeHeader, codeSize, bssSize, bufferSize, mask_numPages, mask_jobCodeSizeBad
+		ilhu	mask_numPages, 0x00FF						lqa pJobCodeBufferSet, g_WwsJob_pJobCodeBufferSet
+		{nop}									lqd jobCodeHeader, 0x10(lsaJobCodeBuffer)
+		{nop}									lqd bufferSize, 0x00(pJobCodeBufferSet)
+		{nop}									rotqbyi codeSize, jobCodeHeader, 4
+		{nop}									rotqbyi bssSize, jobCodeHeader, 8
+		{nop}									rotqby bufferSize, bufferSize, pJobCodeBufferSet
+		a	codeSize, codeSize, bssSize					{lnop}
+		and	bufferSize{numPages<<16}, bufferSize, mask_numPages		{lnop}
+		rotmi	bufferSize, bufferSize{numPages<<16}, -6 {>>16<<10}		{lnop}
+		clgt	mask_jobCodeSizeBad, codeSize, bufferSize			brnz mask_jobCodeSizeBad, ChangeLoadToRunJob_AssertJobCodeSize
+.endif
+		a pJobCode, lsaJobCodeBuffer, entryOffset				lqx jobIndex, jobDataArray, runJobNum_
+		{nop}									lqa $4, g_WwsJob_bBreakpointRequested
+		{nop}									rotqbyi jobIndex, jobIndex, 8
+		{nop}									{lnop}
+		{nop}									{lnop}
+		{nop}									{lnop}
+		or jobId, jobId, jobIndex						{lnop}
+		ila $3, g_WwsJob_dataForJob						{lnop}
+.if ENABLE_TIMING_AUDITS
+		il	$74, kWwsJob_ChangeLoadToRunJob_jobBegin			lqd	uniqueID, 0(lsaJobCodeBuffer)
+		il	$76, 1								stqa	jobId, g_WwsJob_dataForJob+16
+		ori	$75, jobIndex, 0						lqa	ilaShuffMask, g_ilaMarkerShuffMask
+		//.cset	$75
+		shli	uniqueID, uniqueID, 7						brsl	$78, StoreAuditDataInitialU64 [#StoreAuditDataInitialU64CC]
+		shufb	$74, uniqueID, uniqueID, ilaShuffMask				brsl	$78, StoreAuditDataParameterU64 [#StoreAuditDataParameterU64CC]
+.if ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_ChangeLoadToRunJob_jobBegin			wrch	$ch69, $74
+.endif
+											.cuse $3
+											.cuse $4
+		nop									bisle $lr, pJobCode [#func]
+.if ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_ChangeLoadToRunJob_jobEnd				wrch	$ch69, $74
+.endif
+		il $74, kWwsJob_ChangeLoadToRunJob_jobEnd				brsl $78, StoreAuditDataInitialNoDataU64 [#StoreAuditDataInitialNoDataU64CC]
+.if ASSERTS_ENABLED
+.reg	mask_runJobStateOk
+		nop									lqa runJobState, g_WwsJob_runJobState
+		ceqi mask_runJobStateOk, runJobState, WwsJob_RunJobState_kLoadAllowed	brz mask_runJobStateOk, ChangeLoadToRunJob_AssertLoadNextJobCalled
+.endif
+		{nop}									lqa $5, g_cltrjLrStore
+		{nop}									bi $5	;stall 18 cycles for branch hint
+.else
+		{nop}									stqa jobId, g_WwsJob_dataForJob+16
+.if ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_ChangeLoadToRunJob_jobBegin			wrch	$ch69, $74
+.endif
+.if ASSERTS_ENABLED
+.reg	mask_runJobStateOk
+											.cuse $3
+											.cuse $4
+		{nop}									bisle $lr, pJobCode [#func]
+.if ENABLE_TIMING_PA_BOOKMARKS
+		il	$74, kWwsJob_ChangeLoadToRunJob_jobEnd				wrch	$ch69, $74
+.endif
+		nop									lqa runJobState, g_WwsJob_runJobState
+		ceqi mask_runJobStateOk, runJobState, WwsJob_RunJobState_kLoadAllowed	brz mask_runJobStateOk, ChangeLoadToRunJob_AssertLoadNextJobCalled
+		{nop}									lqa $5, g_cltrjLrStore
+		{nop}									bi $5	;stall 18 cycles for branch hint
+.else
+.if ENABLE_TIMING_PA_BOOKMARKS
+											.cuse $3
+											.cuse $4
+		{nop}									bisle $lr, pJobCode [#func]
+		il	$74, kWwsJob_ChangeLoadToRunJob_jobEnd				wrch	$ch69, $74
+		{nop}									lqa $5, g_cltrjLrStore
+		{nop}									bi $5	;stall 18 cycles for branch hint
+.else
+		{nop}									lqa $lr, g_cltrjLrStore
+											.cuse $0
+											.cuse $3
+											.cuse $4
+		nop									bie pJobCode
+.endif
+.endif
+.endif
+.end
+
